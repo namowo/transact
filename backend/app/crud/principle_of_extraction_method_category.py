@@ -1,0 +1,11 @@
+from app.crud.base import CRUDBase
+from app.models.principle_of_extraction_method_category import PrincipleOfExtractionMethodCategory
+from app.schemas.principle_of_extraction_method_category import PrincipleOfExtractionMethodCategoryCreate, PrincipleOfExtractionMethodCategoryUpdate
+
+
+class CRUDPrincipleOfExtractionMethodCategory(CRUDBase[PrincipleOfExtractionMethodCategory, PrincipleOfExtractionMethodCategoryCreate, PrincipleOfExtractionMethodCategoryUpdate]):
+    def __init__(self):
+        super().__init__(PrincipleOfExtractionMethodCategory)
+
+
+crud_principle_of_extraction_method_category = CRUDPrincipleOfExtractionMethodCategory()

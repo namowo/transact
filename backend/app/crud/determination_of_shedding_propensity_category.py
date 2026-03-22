@@ -1,0 +1,11 @@
+from app.crud.base import CRUDBase
+from app.models.determination_of_shedding_propensity_category import DeterminationOfSheddingPropensityCategory
+from app.schemas.determination_of_shedding_propensity_category import DeterminationOfSheddingPropensityCategoryCreate, DeterminationOfSheddingPropensityCategoryUpdate
+
+
+class CRUDDeterminationOfSheddingPropensityCategory(CRUDBase[DeterminationOfSheddingPropensityCategory, DeterminationOfSheddingPropensityCategoryCreate, DeterminationOfSheddingPropensityCategoryUpdate]):
+    def __init__(self):
+        super().__init__(DeterminationOfSheddingPropensityCategory)
+
+
+crud_determination_of_shedding_propensity_category = CRUDDeterminationOfSheddingPropensityCategory()
