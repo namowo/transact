@@ -21,7 +21,9 @@ class QuantificationMethod(Base):
     principle_of_quant_method_category_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("principle_of_quant_method_category.id", ondelete="SET NULL")
     )
-    principle_of_quant_method_category: Mapped[Optional["PrincipleOfQuantMethodCategory"]] = relationship(
+    principle_of_quant_method_category: Mapped[
+        Optional["PrincipleOfQuantMethodCategory"]
+    ] = relationship(
         lazy="selectin", foreign_keys=[principle_of_quant_method_category_id]
     )
     kit: Mapped[Optional[str]]

@@ -30,11 +30,19 @@ class Recovery(Base):
     extraction_method: Mapped[Optional["ExtractionMethod"]] = relationship(
         lazy="selectin", foreign_keys=[extraction_method_id]
     )
-    elution_volume: Mapped[Optional[str]]
-    area: Mapped[Optional[str]]
-    experience_level_of_sampler: Mapped[Optional[str]]
+    elution_volume: Mapped[Optional[float]]
+    area: Mapped[Optional[float]]
+    experience_level_of_sampler: Mapped[Optional[int]]
+
+    experience_level_of_sampler_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("experience_level.id", ondelete="SET NULL")
+    )
+    extraction_method: Mapped[Optional["ExperienceLevel"]] = relationship(
+        lazy="selectin", foreign_keys=[experience_level_of_sampler_id]
+    )
 
 
 from app.models.surface import Surface
 from app.models.sampling_method import SamplingMethod
 from app.models.extraction_method import ExtractionMethod
+from app.models.experience_level import ExperienceLevel

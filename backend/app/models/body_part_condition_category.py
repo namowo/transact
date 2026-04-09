@@ -11,5 +11,5 @@ class BodyPartConditionCategory(Base):
     id: Mapped[int] = mapped_column(
         primary_key=True, index=True, unique=True, nullable=False
     )
-    body_part_condition_category: Mapped[Optional[str]]
+    name: Mapped[Optional[str]]
     description: Mapped[Optional[str]]

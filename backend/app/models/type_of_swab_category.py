@@ -11,7 +11,7 @@ class TypeOfSwabCategory(Base):
     id: Mapped[int] = mapped_column(
         primary_key=True, index=True, unique=True, nullable=False
     )
-    type_of_swab_category: Mapped[Optional[str]]
+    name: Mapped[Optional[str]]
     catalogue_number_of_supplier: Mapped[Optional[str]]
     full_name_as_by_supplier: Mapped[Optional[str]]
     description: Mapped[Optional[str]]

@@ -11,5 +11,5 @@ class ScenarioCategory(Base):
     id: Mapped[int] = mapped_column(
         primary_key=True, index=True, unique=True, nullable=False
     )
-    scenario_category: Mapped[Optional[str]]
+    name: Mapped[str]
     description: Mapped[Optional[str]]

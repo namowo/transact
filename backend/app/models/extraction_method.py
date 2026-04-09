@@ -1,5 +1,5 @@
 from typing import Optional
-
+from datetime import timedelta
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -21,19 +21,24 @@ class ExtractionMethod(Base):
     principle_of_extraction_method_category_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("principle_of_extraction_method_category.id", ondelete="SET NULL")
     )
-    principle_of_extraction_method_category: Mapped[Optional["PrincipleOfExtractionMethodCategory"]] = relationship(
+    principle_of_extraction_method_category: Mapped[
+        Optional["PrincipleOfExtractionMethodCategory"]
+    ] = relationship(
         lazy="selectin", foreign_keys=[principle_of_extraction_method_category_id]
     )
     extraction_protocol: Mapped[Optional[str]]
     extraction_platform: Mapped[Optional[str]]
+    # TODO Hier auch eine Mehrzahl und ggf. nicht atomar?
     additional_lysis_buffer_components: Mapped[Optional[str]]
-    volume_lysis_buffer_components: Mapped[Optional[int]]
-    lysis_incubation_time: Mapped[Optional[int]]
-    lysis_incubation_temperature: Mapped[Optional[int]]
-    volume_of_lysate_used_for_extraction: Mapped[Optional[int]]
+    volume_lysis_buffer_components: Mapped[Optional[float]]
+    lysis_incubation_time: Mapped[Optional[timedelta]]
+    lysis_incubation_temperature: Mapped[Optional[float]]
+    volume_of_lysate_used_for_extraction: Mapped[Optional[float]]
     application_of_further_purification_step: Mapped[Optional[bool]]
     description_of_further_purification_step: Mapped[Optional[str]]
 
 
 from app.models.laboratory import Laboratory
-from app.models.principle_of_extraction_method_category import PrincipleOfExtractionMethodCategory
+from app.models.principle_of_extraction_method_category import (
+    PrincipleOfExtractionMethodCategory,
+)

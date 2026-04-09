@@ -21,14 +21,14 @@ class Surface(Base):
     location_of_body_category_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("location_of_body_category.id", ondelete="SET NULL")
     )
-    location_of_body_category: Mapped[Optional["LocationOfBodyCategory"]] = relationship(
-        lazy="selectin", foreign_keys=[location_of_body_category_id]
+    location_of_body_category: Mapped[Optional["LocationOfBodyCategory"]] = (
+        relationship(lazy="selectin", foreign_keys=[location_of_body_category_id])
     )
     body_part_condition_category_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("body_part_condition_category.id", ondelete="SET NULL")
     )
-    body_part_condition_category: Mapped[Optional["BodyPartConditionCategory"]] = relationship(
-        lazy="selectin", foreign_keys=[body_part_condition_category_id]
+    body_part_condition_category: Mapped[Optional["BodyPartConditionCategory"]] = (
+        relationship(lazy="selectin", foreign_keys=[body_part_condition_category_id])
     )
     item_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("item.id", ondelete="SET NULL")
@@ -45,14 +45,14 @@ class Surface(Base):
     condition_of_item_part_category_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("condition_of_item_part_category.id", ondelete="SET NULL")
     )
-    condition_of_item_part_category: Mapped[Optional["ConditionOfItemPartCategory"]] = relationship(
-        lazy="selectin", foreign_keys=[condition_of_item_part_category_id]
+    condition_of_item_part_category: Mapped[Optional["ConditionOfItemPartCategory"]] = (
+        relationship(lazy="selectin", foreign_keys=[condition_of_item_part_category_id])
     )
     surface_material_category_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("surface_material_category.id", ondelete="SET NULL")
     )
-    surface_material_category: Mapped[Optional["SurfaceMaterialCategory"]] = relationship(
-        lazy="selectin", foreign_keys=[surface_material_category_id]
+    surface_material_category: Mapped[Optional["SurfaceMaterialCategory"]] = (
+        relationship(lazy="selectin", foreign_keys=[surface_material_category_id])
     )
     source_of_dna_category_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("source_of_dna_category.id", ondelete="SET NULL")
@@ -60,10 +60,10 @@ class Surface(Base):
     source_of_dna_category: Mapped[Optional["SourceOfDNACategory"]] = relationship(
         lazy="selectin", foreign_keys=[source_of_dna_category_id]
     )
-    photo: Mapped[Optional[str]]
-    assumed_background_dna: Mapped[Optional[str]]
-    assumed_prevalence: Mapped[Optional[bool]]
-    further_description_of_assumed_background_and_prevalence: Mapped[Optional[str]]
+    photo_path: Mapped[Optional[str]]
+    background_dna: Mapped[Optional[bool]]
+    prevalence: Mapped[Optional[bool]]
+    further_description_of_background_and_prevalence: Mapped[Optional[str]]
 
 
 from app.models.individual import Individual

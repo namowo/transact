@@ -12,19 +12,15 @@ class Scenario(Base):
     id: Mapped[int] = mapped_column(
         primary_key=True, index=True, unique=True, nullable=False
     )
-    realistic: Mapped[Optional[bool]]
-    scenario_category_id: Mapped[Optional[int]] = mapped_column(
+    realistic: Mapped[bool]
+    scenario_category_id: Mapped[int] = mapped_column(
         ForeignKey("scenario_category.id", ondelete="SET NULL")
     )
-    scenario_category: Mapped[Optional["ScenarioCategory"]] = relationship(
+    scenario_category: Mapped["ScenarioCategory"] = relationship(
         lazy="selectin", foreign_keys=[scenario_category_id]
     )
-    study_id: Mapped[Optional[int]] = mapped_column(
-        ForeignKey("study.id", ondelete="SET NULL")
-    )
-    study: Mapped[Optional["Study"]] = relationship(
-        lazy="selectin", foreign_keys=[study_id]
-    )
+    study_id: Mapped[int] = mapped_column(ForeignKey("study.id", ondelete="SET NULL"))
+    study: Mapped["Study"] = relationship(lazy="selectin", foreign_keys=[study_id])
     contact_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("contact.id", ondelete="SET NULL")
     )

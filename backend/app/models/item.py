@@ -25,7 +25,7 @@ class Item(Base):
         lazy="selectin", foreign_keys=[item_subcategory_id]
     )
     description: Mapped[Optional[str]]
-    picture: Mapped[Optional[str]]
+    picture_path: Mapped[Optional[str]]
 
 
 from app.models.item_category import ItemCategory

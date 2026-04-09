@@ -1,4 +1,5 @@
 from typing import Optional
+from datetime import timedelta
 
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -12,13 +13,13 @@ class Persistence(Base):
     id: Mapped[int] = mapped_column(
         primary_key=True, index=True, unique=True, nullable=False
     )
-    interval_of_persistence: Mapped[Optional[str]]
-    temperature: Mapped[Optional[str]]
-    humidity: Mapped[Optional[str]]
-    uv_irradiation: Mapped[Optional[str]]
+    interval_of_persistence: Mapped[Optional[float]]
+    temperature: Mapped[Optional[float]]
+    humidity: Mapped[Optional[float]]
+    uv_irradiation: Mapped[Optional[float]]
     indoors: Mapped[Optional[bool]]
-    change_over_time: Mapped[Optional[str]]
-    duration_of_disturbance: Mapped[Optional[str]]
+    change_over_time: Mapped[Optional[bool]]
+    duration_of_disturbance: Mapped[Optional[timedelta]]
     description_of_disturbance: Mapped[Optional[str]]
     disturbance_category_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("disturbance_category.id", ondelete="SET NULL")
@@ -29,8 +30,8 @@ class Persistence(Base):
     geographic_location_category_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("geographic_location_category.id", ondelete="SET NULL")
     )
-    geographic_location_category: Mapped[Optional["GeographicLocationCategory"]] = relationship(
-        lazy="selectin", foreign_keys=[geographic_location_category_id]
+    geographic_location_category: Mapped[Optional["GeographicLocationCategory"]] = (
+        relationship(lazy="selectin", foreign_keys=[geographic_location_category_id])
     )
 
 

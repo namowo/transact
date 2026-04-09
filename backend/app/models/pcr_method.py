@@ -1,5 +1,5 @@
 from typing import Optional
-
+from datetime import timedelta
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -20,19 +20,19 @@ class PCRMethod(Base):
     )
     pcr_kit: Mapped[Optional[str]]
     thermocycler: Mapped[Optional[str]]
-    initial_denaturation_temp: Mapped[Optional[int]]
-    initial_denaturation_time: Mapped[Optional[int]]
+    initial_denaturation_temp: Mapped[Optional[float]]
+    initial_denaturation_time: Mapped[Optional[timedelta]]
     no_of_cycles: Mapped[Optional[int]]
-    denaturation_temp: Mapped[Optional[int]]
-    denaturation_time: Mapped[Optional[int]]
-    annealing_temp: Mapped[Optional[int]]
-    annealing_time: Mapped[Optional[int]]
-    elongation_temp: Mapped[Optional[int]]
-    elongation_time: Mapped[Optional[int]]
-    final_elongation_temp: Mapped[Optional[int]]
-    final_elongation_time: Mapped[Optional[int]]
-    ramping: Mapped[Optional[int]]
-    total_volume_pcr_reaction: Mapped[Optional[int]]
+    denaturation_temp: Mapped[Optional[float]]
+    denaturation_time: Mapped[Optional[timedelta]]
+    annealing_temp: Mapped[Optional[float]]
+    annealing_time: Mapped[Optional[timedelta]]
+    elongation_temp: Mapped[Optional[float]]
+    elongation_time: Mapped[Optional[timedelta]]
+    final_elongation_temp: Mapped[Optional[float]]
+    final_elongation_time: Mapped[Optional[timedelta]]
+    ramping: Mapped[Optional[float]]
+    total_volume_pcr_reaction: Mapped[Optional[float]]
 
 
 from app.models.laboratory import Laboratory

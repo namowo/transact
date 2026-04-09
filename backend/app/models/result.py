@@ -24,23 +24,23 @@ class Result(Base):
     recovery: Mapped[Optional["Recovery"]] = relationship(
         lazy="selectin", foreign_keys=[recovery_id]
     )
-    dna_concentration: Mapped[Optional[int]]
+    dna_concentration: Mapped[Optional[float]]
     degradation: Mapped[Optional[str]]
-    inhibition: Mapped[Optional[str]]
-    dna_quantity: Mapped[Optional[int]]
+    inhibition: Mapped[Optional[bool]]
+    dna_quantity: Mapped[Optional[float]]
     pcr_method_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("pcr_method.id", ondelete="SET NULL")
     )
     pcr_method: Mapped[Optional["PCRMethod"]] = relationship(
         lazy="selectin", foreign_keys=[pcr_method_id]
     )
-    sample_input_volume_in_pcr: Mapped[Optional[int]]
-    dna_input_amount_in_pcr: Mapped[Optional[int]]
+    sample_input_volume_in_pcr: Mapped[Optional[float]]
+    dna_input_amount_in_pcr: Mapped[Optional[float]]
     post_pcr_treatment_method_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("post_pcr_treatment_method.id", ondelete="SET NULL")
     )
-    post_pcr_treatment_method: Mapped[Optional["PostPCRTreatmentMethod"]] = relationship(
-        lazy="selectin", foreign_keys=[post_pcr_treatment_method_id]
+    post_pcr_treatment_method: Mapped[Optional["PostPCRTreatmentMethod"]] = (
+        relationship(lazy="selectin", foreign_keys=[post_pcr_treatment_method_id])
     )
     ce_method_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("ce_method.id", ondelete="SET NULL")
@@ -57,13 +57,13 @@ class Result(Base):
     epg_interpretation_method_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("epg_interpretation_method.id", ondelete="SET NULL")
     )
-    epg_interpretation_method: Mapped[Optional["EPGInterpretationMethod"]] = relationship(
-        lazy="selectin", foreign_keys=[epg_interpretation_method_id]
+    epg_interpretation_method: Mapped[Optional["EPGInterpretationMethod"]] = (
+        relationship(lazy="selectin", foreign_keys=[epg_interpretation_method_id])
     )
-    no_of_contributors: Mapped[Optional[str]]
-    mixture_proportion: Mapped[Optional[str]]
-    total_rfu: Mapped[Optional[str]]
-    total_no_of_alleles: Mapped[Optional[str]]
+    no_of_contributors: Mapped[Optional[int]]
+    mixture_proportion: Mapped[Optional[float]]
+    total_rfu: Mapped[Optional[int]]
+    total_no_of_alleles: Mapped[Optional[int]]
 
 
 from app.models.quantification_method import QuantificationMethod

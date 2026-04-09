@@ -20,8 +20,8 @@ class PostPCRTreatmentMethod(Base):
     )
     application_of_post_pcr_purification_step: Mapped[Optional[bool]]
     description_of_post_pcr_purification_step: Mapped[Optional[str]]
-    dilution_of_pcr_product: Mapped[Optional[str]]
-    dilution_factor: Mapped[Optional[int]]
+    dilution_of_pcr_product: Mapped[Optional[bool]]
+    dilution_factor: Mapped[Optional[float]]
 
 
 from app.models.laboratory import Laboratory

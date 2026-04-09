@@ -11,6 +11,7 @@ class SkinDiseaseCategory(Base):
     id: Mapped[int] = mapped_column(
         primary_key=True, index=True, unique=True, nullable=False
     )
-    skin_disease_category: Mapped[Optional[str]]
-    influence_on_shedding_propensity: Mapped[Optional[str]]
+    name: Mapped[Optional[str]]
+    influence_on_shedding_propensity: Mapped[Optional[bool]]
+    # TODO Was genau ist mit literature gemeint? Welche Form von Daten sollen hier eingetragen werden?
     literature: Mapped[Optional[str]]

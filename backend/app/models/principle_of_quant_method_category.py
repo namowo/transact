@@ -11,5 +11,5 @@ class PrincipleOfQuantMethodCategory(Base):
     id: Mapped[int] = mapped_column(
         primary_key=True, index=True, unique=True, nullable=False
     )
-    principle_of_quant_method_category: Mapped[Optional[str]]
+    name: Mapped[Optional[str]]
     description: Mapped[Optional[str]]

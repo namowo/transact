@@ -1,4 +1,5 @@
 from typing import Optional
+from datetime import timedelta
 
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -24,10 +25,24 @@ class Contact(Base):
     recipient_surface: Mapped[Optional["Surface"]] = relationship(
         lazy="selectin", foreign_keys=[recipient_surface_id]
     )
-    duration: Mapped[Optional[str]]
-    pressure: Mapped[Optional[str]]
-    friction_applied: Mapped[Optional[str]]
-    contact_area: Mapped[Optional[str]]
+    duration: Mapped[Optional[timedelta]]
+    pressure: Mapped[Optional[float]]
+    pressure_estimate: Mapped[Optinal[int]]
+    pressure_estimate_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("pressure_estimate.id", ondelete="SET NULL")
+    )
+    pressure_estimate: Mapped[Optional["PressureEstimate"]] = relationship(
+        lazy="selectin", foreign_keys=[pressure_estimate_id]
+    )
+    friction_applied: Mapped[Optional[flaot]]
+    friction_applied_estimate_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("friction_applied_estiamte.id", ondelete="SET NULL")
+    )
+    friction_applied_estimate: Mapped[Optional["FrictionAppliedEstimate"]] = (
+        relationship(lazy="selectin", foreign_keys=[friction_applied_estimate_id])
+    )
+    # TODO What is contact area?
+    contact_area: Mapped[Optional[float]]
     description_of_contact: Mapped[Optional[str]]
     activity_category_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("activity_category.id", ondelete="SET NULL")
@@ -44,5 +59,7 @@ class Contact(Base):
 
 
 from app.models.surface import Surface
+from app.models.pressure_estimate import PressureEstimate
+from app.models.friction_applied_estiamte import FrictionAppliedEstimate
 from app.models.activity_category import ActivityCategory
 from app.models.condition_during_contact import ConditionDuringContact

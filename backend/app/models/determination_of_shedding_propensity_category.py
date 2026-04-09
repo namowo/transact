@@ -11,13 +11,14 @@ class DeterminationOfSheddingPropensityCategory(Base):
     id: Mapped[int] = mapped_column(
         primary_key=True, index=True, unique=True, nullable=False
     )
+    # TODO authors is nicht atomar, sollte eine Extratabelle dafür eingerichet werden?
     authors: Mapped[Optional[str]]
     title: Mapped[Optional[str]]
     doi: Mapped[Optional[str]]
     restrictions_prior_to_sampling: Mapped[Optional[str]]
     monitored_transfer_factors: Mapped[Optional[str]]
-    number_of_participants: Mapped[Optional[str]]
-    replicates: Mapped[Optional[str]]
+    number_of_participants: Mapped[Optional[int]]
+    replicates: Mapped[Optional[int]]
     shedder_test: Mapped[Optional[str]]
     classification_criteria: Mapped[Optional[str]]
     classification_scheme: Mapped[Optional[str]]
