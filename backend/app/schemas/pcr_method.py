@@ -1,4 +1,5 @@
 from typing import Optional
+from datetime import timedelta
 
 from pydantic import BaseModel, ConfigDict
 
@@ -7,19 +8,19 @@ class PCRMethodBase(BaseModel):
     laboratory_id: Optional[int] = None
     pcr_kit: Optional[str] = None
     thermocycler: Optional[str] = None
-    initial_denaturation_temp: Optional[int] = None
-    initial_denaturation_time: Optional[int] = None
+    initial_denaturation_temp: Optional[float] = None
+    initial_denaturation_time: Optional[timedelta] = None
     no_of_cycles: Optional[int] = None
-    denaturation_temp: Optional[int] = None
-    denaturation_time: Optional[int] = None
-    annealing_temp: Optional[int] = None
-    annealing_time: Optional[int] = None
-    elongation_temp: Optional[int] = None
-    elongation_time: Optional[int] = None
-    final_elongation_temp: Optional[int] = None
-    final_elongation_time: Optional[int] = None
-    ramping: Optional[int] = None
-    total_volume_pcr_reaction: Optional[int] = None
+    denaturation_temp: Optional[float] = None
+    denaturation_time: Optional[timedelta] = None
+    annealing_temp: Optional[float] = None
+    annealing_time: Optional[timedelta] = None
+    elongation_temp: Optional[float] = None
+    elongation_time: Optional[timedelta] = None
+    final_elongation_temp: Optional[float] = None
+    final_elongation_time: Optional[timedelta] = None
+    ramping: Optional[float] = None
+    total_volume_pcr_reaction: Optional[float] = None
 
 
 class PCRMethodCreate(PCRMethodBase):

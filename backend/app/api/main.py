@@ -49,6 +49,14 @@ from app.api.routers import swabbing_technique_category
 from app.api.routers import tape_method
 from app.api.routers import type_of_swab_category
 from app.api.routers import vacuum_method
+from app.api.routers import scraping_device
+from app.api.routers import cutting_device
+from app.api.routers import vacuum_device
+from app.api.routers import picking_device
+from app.api.routers import type_of_tape
+from app.api.routers import friction_applied_estimate
+from app.api.routers import pressure_estimate
+from app.api.routers import experience_level
 
 api_router = APIRouter()
 
@@ -91,6 +99,10 @@ api_router.include_router(source_of_dna_category.router, prefix="/source-of-dna-
 api_router.include_router(surface_material_category.router, prefix="/surface-material-categories", tags=["Categories"])
 api_router.include_router(swabbing_technique_category.router, prefix="/swabbing-technique-categories", tags=["Categories"])
 api_router.include_router(type_of_swab_category.router, prefix="/type-of-swab-categories", tags=["Categories"])
+api_router.include_router(type_of_tape.router, prefix="/type-of-tape", tags=["Categories"])
+api_router.include_router(friction_applied_estimate.router, prefix="/friction-applied-estimates", tags=["Categories"])
+api_router.include_router(pressure_estimate.router, prefix="/pressure-estimates", tags=["Categories"])
+api_router.include_router(experience_level.router, prefix="/experience-levels", tags=["Categories"])
 
 # Laboratories
 api_router.include_router(laboratory.router, prefix="/laboratories", tags=["Laboratories"])
@@ -110,6 +122,10 @@ api_router.include_router(scraping_method.router, prefix="/scraping-methods", ta
 api_router.include_router(swab_method.router, prefix="/swab-methods", tags=["Methods"])
 api_router.include_router(tape_method.router, prefix="/tape-methods", tags=["Methods"])
 api_router.include_router(vacuum_method.router, prefix="/vacuum-methods", tags=["Methods"])
+api_router.include_router(scraping_device.router, prefix="/scraping-devices", tags=["Devices"])
+api_router.include_router(cutting_device.router, prefix="/cutting-devices", tags=["Devices"])
+api_router.include_router(vacuum_device.router, prefix="/vacuum-devices", tags=["Devices"])
+api_router.include_router(picking_device.router, prefix="/picking-devices", tags=["Devices"])
 
 # Studies
 api_router.include_router(study.router, prefix="/studies", tags=["Studies"])

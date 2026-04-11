@@ -7,8 +7,8 @@ class PostPCRTreatmentMethodBase(BaseModel):
     laboratory_id: Optional[int] = None
     application_of_post_pcr_purification_step: Optional[bool] = None
     description_of_post_pcr_purification_step: Optional[str] = None
-    dilution_of_pcr_product: Optional[str] = None
-    dilution_factor: Optional[int] = None
+    dilution_of_pcr_product: Optional[bool] = None
+    dilution_factor: Optional[float] = None
 
 
 class PostPCRTreatmentMethodCreate(PostPCRTreatmentMethodBase):
