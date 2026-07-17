@@ -32,12 +32,11 @@ class Recovery(Base):
     )
     elution_volume: Mapped[Optional[float]]
     area: Mapped[Optional[float]]
-    experience_level_of_sampler: Mapped[Optional[int]]
 
     experience_level_of_sampler_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("experience_level.id", ondelete="SET NULL")
     )
-    extraction_method: Mapped[Optional["ExperienceLevel"]] = relationship(
+    experience_level_of_sampler: Mapped[Optional["ExperienceLevel"]] = relationship(
         lazy="selectin", foreign_keys=[experience_level_of_sampler_id]
     )
 

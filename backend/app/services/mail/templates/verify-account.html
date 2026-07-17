@@ -1,23 +1,23 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>E-Mail-Bestätigung</title>
+    <title>Confirm your email address</title>
 </head>
 <body>
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <p>Hallo {{ first_name }} {{ last_name }},</p>
+        <p>Hello {{ first_name }} {{ last_name }},</p>
 
-        <p>Bitte bestätige deinen Account, indem du auf den folgenden Link klickst:</p>
-        <p><a href="{{ url }}" style="color: #1a73e8;">E-Mail-Adresse bestätigen</a></p>
+        <p>Please confirm your email address by clicking the link below:</p>
+        <p><a href="{{ url }}" style="color: #1a73e8;">Confirm email address</a></p>
 
-        <p>Falls du diesen Link nicht anklicken kannst, kopiere die folgende URL in deinen Browser:</p>
+        <p>If the link doesn't work, copy and paste this URL into your browser:</p>
         <p><a href="{{ url }}" style="color: #1a73e8;">{{ url }}</a></p>
 
-        <p>Bis gleich!</p>
+        <p>See you soon!</p>
 
-        <p>Dein namowo Team</p>
+        <p>The TransAct Team</p>
     </div>
 </body>
 </html>

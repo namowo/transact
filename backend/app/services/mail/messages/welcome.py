@@ -1,17 +1,19 @@
+import logging
+
 from app.services.mail import send_mail
+
+logger = logging.getLogger(__name__)
 
 
 async def send_welcome_mail(user):
-    user_dict = {
-        "first_name": user.vorname,
-        "last_name": user.nachname,
-    }
+    user_dict = {"first_name": user.first_name, "last_name": user.last_name}
+
     try:
         await send_mail(
-            subject="Willkommen beim namowo Standortcheck",
+            subject="Welcome to TransAct",
             to_recipient=user.email,
             template_name="welcome-user.html",
             template_values=user_dict,
         )
-    except:
-        print("Error sending welcome email")
+    except Exception:
+        logger.exception("Error sending welcome email to %s", user.email)

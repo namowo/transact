@@ -1,33 +1,39 @@
+from datetime import datetime
 from typing import Optional
 
-from datetime import datetime
-from fastapi_users_db_sqlalchemy import SQLAlchemyBaseUserTableUUID
+from sqlalchemy import ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import text
 
 from app.core.db import Base
 
 
-class User(SQLAlchemyBaseUserTableUUID, Base):
+class User(Base):
     __tablename__ = "user"
 
-    # anrede: Mapped[Optional[str]]
-    # titel: Mapped[Optional[str]]
-    vorname: Mapped[str]
-    nachname: Mapped[str]
-    telefon: Mapped[Optional[str]]
-    organisation: Mapped[str]
-    strasse: Mapped[str]
-    hausnummer: Mapped[str]
-    stadt: Mapped[str]
-    plz: Mapped[str]
-    land: Mapped[str]
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    email: Mapped[str] = mapped_column(unique=True, index=True, nullable=False)
+    hashed_password: Mapped[str]
+    first_name: Mapped[str]
+    last_name: Mapped[str]
+    is_active: Mapped[bool] = mapped_column(nullable=False, server_default=text("true"))
+    is_verified: Mapped[bool] = mapped_column(
+        nullable=False, server_default=text("false")
+    )
+    is_superuser: Mapped[bool] = mapped_column(
+        nullable=False, server_default=text("false")
+    )
 
-    immobilien: Mapped["Immobilie"] = relationship(back_populates="user")
+    laboratory_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("laboratory.id", ondelete="RESTRICT")
+    )
+    laboratory: Mapped[Optional["Laboratory"]] = relationship(
+        lazy="selectin", foreign_keys=[laboratory_id]
+    )
 
-    erstellt_am: Mapped[datetime] = mapped_column(
+    created_at: Mapped[datetime] = mapped_column(
         nullable=False, server_default=text("now()")
     )
 
 
-from app.models.immobilie import Immobilie
+from app.models.laboratory import Laboratory

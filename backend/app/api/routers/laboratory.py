@@ -27,10 +27,11 @@ async def get_by_id(id: int, db: AsyncSession = Depends(get_async_session)):
 @router.post(
     "",
     response_model=ReadSchema,
-    dependencies=[Depends(current_superuser)],
     status_code=status.HTTP_201_CREATED,
 )
 async def create(obj_in: CreateSchema, db: AsyncSession = Depends(get_async_session)):
+    # Intentionally public: a user registering with a laboratory missing
+    # from the list needs to be able to add it before they have an account.
     return await crud.create(db, obj_in)
 
 

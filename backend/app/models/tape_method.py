@@ -1,6 +1,7 @@
 from typing import Optional
 
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import ForeignKey
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
 
@@ -17,7 +18,6 @@ class TapeMethod(Base):
     type_of_tape: Mapped[Optional["TypeOfTape"]] = relationship(
         lazy="selectin", foreign_keys=[type_of_tape_id]
     )
-    type_of_tape: Mapped[Optional[str]]
     description: Mapped[Optional[str]]
     catalogue_number_of_supplier: Mapped[Optional[str]]
     full_name_as_by_supplier: Mapped[Optional[str]]

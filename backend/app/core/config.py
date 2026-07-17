@@ -1,5 +1,5 @@
 import secrets
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, Optional
 
 from pydantic import (
     AnyUrl,
@@ -45,18 +45,30 @@ class Settings(BaseSettings):
         )
 
     JWT_SECRET_KEY: str = secrets.token_urlsafe(32)
-    RESET_PASSWORD_TOKEN_SECRET: str = secrets.token_urlsafe(32)
-    VERIFICATION_TOKEN_SECRET: str = secrets.token_urlsafe(32)
     VITE_JWT_LIFETIME_SECONDS: int = 43200
+
+    EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS: int = 48
+    PASSWORD_RESET_TOKEN_EXPIRE_HOURS: int = 2
 
     # FastAPI Settings
     HOST_URL: str = "http://localhost:8000"
+    FRONTEND_URL: str = "http://localhost:5173"
     FRONTEND_DIR: str = "../frontend/dist"
     API_V1_STR: str = "/api/v1"
     ENVIRONMENT: Literal["local", "staging", "production"] = "local"
     BACKEND_CORS_ORIGINS: Annotated[list[AnyUrl] | str, BeforeValidator(parse_list)] = (
         []
     )
+
+    # SMTP settings. If SMTP_HOST is unset, outgoing mail is logged to the
+    # console instead of being sent - convenient for local development.
+    SMTP_HOST: Optional[str] = None
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: Optional[str] = None
+    SMTP_PASSWORD: Optional[str] = None
+    SMTP_USE_TLS: bool = True
+    SMTP_FROM_EMAIL: str = "no-reply@transact.local"
+    SMTP_FROM_NAME: str = "TransAct"
 
     @computed_field  # type: ignore[prop-decorator]
     @property

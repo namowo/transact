@@ -1,0 +1,56 @@
+<script setup lang="ts">
+import { ref } from 'vue'
+import { RouterLink } from 'vue-router'
+import InputText from 'primevue/inputtext'
+import Button from 'primevue/button'
+import Message from 'primevue/message'
+import { forgotPassword } from '@/api/auth'
+
+const email = ref('')
+const loading = ref(false)
+const done = ref(false)
+
+async function onSubmit() {
+  loading.value = true
+  try {
+    await forgotPassword(email.value)
+  } finally {
+    loading.value = false
+    // Always show the same confirmation, regardless of whether the
+    // address matched an account, so we don't leak which emails are registered.
+    done.value = true
+  }
+}
+</script>
+
+<template>
+  <div v-if="done" class="flex flex-col gap-4 text-center">
+    <i class="pi pi-envelope text-4xl text-primary" />
+    <Message severity="info" size="small">
+      If an account matches <strong>{{ email }}</strong
+      >, we've sent a password reset link to it.
+    </Message>
+    <RouterLink :to="{ name: 'login' }" class="text-primary no-underline hover:underline">
+      Back to login
+    </RouterLink>
+  </div>
+
+  <form v-else class="flex flex-col gap-6" @submit.prevent="onSubmit">
+    <div class="flex flex-col gap-1">
+      <h1 class="text-3xl font-medium text-surface-900 dark:text-surface-0">Forgot password?</h1>
+      <p class="text-sm text-surface-500 dark:text-surface-400">
+        Enter your email address and we'll send you a link to reset your password
+      </p>
+    </div>
+    <div class="flex flex-col gap-2">
+      <label for="email" class="font-medium text-sm">Email</label>
+      <InputText id="email" v-model="email" type="email" required autofocus fluid />
+    </div>
+    <Button type="submit" label="Send reset link" :loading="loading" fluid />
+    <p class="text-center text-sm">
+      <RouterLink :to="{ name: 'login' }" class="text-primary no-underline hover:underline">
+        Back to login
+      </RouterLink>
+    </p>
+  </form>
+</template>

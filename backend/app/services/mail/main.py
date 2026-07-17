@@ -1,53 +1,50 @@
-from pydantic import EmailStr
-from jinja2 import Environment, FileSystemLoader
-
-# Code snippets are only available for the latest version. Current version is 1.x
-
-from msgraph.generated.users.item.send_mail.send_mail_post_request_body import (
-    SendMailPostRequestBody,
-)
-from msgraph.generated.models.message import Message
-from msgraph.generated.models.item_body import ItemBody
-from msgraph.generated.models.body_type import BodyType
-from msgraph.generated.models.recipient import Recipient
-from msgraph.generated.models.email_address import EmailAddress
+import logging
+from email.message import EmailMessage
 from os import path
 
-from .msgraph_config import graph_client
+import aiosmtplib
+from jinja2 import Environment, FileSystemLoader
+from pydantic import EmailStr
+
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 def get_content(template_name: str, template_values: dict) -> str:
     current_path = path.dirname(path.abspath(__file__))
-    # Set the path to the templates folder inside the current directory
     template_path = path.join(current_path, "templates")
-    templateLoader = FileSystemLoader(searchpath=template_path)
-    templateEnv = Environment(loader=templateLoader)
-    template = templateEnv.get_template(template_name)
+    template_loader = FileSystemLoader(searchpath=template_path)
+    template_env = Environment(loader=template_loader)
+    template = template_env.get_template(template_name)
     return template.render(template_values)
 
 
 async def send_mail(
     subject: str, to_recipient: EmailStr, template_name: str, template_values: dict
 ):
+    body = get_content(template_name, template_values)
 
-    request_body = SendMailPostRequestBody(
-        message=Message(
-            subject=subject,
-            body=ItemBody(
-                content_type=BodyType.Html,
-                content=get_content(template_name, template_values),
-            ),
-            to_recipients=[
-                Recipient(
-                    email_address=EmailAddress(
-                        address=to_recipient,
-                    ),
-                ),
-            ],
-        ),
-        save_to_sent_items=False,
+    if not settings.SMTP_HOST:
+        # print(), not logger.info(): guaranteed visible regardless of the
+        # app's logging configuration, since this is a dev-only convenience.
+        print(
+            f"SMTP not configured - logging email instead of sending.\n"
+            f"To: {to_recipient}\nSubject: {subject}\n\n{body}"
+        )
+        return
+
+    message = EmailMessage()
+    message["From"] = f"{settings.SMTP_FROM_NAME} <{settings.SMTP_FROM_EMAIL}>"
+    message["To"] = to_recipient
+    message["Subject"] = subject
+    message.set_content(body, subtype="html")
+
+    await aiosmtplib.send(
+        message,
+        hostname=settings.SMTP_HOST,
+        port=settings.SMTP_PORT,
+        username=settings.SMTP_USERNAME,
+        password=settings.SMTP_PASSWORD,
+        start_tls=settings.SMTP_USE_TLS,
     )
-
-    user_id = settings.GRAPH_API_USER_ID  # Replace with the user's ID or email
-    await graph_client.users.by_user_id(user_id).send_mail.post(request_body)

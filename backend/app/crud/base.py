@@ -596,7 +596,7 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
             await db.refresh(new_instance)
         except SQLAlchemyError as e:
             await db.rollback()
-            raise DatabaseCommitError(message=e)
+            raise DatabaseCommitError(message=str(e))
 
         return new_instance
 
@@ -631,7 +631,7 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
             await db.refresh(new_instance)
         except SQLAlchemyError as e:
             await db.rollback()
-            raise DatabaseCommitError(message=e)
+            raise DatabaseCommitError(message=str(e))
 
         return new_instance
 
@@ -659,7 +659,7 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
             await db.refresh(instance)
         except SQLAlchemyError as e:
             await db.rollback()
-            raise DatabaseCommitError(message=e)
+            raise DatabaseCommitError(message=str(e))
 
         return instance
 
@@ -709,7 +709,7 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
             await db.refresh(instance)
         except SQLAlchemyError as e:
             await db.rollback()
-            raise DatabaseCommitError(message=e)
+            raise DatabaseCommitError(message=str(e))
 
         return instance
 
@@ -721,4 +721,4 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
             await db.commit()
         except SQLAlchemyError as e:
             await db.rollback()
-            raise DatabaseCommitError(message=e)
+            raise DatabaseCommitError(message=str(e))

@@ -1,11 +1,9 @@
+from pathlib import Path
+
 from fastapi import FastAPI
-from fastapi.responses import JSONResponse
-from fastapi.staticfiles import StaticFiles
 from starlette.middleware.cors import CORSMiddleware
-from starlette.requests import Request
 
 from app.core.config import settings
-from app.api.exceptions import custom_exception_handler
 from app.api.main import api_router
 from app.crud.exceptions import AuthorizationError, DatabaseCommitError, NotFoundError
 from app.exceptions import (
@@ -15,38 +13,19 @@ from app.exceptions import (
 )
 from app.api.routers.frontend import SPAStaticFiles
 
-# Create the database tables, if they do not exist. Not needed if using Alembic
-# models.Base.metadata.create_all(bind=engine)
-
 description = """
-This is a fancy API built with [FastAPI🚀](https://fastapi.tiangolo.com/)
-
-📝 [Source Code](https://github.com/johanngrobe/stellplatztool-backend)  
-🐞 [Issues](https://github.com/johanngrobe/stellplatztool-backend/issues) 
+API for TransAct, a research data management tool for studies on the
+transfer, persistence and recovery of trace DNA.
 """
 
 app = FastAPI(
-    title="namowo Standortcheck",
+    title="TransAct",
     description=description,
     version="1.0.0",
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
     docs_url=f"{settings.API_V1_STR}/docs",
     redoc_url=f"{settings.API_V1_STR}/redoc",
 )
-
-
-app.add_exception_handler(AuthorizationError, custom_exception_handler)
-app.add_exception_handler(DatabaseCommitError, custom_exception_handler)
-app.add_exception_handler(NotFoundError, custom_exception_handler)
-
-
-@app.exception_handler(NotFoundError)
-async def not_found_exception_handler(request: Request, exc: NotFoundError):
-    return JSONResponse(
-        status_code=204,
-        content={"message": f"Resource not found: {exc.detail}"},
-    )
-
 
 # Set all CORS enabled origins
 if settings.all_cors_origins:
@@ -66,8 +45,12 @@ app.add_exception_handler(NotFoundError, not_found_exception_handler)
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
 
-app.mount(
-    "/",
-    SPAStaticFiles(directory=settings.FRONTEND_DIR, html=True),
-    name="frontend",
-)
+frontend_dir = Path(__file__).resolve().parent.parent / settings.FRONTEND_DIR
+if frontend_dir.is_dir():
+    # Only present once the frontend has been built (`npm run build`). In
+    # local development the frontend is served separately by `npm run dev`.
+    app.mount(
+        "/",
+        SPAStaticFiles(directory=str(frontend_dir), html=True),
+        name="frontend",
+    )

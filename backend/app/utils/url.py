@@ -21,7 +21,7 @@ def add_query_params(url: str, params: dict):
 
 
 def create_token_url(endpoint: str, token: str):
-    return add_query_params(f"{settings.HOST_URL}/{endpoint}", {"token": token})
+    return add_query_params(f"{settings.FRONTEND_URL}/{endpoint}", {"token": token})
 
 
 def create_backend_token_url(endpoint: str, token: str):

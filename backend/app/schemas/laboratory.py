@@ -16,7 +16,10 @@ class LaboratoryBase(BaseModel):
 
 
 class LaboratoryCreate(LaboratoryBase):
-    pass
+    laboratory_name: str
+    institutional_affiliation: str
+    city: str
+    country: str
 
 
 class LaboratoryUpdate(LaboratoryBase):

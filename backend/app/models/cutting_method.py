@@ -1,6 +1,7 @@
 from typing import Optional
 
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import ForeignKey
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
 
@@ -14,7 +15,7 @@ class CuttingMethod(Base):
     cutting_device_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("cutting_device.id", ondelete="SET NULL")
     )
-    cutting_device: Mapped[Optional["TypeOfTape"]] = relationship(
+    cutting_device: Mapped[Optional["CuttingDevice"]] = relationship(
         lazy="selectin", foreign_keys=[cutting_device_id]
     )
     description: Mapped[Optional[str]]

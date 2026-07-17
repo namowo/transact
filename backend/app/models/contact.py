@@ -27,14 +27,13 @@ class Contact(Base):
     )
     duration: Mapped[Optional[timedelta]]
     pressure: Mapped[Optional[float]]
-    pressure_estimate: Mapped[Optinal[int]]
     pressure_estimate_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("pressure_estimate.id", ondelete="SET NULL")
     )
     pressure_estimate: Mapped[Optional["PressureEstimate"]] = relationship(
         lazy="selectin", foreign_keys=[pressure_estimate_id]
     )
-    friction_applied: Mapped[Optional[flaot]]
+    friction_applied: Mapped[Optional[float]]
     friction_applied_estimate_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("friction_applied_estiamte.id", ondelete="SET NULL")
     )
@@ -60,6 +59,6 @@ class Contact(Base):
 
 from app.models.surface import Surface
 from app.models.pressure_estimate import PressureEstimate
-from app.models.friction_applied_estiamte import FrictionAppliedEstimate
+from app.models.friction_applied_estimate import FrictionAppliedEstimate
 from app.models.activity_category import ActivityCategory
 from app.models.condition_during_contact import ConditionDuringContact
