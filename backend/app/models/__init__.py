@@ -5,6 +5,7 @@ from .user_token import UserToken
 
 # TransAct models
 from .activity_category import ActivityCategory
+from .author import Author
 from .body_part_condition_category import BodyPartConditionCategory
 from .ce_method import CEMethod
 from .condition_during_contact import ConditionDuringContact

@@ -20,6 +20,9 @@ import SidebarGroupContent from 'primevue/sidebargroupcontent'
 import SidebarMenu from 'primevue/sidebarmenu'
 import SidebarMenuItem from 'primevue/sidebarmenuitem'
 import SidebarMenuButton from 'primevue/sidebarmenubutton'
+import SidebarMenuSub from 'primevue/sidebarmenusub'
+import SidebarMenuSubItem from 'primevue/sidebarmenusubitem'
+import SidebarMenuSubButton from 'primevue/sidebarmenusubbutton'
 import SidebarRail from 'primevue/sidebarrail'
 import SidebarTrigger from 'primevue/sidebartrigger'
 import ThemeToggle from '@/components/ThemeToggle.vue'
@@ -36,13 +39,36 @@ const ui = useUiStore()
 
 const userMenu = ref()
 
-const navGroups = computed(() =>
+interface NavLink {
+  label: string
+  icon?: string
+  to: { name: string; params?: Record<string, string> }
+  children?: undefined
+}
+
+interface NavGroupLink {
+  label: string
+  icon: string
+  to: { name: string }
+  children: { label: string; to: { name: string } }[]
+}
+
+const navGroups = computed<{ label: string; items: (NavLink | NavGroupLink)[] }[]>(() =>
   auth.isAuthenticated
     ? [
         {
           label: 'Application',
           items: [
             { label: 'Dashboard', icon: 'pi pi-home', to: { name: 'dashboard' } },
+            {
+              label: 'Studies',
+              icon: 'pi pi-book',
+              to: { name: 'studies-laboratory' },
+              children: [
+                { label: 'By Laboratory', to: { name: 'studies-laboratory' } },
+                { label: 'All', to: { name: 'studies-all' } },
+              ],
+            },
             { label: 'Laboratories', icon: 'pi pi-building', to: { name: 'laboratories' } },
           ],
         },
@@ -62,6 +88,14 @@ const navGroups = computed(() =>
 function isItemActive(item: { to: { name: string; params?: Record<string, string> } }) {
   if (route.name !== item.to.name) return false
   return !item.to.params || route.params.slug === item.to.params.slug
+}
+
+function isGroupActive(item: {
+  to?: { name: string }
+  children?: { to: { name: string } }[]
+}) {
+  if (item.children?.some((child) => child.to.name === route.name)) return true
+  return !!item.to && isItemActive(item as { to: { name: string } })
 }
 
 const userMenuItems = [
@@ -182,8 +216,45 @@ function handleNavClick() {
               <SidebarGroupLabel>{{ group.label }}</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
-                  <SidebarMenuItem v-for="item in group.items" :key="item.label">
-                    <SidebarMenuButton asChild :isActive="isItemActive(item)" v-slot="navSlot">
+                  <SidebarMenuItem
+                    v-for="item in group.items"
+                    :key="item.label"
+                    :collapsible="!!item.children"
+                    :open="isGroupActive(item)"
+                  >
+                    <template v-if="item.children">
+                      <SidebarMenuButton asChild :isActive="isGroupActive(item)" v-slot="groupSlot">
+                        <RouterLink
+                          :to="item.to"
+                          v-bind="groupSlot?.a11yAttrs"
+                          :class="groupSlot?.class"
+                          @click="handleNavClick"
+                        >
+                          <i :class="item.icon" />
+                          <span>{{ item.label }}</span>
+                          <i class="pi pi-angle-down ml-auto" />
+                        </RouterLink>
+                      </SidebarMenuButton>
+                      <SidebarMenuSub>
+                        <SidebarMenuSubItem v-for="child in item.children" :key="child.label">
+                          <SidebarMenuSubButton
+                            asChild
+                            :isActive="isItemActive(child)"
+                            v-slot="subSlot"
+                          >
+                            <RouterLink
+                              :to="child.to"
+                              v-bind="subSlot?.a11yAttrs"
+                              :class="subSlot?.class"
+                              @click="handleNavClick"
+                            >
+                              <span>{{ child.label }}</span>
+                            </RouterLink>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      </SidebarMenuSub>
+                    </template>
+                    <SidebarMenuButton v-else asChild :isActive="isItemActive(item)" v-slot="navSlot">
                       <RouterLink
                         :to="item.to"
                         v-bind="navSlot?.a11yAttrs"

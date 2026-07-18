@@ -29,6 +29,40 @@ const router = createRouter({
           meta: { requiresAuth: true, breadcrumb: 'Laboratories' },
         },
         {
+          path: 'studies',
+          meta: { breadcrumb: 'Studies' },
+          children: [
+            { path: '', redirect: { name: 'studies-laboratory' } },
+            {
+              path: 'laboratory',
+              name: 'studies-laboratory',
+              component: () => import('@/views/studies/StudiesView.vue'),
+              props: { scope: 'laboratory' },
+              meta: { requiresAuth: true, breadcrumb: 'By Laboratory' },
+            },
+            {
+              path: 'all',
+              name: 'studies-all',
+              component: () => import('@/views/studies/StudiesView.vue'),
+              props: { scope: 'all' },
+              meta: { requiresAuth: true, breadcrumb: 'All' },
+            },
+            {
+              path: 'new',
+              name: 'studies-new',
+              component: () => import('@/views/studies/StudyFormView.vue'),
+              meta: { requiresAuth: true, breadcrumb: 'Add study' },
+            },
+            {
+              path: ':id/edit',
+              name: 'studies-edit',
+              component: () => import('@/views/studies/StudyFormView.vue'),
+              props: true,
+              meta: { requiresAuth: true, breadcrumb: 'Edit study' },
+            },
+          ],
+        },
+        {
           path: 'profile',
           name: 'profile',
           component: () => import('@/views/ProfileView.vue'),
