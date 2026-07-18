@@ -91,8 +91,13 @@ const router = createRouter({
   ],
 })
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   const auth = useAuthStore()
+
+  // The session lives in an httpOnly cookie the frontend can't read, so
+  // `isAuthenticated` is only known once this resolves. It's memoized, so
+  // this only does real work on the first navigation after a page load.
+  await auth.ensureUserLoaded()
 
   if (to.meta.requiresAuth && !auth.isAuthenticated) {
     if (to.name === 'dashboard') {

@@ -2,20 +2,17 @@ import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import * as authApi from '@/api/auth'
 import { updateMe, type UpdateProfilePayload } from '@/api/users'
-import { clearToken, getToken, setToken } from '@/api/token'
 import type { RegisterPayload, User } from '@/api/types'
 
 export const useAuthStore = defineStore('auth', () => {
-  const token = ref<string | null>(getToken())
   const user = ref<User | null>(null)
 
-  const isAuthenticated = computed(() => !!token.value)
+  const isAuthenticated = computed(() => !!user.value)
+
+  let userLoadedPromise: Promise<void> | null = null
 
   async function login(email: string, password: string) {
-    const result = await authApi.login(email, password)
-    token.value = result.access_token
-    setToken(result.access_token)
-    await fetchCurrentUser()
+    user.value = await authApi.login(email, password)
   }
 
   function register(payload: RegisterPayload) {
@@ -23,14 +20,39 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function fetchCurrentUser() {
-    if (!token.value) return
-    user.value = await authApi.fetchMe()
+    try {
+      user.value = await authApi.fetchMe()
+    } catch {
+      user.value = null
+    }
   }
 
-  function logout() {
-    token.value = null
+  // The session lives in an httpOnly cookie the frontend can't read, so the
+  // only way to know whether it's still valid is to ask the backend. This is
+  // memoized so route guards can await it on every navigation without
+  // refetching once it has resolved.
+  function ensureUserLoaded() {
+    if (!userLoadedPromise) {
+      userLoadedPromise = fetchCurrentUser()
+    }
+    return userLoadedPromise
+  }
+
+  // Called by the API client's 401 response interceptor - clears local
+  // state without hitting the network again, since the cookie is already
+  // gone/expired at that point.
+  function handleUnauthorized() {
     user.value = null
-    clearToken()
+    userLoadedPromise = Promise.resolve()
+  }
+
+  async function logout() {
+    try {
+      await authApi.logout()
+    } finally {
+      user.value = null
+      userLoadedPromise = null
+    }
   }
 
   async function updateProfile(payload: UpdateProfilePayload) {
@@ -39,12 +61,13 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   return {
-    token,
     user,
     isAuthenticated,
     login,
     register,
     fetchCurrentUser,
+    ensureUserLoaded,
+    handleUnauthorized,
     logout,
     updateProfile,
   }

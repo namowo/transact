@@ -1,8 +1,7 @@
 from typing import AsyncGenerator, Optional
 
 import jwt
-from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi import Cookie, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -24,14 +23,9 @@ async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
         yield session
 
 
-oauth2_scheme = OAuth2PasswordBearer(
-    tokenUrl=f"{settings.API_V1_STR}/auth/login", auto_error=False
-)
-
 credentials_exception = HTTPException(
     status_code=status.HTTP_401_UNAUTHORIZED,
     detail="Could not validate credentials",
-    headers={"WWW-Authenticate": "Bearer"},
 )
 
 
@@ -50,8 +44,16 @@ async def _resolve_user(
     return await db.get(User, int(user_id))
 
 
+def _cookie_token(
+    access_token: Optional[str] = Cookie(
+        default=None, alias=settings.ACCESS_TOKEN_COOKIE_NAME
+    ),
+) -> Optional[str]:
+    return access_token
+
+
 async def get_current_user(
-    token: Optional[str] = Depends(oauth2_scheme),
+    token: Optional[str] = Depends(_cookie_token),
     db: AsyncSession = Depends(get_async_session),
 ) -> User:
     user = await _resolve_user(token, db)
@@ -61,7 +63,7 @@ async def get_current_user(
 
 
 async def current_optional_user(
-    token: Optional[str] = Depends(oauth2_scheme),
+    token: Optional[str] = Depends(_cookie_token),
     db: AsyncSession = Depends(get_async_session),
 ) -> Optional[User]:
     return await _resolve_user(token, db)

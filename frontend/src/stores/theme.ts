@@ -15,6 +15,11 @@ export const useThemeStore = defineStore('theme', () => {
   watchEffect(() => {
     document.documentElement.classList.toggle('app-dark', isDark.value)
     localStorage.setItem(STORAGE_KEY, isDark.value ? 'dark' : 'light')
+
+    const favicon = document.getElementById('favicon') as HTMLLinkElement | null
+    if (favicon) {
+      favicon.href = isDark.value ? '/transact_logo_light.png' : '/transact_logo_dark.png'
+    }
   })
 
   function toggle() {

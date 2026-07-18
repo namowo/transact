@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,7 +15,6 @@ from app.schemas.auth import (
     PasswordResetRequest,
     ResendVerificationRequest,
 )
-from app.schemas.token import Token
 from app.schemas.user import UserCreate, UserRead
 from app.services.mail.messages import (
     send_reset_password_mail,
@@ -57,8 +56,9 @@ async def register(
     return user
 
 
-@router.post("/login", response_model=Token)
+@router.post("/login", response_model=UserRead)
 async def login(
+    response: Response,
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_async_session),
 ):
@@ -67,13 +67,26 @@ async def login(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
         )
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Inactive user")
 
     access_token = create_access_token(subject=str(user.id))
-    return Token(access_token=access_token)
+    response.set_cookie(
+        key=settings.ACCESS_TOKEN_COOKIE_NAME,
+        value=access_token,
+        max_age=settings.VITE_JWT_LIFETIME_SECONDS,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        path="/",
+    )
+    return user
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+async def logout(response: Response):
+    response.delete_cookie(key=settings.ACCESS_TOKEN_COOKIE_NAME, path="/")
 
 
 @router.post("/verify-email")

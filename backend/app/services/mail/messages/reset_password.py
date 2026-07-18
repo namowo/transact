@@ -13,7 +13,7 @@ async def send_reset_password_mail(user, token: str):
 
     try:
         await send_mail(
-            subject="Reset your TransAct password",
+            subject="Reset your TransAct Repository password",
             to_recipient=user.email,
             template_name="reset-password.html",
             template_values=user_dict,

@@ -10,7 +10,7 @@ async def send_welcome_mail(user):
 
     try:
         await send_mail(
-            subject="Welcome to TransAct",
+            subject="Welcome to the TransAct Repository",
             to_recipient=user.email,
             template_name="welcome-user.html",
             template_values=user_dict,

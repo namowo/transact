@@ -28,8 +28,8 @@ async function onResend() {
   }
 }
 
-function onLogout() {
-  auth.logout()
+async function onLogout() {
+  await auth.logout()
   router.push({ name: 'login' })
 }
 

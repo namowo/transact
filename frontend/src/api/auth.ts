@@ -1,5 +1,5 @@
 import apiClient from './client'
-import type { RegisterPayload, Token, User } from './types'
+import type { RegisterPayload, User } from './types'
 
 export function register(payload: RegisterPayload) {
   return apiClient.post<User>('/auth/register', payload).then((r) => r.data)
@@ -10,10 +10,14 @@ export function login(email: string, password: string) {
   form.set('username', email)
   form.set('password', password)
   return apiClient
-    .post<Token>('/auth/login', form, {
+    .post<User>('/auth/login', form, {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     })
     .then((r) => r.data)
+}
+
+export function logout() {
+  return apiClient.post('/auth/logout').then(() => undefined)
 }
 
 export function verifyEmail(token: string) {

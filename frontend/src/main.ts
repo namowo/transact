@@ -52,6 +52,6 @@ app.use(ToastService)
 // Hydrate the current user from a persisted token, if any, before the
 // first render so guarded routes/components don't flash empty state.
 const authStore = useAuthStore()
-authStore.fetchCurrentUser().finally(() => {
+authStore.ensureUserLoaded().finally(() => {
   app.mount('#app')
 })

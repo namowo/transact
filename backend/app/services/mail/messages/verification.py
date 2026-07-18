@@ -13,7 +13,7 @@ async def send_verification_mail(user, token: str):
 
     try:
         await send_mail(
-            subject="Confirm your TransAct account",
+            subject="Confirm your TransAct Repository account",
             to_recipient=user.email,
             template_name="verify-account.html",
             template_values=user_dict,

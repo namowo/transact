@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { RouterLink, RouterView } from 'vue-router'
 import ThemeToggle from '@/components/ThemeToggle.vue'
+import { useThemeStore } from '@/stores/theme'
+
+const theme = useThemeStore()
 </script>
 
 <template>
@@ -14,11 +17,11 @@ import ThemeToggle from '@/components/ThemeToggle.vue'
         to="/"
         class="flex items-center gap-2 justify-center md:justify-start no-underline"
       >
-        <span
-          class="flex size-7 items-center justify-center rounded-md bg-primary text-primary-contrast text-sm font-semibold"
-        >
-          T
-        </span>
+        <img
+          :src="theme.isDark ? '/transact_logo_light.png' : '/transact_logo_dark.png'"
+          alt="TransAct"
+          class="size-7"
+        />
         <span class="font-semibold text-surface-900 dark:text-surface-0">TransAct</span>
       </RouterLink>
 
@@ -37,11 +40,11 @@ import ThemeToggle from '@/components/ThemeToggle.vue'
       <div class="absolute -bottom-32 -left-24 size-96 rounded-full bg-primary/10 blur-3xl" />
 
       <div class="relative flex h-full flex-col items-center justify-center gap-4 p-10 text-center">
-        <span
-          class="flex size-16 items-center justify-center rounded-2xl bg-primary text-primary-contrast text-2xl font-semibold shadow-lg"
-        >
-          T
-        </span>
+        <img
+          :src="theme.isDark ? '/transact_logo_light.png' : '/transact_logo_dark.png'"
+          alt="TransAct"
+          class="size-16"
+        />
         <h2 class="text-2xl font-semibold text-surface-900 dark:text-surface-0">TransAct</h2>
         <p class="max-w-xs text-sm text-surface-600 dark:text-surface-300">
           Manage your laboratory's samples, methods, and recovery workflows in one place.

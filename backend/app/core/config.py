@@ -46,6 +46,7 @@ class Settings(BaseSettings):
 
     JWT_SECRET_KEY: str = secrets.token_urlsafe(32)
     VITE_JWT_LIFETIME_SECONDS: int = 43200
+    ACCESS_TOKEN_COOKIE_NAME: str = "access_token"
 
     EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS: int = 48
     PASSWORD_RESET_TOKEN_EXPIRE_HOURS: int = 2
@@ -68,7 +69,7 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: Optional[str] = None
     SMTP_USE_TLS: bool = True
     SMTP_FROM_EMAIL: str = "no-reply@transact.local"
-    SMTP_FROM_NAME: str = "TransAct"
+    SMTP_FROM_NAME: str = "TransAct Repository"
 
     @computed_field  # type: ignore[prop-decorator]
     @property

@@ -24,12 +24,14 @@ import SidebarRail from 'primevue/sidebarrail'
 import SidebarTrigger from 'primevue/sidebartrigger'
 import ThemeToggle from '@/components/ThemeToggle.vue'
 import { useAuthStore } from '@/stores/auth'
+import { useThemeStore } from '@/stores/theme'
 import { useUiStore } from '@/stores/ui'
 import { defaultDocSlug, docPages } from '@/data/docs'
 
 const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
+const theme = useThemeStore()
 const ui = useUiStore()
 
 const userMenu = ref()
@@ -71,8 +73,8 @@ const userMenuItems = [
   {
     label: 'Log out',
     icon: 'pi pi-sign-out',
-    command: () => {
-      auth.logout()
+    command: async () => {
+      await auth.logout()
       router.push({ name: 'login' })
     },
   },
@@ -163,12 +165,12 @@ function handleNavClick() {
               <SidebarMenuItem>
                 <SidebarMenuButton asChild class="px-1!" v-slot="brandSlot">
                   <RouterLink :to="{ name: 'dashboard' }" v-bind="brandSlot?.a11yAttrs" :class="brandSlot?.class">
-                    <div
-                      class="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary text-primary-contrast text-xs font-bold leading-none"
-                    >
-                      T
-                    </div>
-                    <span class="font-semibold text-sm">TransAct</span>
+                    <img
+                      :src="theme.isDark ? '/transact_logo_light.png' : '/transact_logo_dark.png'"
+                      alt="TransAct"
+                      class="size-6 shrink-0"
+                    />
+                    <span class="font-semibold text-sm">TransAct Repository</span>
                   </RouterLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>
