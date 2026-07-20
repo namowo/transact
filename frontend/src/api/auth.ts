@@ -21,9 +21,7 @@ export function logout() {
 }
 
 export function verifyEmail(token: string) {
-  return apiClient
-    .post<{ message: string }>('/auth/verify-email', { token })
-    .then((r) => r.data)
+  return apiClient.post<{ message: string }>('/auth/verify-email', { token }).then((r) => r.data)
 }
 
 export function resendVerification(email: string) {
@@ -33,9 +31,7 @@ export function resendVerification(email: string) {
 }
 
 export function forgotPassword(email: string) {
-  return apiClient
-    .post<{ message: string }>('/auth/forgot-password', { email })
-    .then((r) => r.data)
+  return apiClient.post<{ message: string }>('/auth/forgot-password', { email }).then((r) => r.data)
 }
 
 export function resetPassword(token: string, newPassword: string) {

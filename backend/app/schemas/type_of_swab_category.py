@@ -4,7 +4,7 @@ from pydantic import BaseModel, ConfigDict
 
 
 class TypeOfSwabCategoryBase(BaseModel):
-    type_of_swab_category: Optional[str] = None
+    name: Optional[str] = None
     catalogue_number_of_supplier: Optional[str] = None
     full_name_as_by_supplier: Optional[str] = None
     description: Optional[str] = None

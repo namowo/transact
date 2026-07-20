@@ -4,8 +4,8 @@ from pydantic import BaseModel, ConfigDict
 
 
 class SkinDiseaseCategoryBase(BaseModel):
-    skin_disease_category: Optional[str] = None
-    influence_on_shedding_propensity: Optional[str] = None
+    name: Optional[str] = None
+    influence_on_shedding_propensity: Optional[bool] = None
     literature: Optional[str] = None
 
 

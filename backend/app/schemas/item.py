@@ -7,7 +7,7 @@ class ItemBase(BaseModel):
     item_category_id: Optional[int] = None
     item_subcategory_id: Optional[int] = None
     description: Optional[str] = None
-    picture: Optional[str] = None
+    picture_path: Optional[str] = None
 
 
 class ItemCreate(ItemBase):

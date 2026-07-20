@@ -1,15 +1,17 @@
 from typing import Optional
+from datetime import timedelta
 
 from pydantic import BaseModel, ConfigDict
 
 
 class ContactBase(BaseModel):
+    scenario_id: Optional[int] = None
     donor_surface_id: Optional[int] = None
     recipient_surface_id: Optional[int] = None
-    duration: Optional[str] = None
-    pressure: Optional[str] = None
-    friction_applied: Optional[str] = None
-    contact_area: Optional[str] = None
+    duration: Optional[timedelta] = None
+    pressure: Optional[float] = None
+    friction_applied: Optional[float] = None
+    contact_area: Optional[float] = None
     description_of_contact: Optional[str] = None
     activity_category_id: Optional[int] = None
     condition_during_contact_id: Optional[int] = None

@@ -14,6 +14,7 @@ class StudyBase(BaseModel):
     plan_a_transfer_experiment: Optional[bool] = None
     add_data_to_repository: Optional[bool] = None
     quality_check_passed: Optional[bool] = None
+    published: Optional[bool] = None
     corresponding_author_name: Optional[str] = None
     corresponding_author_email: Optional[str] = None
     corresponding_author_phone: Optional[str] = None

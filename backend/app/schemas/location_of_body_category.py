@@ -4,7 +4,7 @@ from pydantic import BaseModel, ConfigDict
 
 
 class LocationOfBodyCategoryBase(BaseModel):
-    location_of_body_category: Optional[str] = None
+    name: Optional[str] = None
     description: Optional[str] = None
 
 

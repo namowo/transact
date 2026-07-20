@@ -30,9 +30,16 @@ class Study(Base):
     plan_a_transfer_experiment: Mapped[Optional[bool]]
     add_data_to_repository: Mapped[Optional[bool]]
     quality_check_passed: Mapped[Optional[bool]]
+    published: Mapped[Optional[bool]]
     corresponding_author_name: Mapped[Optional[str]]
     corresponding_author_email: Mapped[Optional[str]]
     corresponding_author_phone: Mapped[Optional[str]]
+    scenarios: Mapped[list["Scenario"]] = relationship(
+        lazy="selectin",
+        back_populates="study",
+        cascade="all, delete-orphan",
+        foreign_keys="Scenario.study_id",
+    )
 
 
 from app.models.author import Author

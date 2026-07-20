@@ -72,8 +72,52 @@ const navGroups = computed<{ label: string; items: (NavLink | NavGroupLink)[] }[
             { label: 'Laboratories', icon: 'pi pi-building', to: { name: 'laboratories' } },
           ],
         },
+        {
+          label: 'Settings',
+          items: [
+            {
+              label: 'Methods',
+              icon: 'pi pi-cog',
+              to: { name: 'settings-methods-extraction' },
+              children: [
+                { label: 'Extraction', to: { name: 'settings-methods-extraction' } },
+                { label: 'PCR', to: { name: 'settings-methods-pcr' } },
+                { label: 'CE', to: { name: 'settings-methods-ce' } },
+                { label: 'Quantification', to: { name: 'settings-methods-quantification' } },
+                { label: 'EPG Analysis', to: { name: 'settings-methods-epg-analysis' } },
+                {
+                  label: 'EPG Interpretation',
+                  to: { name: 'settings-methods-epg-interpretation' },
+                },
+                {
+                  label: 'Post-PCR Treatment',
+                  to: { name: 'settings-methods-post-pcr-treatment' },
+                },
+                { label: 'Swab', to: { name: 'settings-methods-swab' } },
+                { label: 'Tape', to: { name: 'settings-methods-tape' } },
+                { label: 'Vacuum', to: { name: 'settings-methods-vacuum' } },
+                { label: 'Cutting', to: { name: 'settings-methods-cutting' } },
+                { label: 'Scraping', to: { name: 'settings-methods-scraping' } },
+                { label: 'Picking', to: { name: 'settings-methods-picking' } },
+                { label: 'Sampling', to: { name: 'settings-methods-sampling' } },
+              ],
+            },
+          ],
+        },
+        {
+          label: 'Documentation',
+          items: docPages.map((page) => ({
+            label: page.title,
+            icon: 'pi pi-book',
+            to: { name: 'docs', params: { slug: page.slug } },
+          })),
+        },
       ]
     : [
+        {
+          label: 'Application',
+          items: [{ label: 'Studies', icon: 'pi pi-book', to: { name: 'studies-all' } }],
+        },
         {
           label: 'Documentation',
           items: docPages.map((page) => ({
@@ -181,7 +225,7 @@ function handleNavClick() {
 </script>
 
 <template>
-  <SidebarLayout class="min-h-full!">
+  <SidebarLayout class="h-screen!">
     <SidebarBackdrop v-if="isMobile && sidebarOpen" />
 
     <Sidebar
@@ -304,7 +348,7 @@ function handleNavClick() {
       </SidebarAside>
     </Sidebar>
 
-    <SidebarMain>
+    <SidebarMain class="h-screen! overflow-hidden!">
       <header
         class="h-16 shrink-0 flex items-center justify-between gap-4 px-4 sm:px-6 bg-surface-0 dark:bg-surface-900 border-b border-surface-200 dark:border-surface-700"
       >
@@ -320,7 +364,7 @@ function handleNavClick() {
         </div>
       </header>
 
-      <main class="flex-1 p-4 sm:p-6 max-w-6xl w-full mx-auto">
+      <main class="flex-1 overflow-y-auto p-4 sm:p-6 max-w-6xl w-full mx-auto">
         <RouterView />
       </main>
     </SidebarMain>

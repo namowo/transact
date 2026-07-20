@@ -7,7 +7,6 @@ class ScenarioBase(BaseModel):
     realistic: Optional[bool] = None
     scenario_category_id: Optional[int] = None
     study_id: Optional[int] = None
-    contact_id: Optional[int] = None
     persistence_id: Optional[int] = None
 
 
@@ -25,7 +24,7 @@ class ScenarioRead(ScenarioBase):
     id: int
     scenario_category: Optional["ScenarioCategoryRead"] = None
     study: Optional["StudyRead"] = None
-    contact: Optional["ContactRead"] = None
+    contacts: list["ContactRead"] = []
     persistence: Optional["PersistenceRead"] = None
 
 

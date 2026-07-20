@@ -13,6 +13,12 @@ class Contact(Base):
     id: Mapped[int] = mapped_column(
         primary_key=True, index=True, unique=True, nullable=False
     )
+    scenario_id: Mapped[int] = mapped_column(
+        ForeignKey("scenario.id", ondelete="CASCADE")
+    )
+    scenario: Mapped["Scenario"] = relationship(
+        lazy="selectin", back_populates="contacts", foreign_keys=[scenario_id]
+    )
     donor_surface_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("surface.id", ondelete="SET NULL")
     )

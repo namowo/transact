@@ -4,7 +4,7 @@ from pydantic import BaseModel, ConfigDict
 
 
 class ItemSubcategoryBase(BaseModel):
-    item_subcategory: Optional[str] = None
+    name: Optional[str] = None
     description: Optional[str] = None
 
 

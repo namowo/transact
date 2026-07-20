@@ -8,6 +8,7 @@ import IconField from 'primevue/iconfield'
 import InputIcon from 'primevue/inputicon'
 import Tag from 'primevue/tag'
 import Button from 'primevue/button'
+import Dialog from 'primevue/dialog'
 import { useToast } from 'primevue/usetoast'
 import { listStudies } from '@/api/studies'
 import { useAuthStore } from '@/stores/auth'
@@ -100,6 +101,13 @@ function downloadStudy(study: Study) {
     life: 4000,
   })
 }
+
+const showPurposeDialog = ref(false)
+
+function choosePurpose(purpose: 'transfer' | 'repository') {
+  showPurposeDialog.value = false
+  router.push({ name: 'studies-new', query: { purpose } })
+}
 </script>
 
 <template>
@@ -113,11 +121,18 @@ function downloadStudy(study: Study) {
           {{
             props.scope === 'laboratory'
               ? 'Studies belonging to your laboratory.'
-              : 'Studies from all laboratories. You can only edit studies from your own laboratory.'
+              : auth.isAuthenticated
+                ? 'Studies from all laboratories. You can only edit studies from your own laboratory.'
+                : 'Published studies from all laboratories.'
           }}
         </p>
       </div>
-      <Button label="Add study" icon="pi pi-plus" @click="router.push({ name: 'studies-new' })" />
+      <Button
+        v-if="auth.isAuthenticated"
+        label="Add study"
+        icon="pi pi-plus"
+        @click="showPurposeDialog = true"
+      />
     </div>
 
     <DataView :value="filteredStudies" :loading="loading" data-key="id" paginator :rows="10">
@@ -179,7 +194,7 @@ function downloadStudy(study: Study) {
                 >DOI: {{ item.doi }}</a
               >
             </div>
-            <div class="flex flex-row sm:flex-col gap-2 shrink-0">
+            <div v-if="auth.isAuthenticated" class="flex flex-row sm:flex-col gap-2 shrink-0">
               <Button
                 label="Edit"
                 icon="pi pi-pencil"
@@ -187,6 +202,14 @@ function downloadStudy(study: Study) {
                 outlined
                 :disabled="!canEdit(item)"
                 @click="router.push({ name: 'studies-edit', params: { id: item.id } })"
+              />
+              <Button
+                label="Scenarios"
+                icon="pi pi-sitemap"
+                severity="secondary"
+                outlined
+                :disabled="!canEdit(item)"
+                @click="router.push({ name: 'scenarios', params: { studyId: item.id } })"
               />
               <Button
                 label="Download"
@@ -199,5 +222,30 @@ function downloadStudy(study: Study) {
         </div>
       </template>
     </DataView>
+
+    <Dialog
+      v-model:visible="showPurposeDialog"
+      header="What would you like to do?"
+      modal
+      :style="{ width: '32rem' }"
+    >
+      <div class="flex flex-col sm:flex-row gap-3">
+        <Button
+          label="Plan a transfer experiment"
+          class="flex-1"
+          outlined
+          @click="choosePurpose('transfer')"
+        />
+        <Button
+          label="Add data to repository"
+          class="flex-1"
+          outlined
+          @click="choosePurpose('repository')"
+        />
+      </div>
+      <template #footer>
+        <Button label="Cancel" text @click="showPurposeDialog = false" />
+      </template>
+    </Dialog>
   </div>
 </template>

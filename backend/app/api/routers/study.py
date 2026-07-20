@@ -1,10 +1,10 @@
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import current_active_user, get_async_session
-from app.crud.exceptions import AuthorizationError
+from app.core.deps import current_active_user, current_optional_user, get_async_session
+from app.crud.exceptions import AuthorizationError, NotFoundError
 from app.crud.study import crud_study as crud
 from app.models.study import Study
 from app.models.user import User
@@ -24,14 +24,33 @@ def _assert_can_edit(study: Study, user: User) -> None:
         )
 
 
+def _can_view(study: Study, user: Optional[User]) -> bool:
+    if study.published:
+        return True
+    if user is None:
+        return False
+    return user.is_superuser or study.laboratory_id == user.laboratory_id
+
+
 @router.get("", response_model=List[ReadSchema])
-async def get_all(db: AsyncSession = Depends(get_async_session)):
-    return await crud.get_all(db)
+async def get_all(
+    db: AsyncSession = Depends(get_async_session),
+    user: Optional[User] = Depends(current_optional_user),
+):
+    studies = await crud.get_all(db)
+    return [study for study in studies if _can_view(study, user)]
 
 
 @router.get("/{id}", response_model=ReadSchema)
-async def get_by_id(id: int, db: AsyncSession = Depends(get_async_session)):
-    return await crud.get(db, id)
+async def get_by_id(
+    id: int,
+    db: AsyncSession = Depends(get_async_session),
+    user: Optional[User] = Depends(current_optional_user),
+):
+    study = await crud.get(db, id)
+    if not _can_view(study, user):
+        raise NotFoundError(status_code=status.HTTP_404_NOT_FOUND, message="Study not found.")
+    return study
 
 
 @router.post(

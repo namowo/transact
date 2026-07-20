@@ -4,7 +4,7 @@ from pydantic import BaseModel, ConfigDict
 
 
 class GeographicLocationCategoryBase(BaseModel):
-    geographic_location_category: Optional[str] = None
+    name: Optional[str] = None
     description: Optional[str] = None
 
 

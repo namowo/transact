@@ -12,10 +12,10 @@ class SurfaceBase(BaseModel):
     condition_of_item_part_category_id: Optional[int] = None
     surface_material_category_id: Optional[int] = None
     source_of_dna_category_id: Optional[int] = None
-    photo: Optional[str] = None
-    assumed_background_dna: Optional[str] = None
-    assumed_prevalence: Optional[bool] = None
-    further_description_of_assumed_background_and_prevalence: Optional[str] = None
+    photo_path: Optional[str] = None
+    background_dna: Optional[bool] = None
+    prevalence: Optional[bool] = None
+    further_description_of_background_and_prevalence: Optional[str] = None
 
 
 class SurfaceCreate(SurfaceBase):

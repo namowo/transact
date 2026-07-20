@@ -20,12 +20,14 @@ class Scenario(Base):
         lazy="selectin", foreign_keys=[scenario_category_id]
     )
     study_id: Mapped[int] = mapped_column(ForeignKey("study.id", ondelete="SET NULL"))
-    study: Mapped["Study"] = relationship(lazy="selectin", foreign_keys=[study_id])
-    contact_id: Mapped[Optional[int]] = mapped_column(
-        ForeignKey("contact.id", ondelete="SET NULL")
+    study: Mapped["Study"] = relationship(
+        lazy="selectin", back_populates="scenarios", foreign_keys=[study_id]
     )
-    contact: Mapped[Optional["Contact"]] = relationship(
-        lazy="selectin", foreign_keys=[contact_id]
+    contacts: Mapped[list["Contact"]] = relationship(
+        lazy="selectin",
+        back_populates="scenario",
+        cascade="all, delete-orphan",
+        foreign_keys="Contact.scenario_id",
     )
     persistence_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("persistence.id", ondelete="SET NULL")
