@@ -45,3 +45,14 @@ class DatabaseCommitError(CRUDOperationError):
         message: str = "Database commit failed.",
     ):
         super().__init__(status_code, message=message)
+
+
+class ConflictError(CRUDOperationError):
+    """Raised when an operation conflicts with the current state of a resource."""
+
+    def __init__(
+        self,
+        status_code: status = status.HTTP_409_CONFLICT,
+        message: str = "The request conflicts with the current state of the resource.",
+    ):
+        super().__init__(status_code, message=message)

@@ -84,5 +84,35 @@ async def current_superuser(user: User = Depends(current_active_user)) -> User:
     return user
 
 
+async def current_quality_checker(user: User = Depends(current_active_user)) -> User:
+    if not (user.is_superuser or user.can_quality_check):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="The user doesn't have enough privileges",
+        )
+    return user
+
+
+async def current_lab_admin(user: User = Depends(current_active_user)) -> User:
+    if not (user.is_superuser or user.can_manage_lab_users):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="The user doesn't have enough privileges",
+        )
+    return user
+
+
+def assert_manages_laboratory(user: User, laboratory_id: Optional[int]) -> None:
+    """Raise 403 unless `user` is a superuser or is the lab admin of `laboratory_id`."""
+    if user.is_superuser:
+        return
+    if user.can_manage_lab_users and user.laboratory_id == laboratory_id:
+        return
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="You can only manage users in your own laboratory.",
+    )
+
+
 # Alias kept for readability where "any authenticated user" is meant.
 current_user = get_current_user

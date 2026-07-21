@@ -67,41 +67,38 @@ const navGroups = computed<{ label: string; items: (NavLink | NavGroupLink)[] }[
               children: [
                 { label: 'By Laboratory', to: { name: 'studies-laboratory' } },
                 { label: 'All', to: { name: 'studies-all' } },
+                ...(auth.canQualityCheck
+                  ? [{ label: 'Quality Check', to: { name: 'studies-quality-check' } }]
+                  : []),
               ],
             },
-            { label: 'Laboratories', icon: 'pi pi-building', to: { name: 'laboratories' } },
           ],
         },
         {
           label: 'Settings',
           items: [
             {
-              label: 'Methods',
-              icon: 'pi pi-cog',
+              label: 'Laboratory',
+              icon: 'pi pi-building',
               to: { name: 'settings-methods-extraction' },
               children: [
-                { label: 'Extraction', to: { name: 'settings-methods-extraction' } },
-                { label: 'PCR', to: { name: 'settings-methods-pcr' } },
-                { label: 'CE', to: { name: 'settings-methods-ce' } },
-                { label: 'Quantification', to: { name: 'settings-methods-quantification' } },
-                { label: 'EPG Analysis', to: { name: 'settings-methods-epg-analysis' } },
-                {
-                  label: 'EPG Interpretation',
-                  to: { name: 'settings-methods-epg-interpretation' },
-                },
-                {
-                  label: 'Post-PCR Treatment',
-                  to: { name: 'settings-methods-post-pcr-treatment' },
-                },
-                { label: 'Swab', to: { name: 'settings-methods-swab' } },
-                { label: 'Tape', to: { name: 'settings-methods-tape' } },
-                { label: 'Vacuum', to: { name: 'settings-methods-vacuum' } },
-                { label: 'Cutting', to: { name: 'settings-methods-cutting' } },
-                { label: 'Scraping', to: { name: 'settings-methods-scraping' } },
-                { label: 'Picking', to: { name: 'settings-methods-picking' } },
-                { label: 'Sampling', to: { name: 'settings-methods-sampling' } },
+                { label: 'Methods', to: { name: 'settings-methods-extraction' } },
+                ...(auth.isLabAdmin ? [{ label: 'Users', to: { name: 'lab-users' } }] : []),
               ],
             },
+            ...(auth.isSuperuser
+              ? [
+                  {
+                    label: 'Admin',
+                    icon: 'pi pi-shield',
+                    to: { name: 'admin-users' },
+                    children: [
+                      { label: 'User Permissions', to: { name: 'admin-users' } },
+                      { label: 'Laboratories', to: { name: 'laboratories' } },
+                    ],
+                  },
+                ]
+              : []),
           ],
         },
         {
@@ -130,6 +127,9 @@ const navGroups = computed<{ label: string; items: (NavLink | NavGroupLink)[] }[
 )
 
 function isItemActive(item: { to: { name: string; params?: Record<string, string> } }) {
+  if (item.to.name === 'settings-methods-extraction') {
+    return route.name?.toString().startsWith('settings-methods-') ?? false
+  }
   if (route.name !== item.to.name) return false
   return !item.to.params || route.params.slug === item.to.params.slug
 }

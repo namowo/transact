@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { useForm } from 'vee-validate'
+import * as yup from 'yup'
 import Select from 'primevue/select'
 import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
 import InputText from 'primevue/inputtext'
 import Textarea from 'primevue/textarea'
 import ToggleSwitch from 'primevue/toggleswitch'
+import Message from 'primevue/message'
 import { skinDiseaseCategoryApi } from '@/api/categories'
 import type { SkinDiseaseCategory } from '@/api/types'
 
@@ -25,30 +28,39 @@ async function load() {
 
 onMounted(load)
 
+const schema = yup.object({
+  name: yup.string().trim().required('Name is required.'),
+  influence: yup.boolean().defined(),
+  literature: yup.string().trim().defined(),
+})
+
+const { defineField, errors, handleSubmit, resetForm } = useForm({
+  validationSchema: schema,
+  initialValues: { name: '', influence: false, literature: '' },
+})
+
+const [newName] = defineField('name')
+const [newInfluence] = defineField('influence')
+const [newLiterature] = defineField('literature')
+
 const showAddDialog = ref(false)
-const newName = ref('')
-const newInfluence = ref(false)
-const newLiterature = ref('')
 const saving = ref(false)
 const saveError = ref('')
 
 function openAddDialog() {
-  newName.value = ''
-  newInfluence.value = false
-  newLiterature.value = ''
+  resetForm({ values: { name: '', influence: false, literature: '' } })
   saveError.value = ''
   showAddDialog.value = true
 }
 
-async function saveNewOption() {
-  if (!newName.value.trim()) return
+const saveNewOption = handleSubmit(async (values) => {
   saving.value = true
   saveError.value = ''
   try {
     const created = await skinDiseaseCategoryApi.create({
-      name: newName.value.trim(),
-      influence_on_shedding_propensity: newInfluence.value,
-      literature: newLiterature.value.trim() || null,
+      name: values.name.trim(),
+      influence_on_shedding_propensity: values.influence,
+      literature: values.literature.trim() || null,
     })
     options.value = [...options.value, created]
     modelValue.value = created.id
@@ -58,7 +70,7 @@ async function saveNewOption() {
   } finally {
     saving.value = false
   }
-}
+})
 </script>
 
 <template>
@@ -88,7 +100,10 @@ async function saveNewOption() {
       <div class="flex flex-col gap-4">
         <div class="flex flex-col gap-2">
           <label class="font-medium text-sm">Name</label>
-          <InputText v-model="newName" fluid autofocus />
+          <InputText v-model="newName" :invalid="!!errors.name" fluid autofocus />
+          <Message v-if="errors.name" severity="error" size="small" variant="simple">
+            {{ errors.name }}
+          </Message>
         </div>
         <div class="flex items-center gap-2">
           <ToggleSwitch v-model="newInfluence" input-id="influence-shedding" />
@@ -102,7 +117,7 @@ async function saveNewOption() {
       </div>
       <template #footer>
         <Button label="Cancel" text @click="showAddDialog = false" />
-        <Button label="Add" :loading="saving" :disabled="!newName.trim()" @click="saveNewOption" />
+        <Button label="Add" :loading="saving" @click="saveNewOption" />
       </template>
     </Dialog>
   </div>

@@ -26,7 +26,7 @@ import {
 } from '@/api/categories'
 import type { NamedCategory, NamedCategoryInput } from '@/api/types'
 
-export type FieldType = 'text' | 'textarea' | 'number' | 'boolean' | 'category' | 'laboratory'
+export type FieldType = 'text' | 'textarea' | 'number' | 'boolean' | 'category'
 
 export interface MethodFieldConfig {
   key: string
@@ -64,7 +64,6 @@ export const labMethods: MethodConfig[] = [
     laboratoryScoped: true,
     listColumns: ['extraction_protocol', 'extraction_platform'],
     fields: [
-      { key: 'laboratory_id', label: 'Laboratory', type: 'laboratory' },
       {
         key: 'principle_of_extraction_method_category_id',
         label: 'Principle of extraction method',
@@ -113,7 +112,6 @@ export const labMethods: MethodConfig[] = [
     laboratoryScoped: true,
     listColumns: ['pcr_kit', 'thermocycler'],
     fields: [
-      { key: 'laboratory_id', label: 'Laboratory', type: 'laboratory' },
       { key: 'pcr_kit', label: 'PCR kit', type: 'text' },
       { key: 'thermocycler', label: 'Thermocycler', type: 'text' },
       { key: 'initial_denaturation_temp', label: 'Initial denaturation temp.', type: 'number' },
@@ -138,7 +136,6 @@ export const labMethods: MethodConfig[] = [
     laboratoryScoped: true,
     listColumns: ['ce_device', 'application_type'],
     fields: [
-      { key: 'laboratory_id', label: 'Laboratory', type: 'laboratory' },
       { key: 'ce_device', label: 'CE device', type: 'text' },
       { key: 'application_type', label: 'Application type', type: 'text' },
       { key: 'capillary_length', label: 'Capillary length', type: 'number' },
@@ -166,7 +163,6 @@ export const labMethods: MethodConfig[] = [
     laboratoryScoped: true,
     listColumns: ['kit', 'manufacturer'],
     fields: [
-      { key: 'laboratory_id', label: 'Laboratory', type: 'laboratory' },
       {
         key: 'principle_of_quant_method_category_id',
         label: 'Principle of quantification method',
@@ -191,7 +187,6 @@ export const labMethods: MethodConfig[] = [
     laboratoryScoped: true,
     listColumns: ['genotyping_software', 'stutter_filter'],
     fields: [
-      { key: 'laboratory_id', label: 'Laboratory', type: 'laboratory' },
       { key: 'genotyping_software', label: 'Genotyping software', type: 'text' },
       { key: 'analytical_threshold', label: 'Analytical threshold', type: 'number' },
       {
@@ -209,7 +204,6 @@ export const labMethods: MethodConfig[] = [
     laboratoryScoped: true,
     listColumns: ['determination_of_noc', 'statistical_software'],
     fields: [
-      { key: 'laboratory_id', label: 'Laboratory', type: 'laboratory' },
       { key: 'determination_of_noc', label: 'Determination of NOC', type: 'text' },
       { key: 'statistical_software', label: 'Statistical software', type: 'text' },
       {
@@ -227,7 +221,6 @@ export const labMethods: MethodConfig[] = [
     laboratoryScoped: true,
     listColumns: ['dilution_of_pcr_product', 'dilution_factor'],
     fields: [
-      { key: 'laboratory_id', label: 'Laboratory', type: 'laboratory' },
       {
         key: 'application_of_post_pcr_purification_step',
         label: 'Post-PCR purification step applied',

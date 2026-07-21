@@ -1,25 +1,43 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { useForm } from 'vee-validate'
+import * as yup from 'yup'
+import { startAuthentication } from '@simplewebauthn/browser'
 import InputText from 'primevue/inputtext'
 import Password from 'primevue/password'
 import Button from 'primevue/button'
 import Message from 'primevue/message'
 import { useAuthStore } from '@/stores/auth'
 import { getErrorMessage } from '@/api/errors'
+import * as webauthnApi from '@/api/webauthn'
 
 const auth = useAuthStore()
 const router = useRouter()
 const route = useRoute()
 
-const email = ref('')
-const password = ref('')
 const loading = ref(false)
+const passkeyLoading = ref(false)
 const errorMessage = ref('')
 const loginFailed = ref(false)
 const step = ref<'email' | 'password'>('email')
 
-const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const schema = yup.object({
+  email: yup.string().trim().email('Please enter a valid email address.').required(),
+  password: yup.string().when([], {
+    is: () => step.value === 'password',
+    then: (s) => s.required('Password is required.'),
+    otherwise: (s) => s.defined(),
+  }),
+})
+
+const { defineField, errors, handleSubmit, validateField } = useForm({
+  validationSchema: schema,
+  initialValues: { email: '', password: '' },
+})
+
+const [email] = defineField('email')
+const [password] = defineField('password')
 
 function onBack() {
   step.value = 'email'
@@ -28,22 +46,18 @@ function onBack() {
   loginFailed.value = false
 }
 
-async function onSubmit() {
+const onSubmit = handleSubmit(async (values) => {
   errorMessage.value = ''
   loginFailed.value = false
 
   if (step.value === 'email') {
-    if (!emailPattern.test(email.value.trim())) {
-      errorMessage.value = 'Please enter a valid email address.'
-      return
-    }
     step.value = 'password'
     return
   }
 
   loading.value = true
   try {
-    await auth.login(email.value, password.value)
+    await auth.login(values.email.trim(), values.password)
     const redirect = (route.query.redirect as string) || { name: 'dashboard' }
     router.push(redirect)
   } catch (err) {
@@ -52,11 +66,38 @@ async function onSubmit() {
   } finally {
     loading.value = false
   }
+})
+
+async function onSubmitStep() {
+  if (step.value === 'email') {
+    const result = await validateField('email')
+    if (!result.valid) return
+  }
+  await onSubmit()
+}
+
+async function onUsePasskey() {
+  errorMessage.value = ''
+  loginFailed.value = false
+  passkeyLoading.value = true
+  try {
+    const options = await webauthnApi.getLoginOptions(email.value.trim())
+    const credential = await startAuthentication({ optionsJSON: options })
+    await webauthnApi.verifyLogin(email.value.trim(), credential)
+    await auth.fetchCurrentUser()
+    const redirect = (route.query.redirect as string) || { name: 'dashboard' }
+    router.push(redirect)
+  } catch (err) {
+    errorMessage.value = getErrorMessage(err, 'Could not log in with a passkey.')
+    loginFailed.value = true
+  } finally {
+    passkeyLoading.value = false
+  }
 }
 </script>
 
 <template>
-  <form class="flex flex-col gap-6" @submit.prevent="onSubmit">
+  <form class="flex flex-col gap-6" @submit.prevent="onSubmitStep">
     <div class="flex flex-col gap-1">
       <h1 class="text-3xl font-medium text-surface-900 dark:text-surface-0">Login</h1>
       <p class="text-sm text-surface-500 dark:text-surface-400">
@@ -70,7 +111,17 @@ async function onSubmit() {
 
     <div v-if="step === 'email'" class="flex flex-col gap-2">
       <label for="email" class="font-medium text-sm">Email</label>
-      <InputText id="email" v-model="email" type="email" required autofocus fluid />
+      <InputText
+        id="email"
+        v-model="email"
+        type="email"
+        :invalid="!!errors.email"
+        autofocus
+        fluid
+      />
+      <Message v-if="errors.email" severity="error" size="small" variant="simple">
+        {{ errors.email }}
+      </Message>
     </div>
 
     <div v-else class="flex flex-col gap-3">
@@ -88,12 +139,24 @@ async function onSubmit() {
           input-id="password"
           v-model="password"
           :feedback="false"
+          :invalid="!!errors.password"
           toggle-mask
-          required
           autofocus
           fluid
         />
+        <Message v-if="errors.password" severity="error" size="small" variant="simple">
+          {{ errors.password }}
+        </Message>
       </div>
+      <button
+        type="button"
+        class="self-start flex items-center gap-1 text-sm text-primary bg-transparent border-0 cursor-pointer p-0 disabled:opacity-50"
+        :disabled="passkeyLoading"
+        @click="onUsePasskey"
+      >
+        <i class="pi pi-key text-xs" />
+        {{ passkeyLoading ? 'Waiting for passkey…' : 'Use a passkey instead' }}
+      </button>
       <button
         type="button"
         class="self-start flex items-center gap-1 text-sm text-primary bg-transparent border-0 cursor-pointer p-0"

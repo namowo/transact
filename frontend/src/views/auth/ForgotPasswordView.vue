@@ -1,26 +1,38 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { RouterLink } from 'vue-router'
+import { useForm } from 'vee-validate'
+import * as yup from 'yup'
 import InputText from 'primevue/inputtext'
 import Button from 'primevue/button'
 import Message from 'primevue/message'
 import { forgotPassword } from '@/api/auth'
 
-const email = ref('')
 const loading = ref(false)
 const done = ref(false)
 
-async function onSubmit() {
+const schema = yup.object({
+  email: yup.string().trim().email('Please enter a valid email address.').required(),
+})
+
+const { defineField, errors, handleSubmit } = useForm({
+  validationSchema: schema,
+  initialValues: { email: '' },
+})
+
+const [email] = defineField('email')
+
+const onSubmit = handleSubmit(async (values) => {
   loading.value = true
   try {
-    await forgotPassword(email.value)
+    await forgotPassword(values.email.trim())
   } finally {
     loading.value = false
     // Always show the same confirmation, regardless of whether the
     // address matched an account, so we don't leak which emails are registered.
     done.value = true
   }
-}
+})
 </script>
 
 <template>
@@ -44,7 +56,17 @@ async function onSubmit() {
     </div>
     <div class="flex flex-col gap-2">
       <label for="email" class="font-medium text-sm">Email</label>
-      <InputText id="email" v-model="email" type="email" required autofocus fluid />
+      <InputText
+        id="email"
+        v-model="email"
+        type="email"
+        :invalid="!!errors.email"
+        autofocus
+        fluid
+      />
+      <Message v-if="errors.email" severity="error" size="small" variant="simple">
+        {{ errors.email }}
+      </Message>
     </div>
     <Button type="submit" label="Send reset link" :loading="loading" fluid />
     <p class="text-center text-sm">

@@ -6,21 +6,21 @@ from pydantic import BaseModel, ConfigDict
 class ResultBase(BaseModel):
     quantification_method_id: Optional[int] = None
     recovery_id: Optional[int] = None
-    dna_concentration: Optional[int] = None
+    dna_concentration: Optional[float] = None
     degradation: Optional[str] = None
-    inhibition: Optional[str] = None
-    dna_quantity: Optional[int] = None
+    inhibition: Optional[bool] = None
+    dna_quantity: Optional[float] = None
     pcr_method_id: Optional[int] = None
-    sample_input_volume_in_pcr: Optional[int] = None
-    dna_input_amount_in_pcr: Optional[int] = None
+    sample_input_volume_in_pcr: Optional[float] = None
+    dna_input_amount_in_pcr: Optional[float] = None
     post_pcr_treatment_method_id: Optional[int] = None
     ce_method_id: Optional[int] = None
     epg_analysis_method_id: Optional[int] = None
     epg_interpretation_method_id: Optional[int] = None
-    no_of_contributors: Optional[str] = None
-    mixture_proportion: Optional[str] = None
-    total_rfu: Optional[str] = None
-    total_no_of_alleles: Optional[str] = None
+    no_of_contributors: Optional[int] = None
+    mixture_proportion: Optional[float] = None
+    total_rfu: Optional[int] = None
+    total_no_of_alleles: Optional[int] = None
 
 
 class ResultCreate(ResultBase):

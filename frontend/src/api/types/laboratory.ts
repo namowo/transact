@@ -1,3 +1,5 @@
+export type LaboratoryApprovalStatus = 'pending' | 'approved' | 'denied'
+
 export interface Laboratory {
   id: number
   laboratory_name: string
@@ -9,6 +11,7 @@ export interface Laboratory {
   institutional_affiliation?: string | null
   director_head_of_laboratory?: string | null
   email?: string | null
+  approval_status: LaboratoryApprovalStatus
 }
 
 export interface LaboratoryCreate {

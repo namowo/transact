@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useForm } from 'vee-validate'
+import * as yup from 'yup'
 import Select from 'primevue/select'
 import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
 import SelectButton from 'primevue/selectbutton'
 import InputText from 'primevue/inputtext'
 import InputNumber from 'primevue/inputnumber'
+import Message from 'primevue/message'
 import SkinDiseaseCategorySelect from './SkinDiseaseCategorySelect.vue'
 import DeterminationOfSheddingPropensityCategorySelect from './DeterminationOfSheddingPropensityCategorySelect.vue'
 import { createIndividual, listIndividuals, updateIndividual } from '@/api/individuals'
@@ -52,29 +55,51 @@ const selectedIndividual = computed(
   () => individuals.value.find((candidate) => candidate.id === individualId.value) ?? null,
 )
 
+interface FormState {
+  sex: string | null
+  age: number | null
+  dnaSheddingPropensity: string | null
+  skinDiseaseCategoryId: number | null
+  determinationCategoryId: number | null
+}
+
+function emptyForm(individual: Individual | null): FormState {
+  return {
+    sex: individual?.sex ?? null,
+    age: individual?.age ?? null,
+    dnaSheddingPropensity: individual?.dna_shedding_propensity ?? null,
+    skinDiseaseCategoryId: individual?.skin_disease_category_id ?? null,
+    determinationCategoryId: individual?.determination_of_shedding_propensity_category_id ?? null,
+  }
+}
+
+const schema = yup.object({
+  sex: yup.string().nullable().defined(),
+  age: yup.number().nullable().min(0, 'Age must be zero or greater.'),
+  dnaSheddingPropensity: yup.string().nullable().defined(),
+  skinDiseaseCategoryId: yup.number().nullable().defined(),
+  determinationCategoryId: yup.number().nullable().defined(),
+})
+
+const { defineField, errors, handleSubmit, resetForm: resetFormValues } = useForm<FormState>({
+  validationSchema: schema,
+  initialValues: emptyForm(null),
+})
+
+const [formSex] = defineField('sex')
+const [formAge] = defineField('age')
+const [formDnaSheddingPropensity] = defineField('dnaSheddingPropensity')
+const [formSkinDiseaseCategoryId] = defineField('skinDiseaseCategoryId')
+const [formDeterminationCategoryId] = defineField('determinationCategoryId')
+
 const showDialog = ref(false)
 const dialogMode = ref<'create' | 'edit'>('create')
 const saving = ref(false)
 const saveError = ref('')
 
-const formSex = ref<string | null>(null)
-const formAge = ref<number | null>(null)
-const formDnaSheddingPropensity = ref<string | null>(null)
-const formSkinDiseaseCategoryId = ref<number | null>(null)
-const formDeterminationCategoryId = ref<number | null>(null)
-
-function resetForm(individual: Individual | null) {
-  formSex.value = individual?.sex ?? null
-  formAge.value = individual?.age ?? null
-  formDnaSheddingPropensity.value = individual?.dna_shedding_propensity ?? null
-  formSkinDiseaseCategoryId.value = individual?.skin_disease_category_id ?? null
-  formDeterminationCategoryId.value =
-    individual?.determination_of_shedding_propensity_category_id ?? null
-}
-
 function openCreateDialog() {
   dialogMode.value = 'create'
-  resetForm(null)
+  resetFormValues({ values: emptyForm(null) })
   saveError.value = ''
   showDialog.value = true
 }
@@ -82,21 +107,21 @@ function openCreateDialog() {
 function openEditDialog() {
   if (!selectedIndividual.value) return
   dialogMode.value = 'edit'
-  resetForm(selectedIndividual.value)
+  resetFormValues({ values: emptyForm(selectedIndividual.value) })
   saveError.value = ''
   showDialog.value = true
 }
 
-async function saveIndividual() {
+const saveIndividual = handleSubmit(async (values) => {
   saving.value = true
   saveError.value = ''
   try {
     const payload = {
-      sex: formSex.value,
-      age: formAge.value,
-      dna_shedding_propensity: formDnaSheddingPropensity.value,
-      skin_disease_category_id: formSkinDiseaseCategoryId.value,
-      determination_of_shedding_propensity_category_id: formDeterminationCategoryId.value,
+      sex: values.sex,
+      age: values.age,
+      dna_shedding_propensity: values.dnaSheddingPropensity,
+      skin_disease_category_id: values.skinDiseaseCategoryId,
+      determination_of_shedding_propensity_category_id: values.determinationCategoryId,
     }
     if (dialogMode.value === 'edit' && selectedIndividual.value) {
       const updated = await updateIndividual(selectedIndividual.value.id, payload)
@@ -114,7 +139,7 @@ async function saveIndividual() {
   } finally {
     saving.value = false
   }
-}
+})
 </script>
 
 <template>
@@ -161,7 +186,10 @@ async function saveIndividual() {
           </div>
           <div class="flex flex-col gap-2">
             <label class="font-medium text-sm">Age (Optional)</label>
-            <InputNumber v-model="formAge" fluid />
+            <InputNumber v-model="formAge" :invalid="!!errors.age" fluid />
+            <Message v-if="errors.age" severity="error" size="small" variant="simple">
+              {{ errors.age }}
+            </Message>
           </div>
         </div>
         <div class="flex flex-col gap-2">

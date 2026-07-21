@@ -216,16 +216,7 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         result = await db.execute(statement)
         instances = result.scalars().all()
 
-        if not instances:
-            raise HTTPException(
-                status_code=status.HTTP_204_NO_CONTENT,
-                detail=f"{self.model.__name__} not found",
-            )
-            # raise NotFoundError(
-            #     status_code=status.HTTP_204_NO_CONTENT, message=self.model.__name__
-            # )
-
-            # Apply recursive in-memory sorting for nested attributes
+        # Apply recursive in-memory sorting for nested attributes
         instances = self.sort(instances, sort_params)
 
         return instances

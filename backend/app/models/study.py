@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import ForeignKey
@@ -31,6 +32,13 @@ class Study(Base):
     add_data_to_repository: Mapped[Optional[bool]]
     quality_check_passed: Mapped[Optional[bool]]
     published: Mapped[Optional[bool]]
+    quality_checked_by_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("user.id", ondelete="SET NULL")
+    )
+    quality_checked_by: Mapped[Optional["User"]] = relationship(
+        lazy="selectin", foreign_keys=[quality_checked_by_id]
+    )
+    quality_checked_at: Mapped[Optional[datetime]]
     corresponding_author_name: Mapped[Optional[str]]
     corresponding_author_email: Mapped[Optional[str]]
     corresponding_author_phone: Mapped[Optional[str]]
@@ -44,3 +52,4 @@ class Study(Base):
 
 from app.models.author import Author
 from app.models.laboratory import Laboratory
+from app.models.user import User

@@ -16,3 +16,7 @@ export function createStudy(payload: StudyCreate) {
 export function updateStudy(id: number, payload: StudyUpdate) {
   return apiClient.patch<Study>(`/studies/${id}`, payload).then((r) => r.data)
 }
+
+export function passQualityCheck(id: number) {
+  return apiClient.post<Study>(`/studies/${id}/quality-check`).then((r) => r.data)
+}

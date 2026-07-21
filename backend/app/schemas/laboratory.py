@@ -2,6 +2,8 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
 
+from app.models.laboratory import LaboratoryApprovalStatus
+
 
 class LaboratoryBase(BaseModel):
     laboratory_name: Optional[str] = None
@@ -30,3 +32,4 @@ class LaboratoryRead(LaboratoryBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    approval_status: LaboratoryApprovalStatus

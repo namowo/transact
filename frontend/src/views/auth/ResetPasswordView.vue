@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { useForm } from 'vee-validate'
+import * as yup from 'yup'
 import Password from 'primevue/password'
 import Button from 'primevue/button'
 import Message from 'primevue/message'
@@ -11,12 +13,28 @@ const route = useRoute()
 const router = useRouter()
 
 const token = (route.query.token as string | undefined) ?? ''
-const newPassword = ref('')
 const loading = ref(false)
 const errorMessage = ref('')
 const done = ref(false)
 
-async function onSubmit() {
+const schema = yup.object({
+  newPassword: yup
+    .string()
+    .required('Password is required.')
+    .min(8, 'Password must be at least 8 characters.')
+    .matches(/\d/, 'Password must contain a number.')
+    .matches(/[A-Z]/, 'Password must contain an uppercase letter.')
+    .matches(/[^a-zA-Z0-9]/, 'Password must contain a special character.'),
+})
+
+const { defineField, errors, handleSubmit } = useForm({
+  validationSchema: schema,
+  initialValues: { newPassword: '' },
+})
+
+const [newPassword] = defineField('newPassword')
+
+const onSubmit = handleSubmit(async (values) => {
   if (!token) {
     errorMessage.value = 'This password reset link is missing its token.'
     return
@@ -24,7 +42,7 @@ async function onSubmit() {
   loading.value = true
   errorMessage.value = ''
   try {
-    await resetPassword(token, newPassword.value)
+    await resetPassword(token, values.newPassword)
     done.value = true
   } catch (err) {
     errorMessage.value = getErrorMessage(
@@ -34,7 +52,7 @@ async function onSubmit() {
   } finally {
     loading.value = false
   }
-}
+})
 </script>
 
 <template>
@@ -59,10 +77,13 @@ async function onSubmit() {
         input-id="new-password"
         v-model="newPassword"
         toggle-mask
-        required
         fluid
+        :invalid="!!errors.newPassword"
         :disabled="!token"
       />
+      <Message v-if="errors.newPassword" severity="error" size="small" variant="simple">
+        {{ errors.newPassword }}
+      </Message>
     </div>
     <Message v-if="errorMessage" severity="error" size="small">{{ errorMessage }}</Message>
     <Button type="submit" label="Reset password" :loading="loading" :disabled="!token" fluid />

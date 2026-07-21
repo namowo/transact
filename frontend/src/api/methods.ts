@@ -18,6 +18,10 @@ import type {
   PostPCRTreatmentMethodInput,
   QuantificationMethod,
   QuantificationMethodInput,
+  Recovery,
+  RecoveryInput,
+  Result,
+  ResultInput,
   SamplingMethod,
   SamplingMethodInput,
   ScrapingMethod,
@@ -74,3 +78,6 @@ export const pickingMethodApi = methodApi<PickingMethod, PickingMethodInput>('/p
 export const samplingMethodApi = methodApi<SamplingMethod, SamplingMethodInput>(
   '/sampling-methods',
 )
+
+export const recoveryApi = methodApi<Recovery, RecoveryInput>('/recoveries')
+export const resultApi = methodApi<Result, ResultInput>('/results')

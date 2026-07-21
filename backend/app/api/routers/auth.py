@@ -9,6 +9,7 @@ from app.core.deps import get_async_session
 from app.core.security import create_access_token, verify_password
 from app.crud.user import crud_user
 from app.crud.user_token import crud_user_token
+from app.models.user import User
 from app.schemas.auth import (
     EmailVerificationConfirm,
     PasswordResetConfirm,
@@ -26,6 +27,21 @@ router = APIRouter()
 
 VERIFY_EMAIL_PURPOSE = "verify_email"
 RESET_PASSWORD_PURPOSE = "reset_password"
+
+
+def set_session_cookie(response: Response, user: User) -> None:
+    """Issue a JWT session cookie for the given user. Shared by password and
+    passkey login so both end up in the same authenticated session."""
+    access_token = create_access_token(subject=str(user.id))
+    response.set_cookie(
+        key=settings.ACCESS_TOKEN_COOKIE_NAME,
+        value=access_token,
+        max_age=settings.VITE_JWT_LIFETIME_SECONDS,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        path="/",
+    )
 
 GENERIC_ACCEPTED_MESSAGE = {
     "message": "If an account matches this address, an email has been sent."
@@ -71,16 +87,7 @@ async def login(
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Inactive user")
 
-    access_token = create_access_token(subject=str(user.id))
-    response.set_cookie(
-        key=settings.ACCESS_TOKEN_COOKIE_NAME,
-        value=access_token,
-        max_age=settings.VITE_JWT_LIFETIME_SECONDS,
-        httponly=True,
-        secure=True,
-        samesite="lax",
-        path="/",
-    )
+    set_session_cookie(response, user)
     return user
 
 

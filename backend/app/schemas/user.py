@@ -21,6 +21,20 @@ class UserUpdate(BaseModel):
     laboratory_id: Optional[int] = None
 
 
+class LaboratoryAssignment(BaseModel):
+    laboratory_id: Optional[int] = None
+
+
+class EmailChange(BaseModel):
+    current_password: str
+    new_email: EmailStr
+
+
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=8)
+
+
 class UserRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -31,6 +45,9 @@ class UserRead(BaseModel):
     is_active: bool
     is_verified: bool
     is_superuser: bool
+    can_quality_check: bool
+    can_manage_lab_users: bool
+    passkey_prompt_dismissed: bool
     laboratory_id: Optional[int] = None
     laboratory: Optional["LaboratoryRead"] = None
     created_at: datetime

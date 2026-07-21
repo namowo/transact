@@ -23,6 +23,15 @@ class User(Base):
     is_superuser: Mapped[bool] = mapped_column(
         nullable=False, server_default=text("false")
     )
+    can_quality_check: Mapped[bool] = mapped_column(
+        nullable=False, server_default=text("false")
+    )
+    can_manage_lab_users: Mapped[bool] = mapped_column(
+        nullable=False, server_default=text("false")
+    )
+    passkey_prompt_dismissed: Mapped[bool] = mapped_column(
+        nullable=False, server_default=text("false")
+    )
 
     laboratory_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("laboratory.id", ondelete="RESTRICT")

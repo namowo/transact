@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useForm } from 'vee-validate'
+import * as yup from 'yup'
 import Select from 'primevue/select'
 import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
@@ -41,24 +43,43 @@ const selectedItem = computed(
   () => items.value.find((candidate) => candidate.id === itemId.value) ?? null,
 )
 
+interface FormState {
+  itemCategoryId: number | null
+  itemSubcategoryId: number | null
+  description: string | null
+}
+
+function emptyForm(item: Item | null): FormState {
+  return {
+    itemCategoryId: item?.item_category_id ?? null,
+    itemSubcategoryId: item?.item_subcategory_id ?? null,
+    description: item?.description ?? null,
+  }
+}
+
+const schema = yup.object({
+  itemCategoryId: yup.number().nullable().defined(),
+  itemSubcategoryId: yup.number().nullable().defined(),
+  description: yup.string().nullable().defined(),
+})
+
+const { defineField, handleSubmit, resetForm: resetFormValues } = useForm<FormState>({
+  validationSchema: schema,
+  initialValues: emptyForm(null),
+})
+
+const [formItemCategoryId] = defineField('itemCategoryId')
+const [formItemSubcategoryId] = defineField('itemSubcategoryId')
+const [formDescription] = defineField('description')
+
 const showDialog = ref(false)
 const dialogMode = ref<'create' | 'edit'>('create')
 const saving = ref(false)
 const saveError = ref('')
 
-const formItemCategoryId = ref<number | null>(null)
-const formItemSubcategoryId = ref<number | null>(null)
-const formDescription = ref<string | null>(null)
-
-function resetForm(item: Item | null) {
-  formItemCategoryId.value = item?.item_category_id ?? null
-  formItemSubcategoryId.value = item?.item_subcategory_id ?? null
-  formDescription.value = item?.description ?? null
-}
-
 function openCreateDialog() {
   dialogMode.value = 'create'
-  resetForm(null)
+  resetFormValues({ values: emptyForm(null) })
   saveError.value = ''
   showDialog.value = true
 }
@@ -66,19 +87,19 @@ function openCreateDialog() {
 function openEditDialog() {
   if (!selectedItem.value) return
   dialogMode.value = 'edit'
-  resetForm(selectedItem.value)
+  resetFormValues({ values: emptyForm(selectedItem.value) })
   saveError.value = ''
   showDialog.value = true
 }
 
-async function saveItem() {
+const saveItem = handleSubmit(async (values) => {
   saving.value = true
   saveError.value = ''
   try {
     const payload = {
-      item_category_id: formItemCategoryId.value,
-      item_subcategory_id: formItemSubcategoryId.value,
-      description: formDescription.value,
+      item_category_id: values.itemCategoryId,
+      item_subcategory_id: values.itemSubcategoryId,
+      description: values.description,
     }
     if (dialogMode.value === 'edit' && selectedItem.value) {
       const updated = await updateItem(selectedItem.value.id, payload)
@@ -96,7 +117,7 @@ async function saveItem() {
   } finally {
     saving.value = false
   }
-}
+})
 </script>
 
 <template>

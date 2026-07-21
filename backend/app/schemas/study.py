@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, model_validator
@@ -45,7 +46,11 @@ class StudyRead(StudyBase):
     id: int
     laboratory: Optional["LaboratoryRead"] = None
     authors: List["AuthorRead"] = []
+    quality_checked_by_id: Optional[int] = None
+    quality_checked_by: Optional["UserRead"] = None
+    quality_checked_at: Optional[datetime] = None
 
 
 from app.schemas.author import AuthorCreate, AuthorRead
 from app.schemas.laboratory import LaboratoryRead
+from app.schemas.user import UserRead

@@ -6,6 +6,9 @@ declare module 'vue-router' {
     requiresAuth?: boolean
     guestOnly?: boolean
     breadcrumb?: string
+    requiresSuperuser?: boolean
+    requiresLabAdmin?: boolean
+    requiresQualityChecker?: boolean
   }
 }
 
@@ -21,12 +24,6 @@ const router = createRouter({
           name: 'dashboard',
           component: () => import('@/views/DashboardView.vue'),
           meta: { requiresAuth: true, breadcrumb: 'Dashboard' },
-        },
-        {
-          path: 'laboratories',
-          name: 'laboratories',
-          component: () => import('@/views/laboratories/LaboratoriesView.vue'),
-          meta: { requiresAuth: true, breadcrumb: 'Laboratories' },
         },
         {
           path: 'studies',
@@ -52,6 +49,16 @@ const router = createRouter({
               name: 'studies-new',
               component: () => import('@/views/studies/StudyFormView.vue'),
               meta: { requiresAuth: true, breadcrumb: 'Add study' },
+            },
+            {
+              path: 'quality-check',
+              name: 'studies-quality-check',
+              component: () => import('@/views/studies/QualityCheckQueueView.vue'),
+              meta: {
+                requiresAuth: true,
+                requiresQualityChecker: true,
+                breadcrumb: 'Quality Check',
+              },
             },
             {
               path: ':id/edit',
@@ -95,106 +102,259 @@ const router = createRouter({
           children: [
             { path: '', redirect: { name: 'settings-methods-extraction' } },
             {
-              path: 'methods',
-              meta: { requiresAuth: true, breadcrumb: 'Methods' },
+              path: 'laboratory',
+              meta: { requiresAuth: true, breadcrumb: 'Laboratory' },
               children: [
                 { path: '', redirect: { name: 'settings-methods-extraction' } },
                 {
+                  path: 'methods',
+                  component: () => import('@/views/settings/methods/MethodsLayoutView.vue'),
+                  meta: { requiresAuth: true, breadcrumb: 'Methods' },
+                  children: [
+                    { path: '', redirect: { name: 'settings-methods-extraction' } },
+                    {
                   path: 'extraction',
-                  name: 'settings-methods-extraction',
-                  component: () => import('@/views/settings/methods/LabMethodListView.vue'),
-                  props: { methodKey: 'extraction' },
                   meta: { requiresAuth: true, breadcrumb: 'Extraction' },
+                  children: [
+                    {
+                      path: '',
+                      name: 'settings-methods-extraction',
+                      component: () => import('@/views/settings/methods/LabMethodListView.vue'),
+                      props: { methodKey: 'extraction' },
+                    },
+                    {
+                      path: 'new',
+                      name: 'settings-methods-extraction-new',
+                      component: () => import('@/views/settings/methods/LabMethodFormView.vue'),
+                      props: { methodKey: 'extraction' },
+                      meta: { breadcrumb: 'Add entry' },
+                    },
+                    {
+                      path: ':id/edit',
+                      name: 'settings-methods-extraction-edit',
+                      component: () => import('@/views/settings/methods/LabMethodFormView.vue'),
+                      props: (route) => ({ methodKey: 'extraction', id: route.params.id }),
+                      meta: { breadcrumb: 'Edit entry' },
+                    },
+                  ],
                 },
                 {
                   path: 'pcr',
-                  name: 'settings-methods-pcr',
-                  component: () => import('@/views/settings/methods/LabMethodListView.vue'),
-                  props: { methodKey: 'pcr' },
                   meta: { requiresAuth: true, breadcrumb: 'PCR' },
+                  children: [
+                    {
+                      path: '',
+                      name: 'settings-methods-pcr',
+                      component: () => import('@/views/settings/methods/LabMethodListView.vue'),
+                      props: { methodKey: 'pcr' },
+                    },
+                    {
+                      path: 'new',
+                      name: 'settings-methods-pcr-new',
+                      component: () => import('@/views/settings/methods/LabMethodFormView.vue'),
+                      props: { methodKey: 'pcr' },
+                      meta: { breadcrumb: 'Add entry' },
+                    },
+                    {
+                      path: ':id/edit',
+                      name: 'settings-methods-pcr-edit',
+                      component: () => import('@/views/settings/methods/LabMethodFormView.vue'),
+                      props: (route) => ({ methodKey: 'pcr', id: route.params.id }),
+                      meta: { breadcrumb: 'Edit entry' },
+                    },
+                  ],
                 },
                 {
                   path: 'ce',
-                  name: 'settings-methods-ce',
-                  component: () => import('@/views/settings/methods/LabMethodListView.vue'),
-                  props: { methodKey: 'ce' },
                   meta: { requiresAuth: true, breadcrumb: 'CE' },
+                  children: [
+                    {
+                      path: '',
+                      name: 'settings-methods-ce',
+                      component: () => import('@/views/settings/methods/LabMethodListView.vue'),
+                      props: { methodKey: 'ce' },
+                    },
+                    {
+                      path: 'new',
+                      name: 'settings-methods-ce-new',
+                      component: () => import('@/views/settings/methods/LabMethodFormView.vue'),
+                      props: { methodKey: 'ce' },
+                      meta: { breadcrumb: 'Add entry' },
+                    },
+                    {
+                      path: ':id/edit',
+                      name: 'settings-methods-ce-edit',
+                      component: () => import('@/views/settings/methods/LabMethodFormView.vue'),
+                      props: (route) => ({ methodKey: 'ce', id: route.params.id }),
+                      meta: { breadcrumb: 'Edit entry' },
+                    },
+                  ],
                 },
                 {
                   path: 'quantification',
-                  name: 'settings-methods-quantification',
-                  component: () => import('@/views/settings/methods/LabMethodListView.vue'),
-                  props: { methodKey: 'quantification' },
                   meta: { requiresAuth: true, breadcrumb: 'Quantification' },
+                  children: [
+                    {
+                      path: '',
+                      name: 'settings-methods-quantification',
+                      component: () => import('@/views/settings/methods/LabMethodListView.vue'),
+                      props: { methodKey: 'quantification' },
+                    },
+                    {
+                      path: 'new',
+                      name: 'settings-methods-quantification-new',
+                      component: () => import('@/views/settings/methods/LabMethodFormView.vue'),
+                      props: { methodKey: 'quantification' },
+                      meta: { breadcrumb: 'Add entry' },
+                    },
+                    {
+                      path: ':id/edit',
+                      name: 'settings-methods-quantification-edit',
+                      component: () => import('@/views/settings/methods/LabMethodFormView.vue'),
+                      props: (route) => ({ methodKey: 'quantification', id: route.params.id }),
+                      meta: { breadcrumb: 'Edit entry' },
+                    },
+                  ],
                 },
                 {
                   path: 'epg-analysis',
-                  name: 'settings-methods-epg-analysis',
-                  component: () => import('@/views/settings/methods/LabMethodListView.vue'),
-                  props: { methodKey: 'epg-analysis' },
                   meta: { requiresAuth: true, breadcrumb: 'EPG Analysis' },
+                  children: [
+                    {
+                      path: '',
+                      name: 'settings-methods-epg-analysis',
+                      component: () => import('@/views/settings/methods/LabMethodListView.vue'),
+                      props: { methodKey: 'epg-analysis' },
+                    },
+                    {
+                      path: 'new',
+                      name: 'settings-methods-epg-analysis-new',
+                      component: () => import('@/views/settings/methods/LabMethodFormView.vue'),
+                      props: { methodKey: 'epg-analysis' },
+                      meta: { breadcrumb: 'Add entry' },
+                    },
+                    {
+                      path: ':id/edit',
+                      name: 'settings-methods-epg-analysis-edit',
+                      component: () => import('@/views/settings/methods/LabMethodFormView.vue'),
+                      props: (route) => ({ methodKey: 'epg-analysis', id: route.params.id }),
+                      meta: { breadcrumb: 'Edit entry' },
+                    },
+                  ],
                 },
                 {
                   path: 'epg-interpretation',
-                  name: 'settings-methods-epg-interpretation',
-                  component: () => import('@/views/settings/methods/LabMethodListView.vue'),
-                  props: { methodKey: 'epg-interpretation' },
                   meta: { requiresAuth: true, breadcrumb: 'EPG Interpretation' },
+                  children: [
+                    {
+                      path: '',
+                      name: 'settings-methods-epg-interpretation',
+                      component: () => import('@/views/settings/methods/LabMethodListView.vue'),
+                      props: { methodKey: 'epg-interpretation' },
+                    },
+                    {
+                      path: 'new',
+                      name: 'settings-methods-epg-interpretation-new',
+                      component: () => import('@/views/settings/methods/LabMethodFormView.vue'),
+                      props: { methodKey: 'epg-interpretation' },
+                      meta: { breadcrumb: 'Add entry' },
+                    },
+                    {
+                      path: ':id/edit',
+                      name: 'settings-methods-epg-interpretation-edit',
+                      component: () => import('@/views/settings/methods/LabMethodFormView.vue'),
+                      props: (route) => ({ methodKey: 'epg-interpretation', id: route.params.id }),
+                      meta: { breadcrumb: 'Edit entry' },
+                    },
+                  ],
                 },
                 {
                   path: 'post-pcr-treatment',
-                  name: 'settings-methods-post-pcr-treatment',
-                  component: () => import('@/views/settings/methods/LabMethodListView.vue'),
-                  props: { methodKey: 'post-pcr-treatment' },
                   meta: { requiresAuth: true, breadcrumb: 'Post-PCR Treatment' },
-                },
-                {
-                  path: 'swab',
-                  name: 'settings-methods-swab',
-                  component: () => import('@/views/settings/methods/LabMethodListView.vue'),
-                  props: { methodKey: 'swab' },
-                  meta: { requiresAuth: true, breadcrumb: 'Swab' },
-                },
-                {
-                  path: 'tape',
-                  name: 'settings-methods-tape',
-                  component: () => import('@/views/settings/methods/LabMethodListView.vue'),
-                  props: { methodKey: 'tape' },
-                  meta: { requiresAuth: true, breadcrumb: 'Tape' },
-                },
-                {
-                  path: 'vacuum',
-                  name: 'settings-methods-vacuum',
-                  component: () => import('@/views/settings/methods/LabMethodListView.vue'),
-                  props: { methodKey: 'vacuum' },
-                  meta: { requiresAuth: true, breadcrumb: 'Vacuum' },
-                },
-                {
-                  path: 'cutting',
-                  name: 'settings-methods-cutting',
-                  component: () => import('@/views/settings/methods/LabMethodListView.vue'),
-                  props: { methodKey: 'cutting' },
-                  meta: { requiresAuth: true, breadcrumb: 'Cutting' },
-                },
-                {
-                  path: 'scraping',
-                  name: 'settings-methods-scraping',
-                  component: () => import('@/views/settings/methods/LabMethodListView.vue'),
-                  props: { methodKey: 'scraping' },
-                  meta: { requiresAuth: true, breadcrumb: 'Scraping' },
-                },
-                {
-                  path: 'picking',
-                  name: 'settings-methods-picking',
-                  component: () => import('@/views/settings/methods/LabMethodListView.vue'),
-                  props: { methodKey: 'picking' },
-                  meta: { requiresAuth: true, breadcrumb: 'Picking' },
+                  children: [
+                    {
+                      path: '',
+                      name: 'settings-methods-post-pcr-treatment',
+                      component: () => import('@/views/settings/methods/LabMethodListView.vue'),
+                      props: { methodKey: 'post-pcr-treatment' },
+                    },
+                    {
+                      path: 'new',
+                      name: 'settings-methods-post-pcr-treatment-new',
+                      component: () => import('@/views/settings/methods/LabMethodFormView.vue'),
+                      props: { methodKey: 'post-pcr-treatment' },
+                      meta: { breadcrumb: 'Add entry' },
+                    },
+                    {
+                      path: ':id/edit',
+                      name: 'settings-methods-post-pcr-treatment-edit',
+                      component: () => import('@/views/settings/methods/LabMethodFormView.vue'),
+                      props: (route) => ({ methodKey: 'post-pcr-treatment', id: route.params.id }),
+                      meta: { breadcrumb: 'Edit entry' },
+                    },
+                  ],
                 },
                 {
                   path: 'sampling',
-                  name: 'settings-methods-sampling',
-                  component: () => import('@/views/settings/methods/SamplingMethodListView.vue'),
                   meta: { requiresAuth: true, breadcrumb: 'Sampling' },
+                  children: [
+                    {
+                      path: '',
+                      name: 'settings-methods-sampling',
+                      component: () =>
+                        import('@/views/settings/methods/SamplingMethodListView.vue'),
+                    },
+                    {
+                      path: 'new',
+                      name: 'settings-methods-sampling-new',
+                      component: () =>
+                        import('@/views/settings/methods/SamplingMethodFormView.vue'),
+                      meta: { breadcrumb: 'Add sampling method' },
+                    },
+                    {
+                      path: ':id/edit',
+                      name: 'settings-methods-sampling-edit',
+                      component: () =>
+                        import('@/views/settings/methods/SamplingMethodFormView.vue'),
+                      props: true,
+                      meta: { breadcrumb: 'Edit sampling method' },
+                    },
+                  ],
+                },
+              ],
+            },
+                {
+                  path: 'users',
+                  name: 'lab-users',
+                  component: () => import('@/views/settings/laboratory/UsersView.vue'),
+                  meta: { requiresAuth: true, requiresLabAdmin: true, breadcrumb: 'Users' },
+                },
+              ],
+            },
+            {
+              path: 'admin',
+              meta: { requiresAuth: true, requiresSuperuser: true, breadcrumb: 'Admin' },
+              children: [
+                { path: '', redirect: { name: 'admin-users' } },
+                {
+                  path: 'users',
+                  name: 'admin-users',
+                  component: () => import('@/views/settings/admin/UsersView.vue'),
+                  meta: {
+                    requiresAuth: true,
+                    requiresSuperuser: true,
+                    breadcrumb: 'User Permissions',
+                  },
+                },
+                {
+                  path: 'laboratories',
+                  name: 'laboratories',
+                  component: () => import('@/views/settings/admin/LaboratoriesView.vue'),
+                  meta: {
+                    requiresAuth: true,
+                    requiresSuperuser: true,
+                    breadcrumb: 'Laboratories',
+                  },
                 },
               ],
             },
@@ -300,6 +460,18 @@ router.beforeEach(async (to) => {
     !auth.user?.laboratory_id
   ) {
     return { name: 'select-laboratory' }
+  }
+
+  if (to.meta.requiresSuperuser && !auth.isSuperuser) {
+    return { name: 'dashboard' }
+  }
+
+  if (to.meta.requiresLabAdmin && !auth.isLabAdmin) {
+    return { name: 'dashboard' }
+  }
+
+  if (to.meta.requiresQualityChecker && !auth.canQualityCheck) {
+    return { name: 'dashboard' }
   }
 })
 

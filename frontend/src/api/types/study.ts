@@ -1,4 +1,5 @@
 import type { Laboratory } from './laboratory'
+import type { User } from './auth'
 
 export interface Author {
   id: number
@@ -31,6 +32,9 @@ export interface Study {
   corresponding_author_name?: string | null
   corresponding_author_email?: string | null
   corresponding_author_phone?: string | null
+  quality_checked_by_id?: number | null
+  quality_checked_by?: User | null
+  quality_checked_at?: string | null
 }
 
 export interface StudyCreate {

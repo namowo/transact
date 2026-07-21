@@ -1,32 +1,59 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import Button from 'primevue/button'
-import Dialog from 'primevue/dialog'
-import InputText from 'primevue/inputtext'
-import InputNumber from 'primevue/inputnumber'
-import Textarea from 'primevue/textarea'
-import ToggleSwitch from 'primevue/toggleswitch'
 import Message from 'primevue/message'
-import LaboratorySelect from '@/components/auth/LaboratorySelect.vue'
-import CategorySelect from '@/components/scenarios/CategorySelect.vue'
-import { getLabMethodConfig, type MethodFieldConfig } from '@/data/labMethods'
+import IconField from 'primevue/iconfield'
+import InputIcon from 'primevue/inputicon'
+import InputText from 'primevue/inputtext'
+import { FilterMatchMode } from '@primevue/core/api'
+import { getLabMethodConfig } from '@/data/labMethods'
+import { useAuthStore } from '@/stores/auth'
 
 const props = defineProps<{ methodKey: string }>()
 
+const router = useRouter()
 const config = computed(() => getLabMethodConfig(props.methodKey))
+const auth = useAuthStore()
+const laboratoryId = computed(() => auth.user?.laboratory_id ?? null)
 
-const items = ref<any[]>([])
+type MethodRow = Record<string, unknown> & { id: number; laboratory_id?: number | null }
+
+const items = ref<MethodRow[]>([])
 const loading = ref(false)
 const loadError = ref('')
+
+function initFilters() {
+  const columnFilters = Object.fromEntries(
+    (config.value?.listColumns ?? []).map((key) => [
+      key,
+      { value: null, matchMode: FilterMatchMode.CONTAINS },
+    ]),
+  )
+  return {
+    global: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    ...columnFilters,
+  }
+}
+
+const filters = ref(initFilters())
+
+function clearFilters() {
+  filters.value = initFilters()
+}
 
 async function load() {
   if (!config.value) return
   loading.value = true
   loadError.value = ''
+  filters.value = initFilters()
   try {
-    items.value = await config.value.api.list()
+    const all = (await config.value.api.list()) as MethodRow[]
+    items.value = config.value.laboratoryScoped
+      ? all.filter((item) => item.laboratory_id === laboratoryId.value)
+      : all
   } catch {
     loadError.value = 'Could not load this list. Please try again.'
   } finally {
@@ -37,61 +64,17 @@ async function load() {
 onMounted(load)
 watch(() => props.methodKey, load)
 
-function emptyForm(fields: MethodFieldConfig[]): Record<string, any> {
-  const form: Record<string, any> = {}
-  for (const field of fields) {
-    form[field.key] = field.type === 'boolean' ? false : null
-  }
-  return form
-}
-
-const dialogVisible = ref(false)
-const editingId = ref<number | null>(null)
-const form = ref<Record<string, any>>({})
-const submitting = ref(false)
-const submitError = ref('')
-
-function openCreateDialog() {
+function openCreate() {
   if (!config.value) return
-  editingId.value = null
-  form.value = emptyForm(config.value.fields)
-  submitError.value = ''
-  dialogVisible.value = true
+  router.push({ name: `settings-methods-${config.value.key}-new` })
 }
 
-function openEditDialog(row: Record<string, any>) {
+function openEdit(row: MethodRow) {
   if (!config.value) return
-  editingId.value = row.id
-  const next = emptyForm(config.value.fields)
-  for (const field of config.value.fields) {
-    next[field.key] = row[field.key] ?? (field.type === 'boolean' ? false : null)
-  }
-  form.value = next
-  submitError.value = ''
-  dialogVisible.value = true
+  router.push({ name: `settings-methods-${config.value.key}-edit`, params: { id: String(row.id) } })
 }
 
-async function submitForm() {
-  if (!config.value) return
-  submitting.value = true
-  submitError.value = ''
-  try {
-    if (editingId.value === null) {
-      const created = await config.value.api.create(form.value)
-      items.value = [...items.value, created]
-    } else {
-      const updated = await config.value.api.update(editingId.value, form.value)
-      items.value = items.value.map((item) => (item.id === updated.id ? updated : item))
-    }
-    dialogVisible.value = false
-  } catch {
-    submitError.value = 'Could not save this entry. Please try again.'
-  } finally {
-    submitting.value = false
-  }
-}
-
-async function deleteRow(row: Record<string, any>) {
+async function deleteRow(row: MethodRow) {
   if (!config.value) return
   if (!window.confirm('Delete this entry? This cannot be undone.')) return
   try {
@@ -102,10 +85,10 @@ async function deleteRow(row: Record<string, any>) {
   }
 }
 
-function columnValue(row: Record<string, any>, key: string) {
+function columnValue(row: MethodRow, key: string) {
   const value = row[key]
   if (typeof value === 'boolean') return value ? 'Yes' : 'No'
-  return value ?? '—'
+  return (value as string | number | null | undefined) ?? '—'
 }
 </script>
 
@@ -115,25 +98,55 @@ function columnValue(row: Record<string, any>, key: string) {
       <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-0">
         {{ config.label }} methods
       </h1>
-      <Button label="Add entry" icon="pi pi-plus" @click="openCreateDialog" />
+      <Button label="Add entry" icon="pi pi-plus" @click="openCreate" />
     </div>
 
     <Message v-if="loadError" severity="error" size="small">{{ loadError }}</Message>
 
     <div class="overflow-x-auto">
-      <DataTable :value="items" :loading="loading" data-key="id">
+      <div class="mb-3 flex items-center justify-between gap-3">
+        <Button type="button" variant="outlined" size="small" @click="clearFilters()">
+          <i class="pi pi-filter-slash" />
+          Clear Filters
+        </Button>
+        <IconField iconPosition="left">
+          <InputIcon class="pi pi-search" />
+          <InputText v-model="filters['global'].value" type="text" placeholder="Keyword Search" />
+        </IconField>
+      </div>
+
+      <DataTable
+        v-model:filters="filters"
+        :value="items"
+        :loading="loading"
+        data-key="id"
+        filterDisplay="menu"
+        removableSort
+        paginator
+        :rows="10"
+        :rowsPerPageOptions="[10, 25, 50]"
+        :globalFilterFields="config.listColumns"
+      >
+        <template #empty>No entries found.</template>
+
         <Column
           v-for="colKey in config.listColumns"
           :key="colKey"
           :field="colKey"
           :header="config.fields.find((f) => f.key === colKey)?.label ?? colKey"
+          sortable
+          :showFilterOperator="false"
+          :showAddButton="false"
         >
           <template #body="{ data }">{{ columnValue(data, colKey) }}</template>
+          <template #filter="{ filterModel }">
+            <InputText v-model="filterModel.value" type="text" placeholder="Search" />
+          </template>
         </Column>
         <Column header="" style="width: 6rem">
           <template #body="{ data }">
             <div class="flex gap-1 justify-end">
-              <Button icon="pi pi-pencil" text rounded aria-label="Edit" @click="openEditDialog(data)" />
+              <Button icon="pi pi-pencil" text rounded aria-label="Edit" @click="openEdit(data)" />
               <Button
                 icon="pi pi-trash"
                 text
@@ -147,43 +160,5 @@ function columnValue(row: Record<string, any>, key: string) {
         </Column>
       </DataTable>
     </div>
-
-    <Dialog
-      v-model:visible="dialogVisible"
-      :header="editingId === null ? `Add ${config.label.toLowerCase()} entry` : `Edit entry`"
-      modal
-      :style="{ width: '32rem' }"
-    >
-      <div class="flex flex-col gap-4">
-        <div v-for="field in config.fields" :key="field.key" class="flex flex-col gap-2">
-          <label class="font-medium text-sm">{{ field.label }}</label>
-
-          <LaboratorySelect v-if="field.type === 'laboratory'" v-model="form[field.key]" />
-
-          <CategorySelect
-            v-else-if="field.type === 'category'"
-            v-model="form[field.key]"
-            :label="field.label"
-            :api="field.categoryApi!"
-          />
-
-          <InputNumber v-else-if="field.type === 'number'" v-model="form[field.key]" fluid />
-
-          <div v-else-if="field.type === 'boolean'" class="flex items-center gap-2">
-            <ToggleSwitch v-model="form[field.key]" :input-id="field.key" />
-          </div>
-
-          <Textarea v-else-if="field.type === 'textarea'" v-model="form[field.key]" rows="2" fluid />
-
-          <InputText v-else v-model="form[field.key]" fluid />
-        </div>
-
-        <Message v-if="submitError" severity="error" size="small">{{ submitError }}</Message>
-      </div>
-      <template #footer>
-        <Button label="Cancel" text @click="dialogVisible = false" />
-        <Button label="Save" :loading="submitting" @click="submitForm" />
-      </template>
-    </Dialog>
   </div>
 </template>

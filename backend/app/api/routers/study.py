@@ -3,7 +3,12 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import current_active_user, current_optional_user, get_async_session
+from app.core.deps import (
+    current_active_user,
+    current_optional_user,
+    current_quality_checker,
+    get_async_session,
+)
 from app.crud.exceptions import AuthorizationError, NotFoundError
 from app.crud.study import crud_study as crud
 from app.models.study import Study
@@ -97,3 +102,13 @@ async def delete(
     study = await crud.get(db, id)
     _assert_can_edit(study, user)
     await crud.delete(db, id)
+
+
+@router.post("/{id}/quality-check", response_model=ReadSchema)
+async def pass_quality_check(
+    id: int,
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_quality_checker),
+):
+    study = await crud.get(db, id)
+    return await crud.pass_quality_check(db, study, user)

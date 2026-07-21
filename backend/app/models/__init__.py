@@ -2,6 +2,8 @@ from app.core.db import Base
 
 from .user import User
 from .user_token import UserToken
+from .webauthn_credential import WebAuthnCredential
+from .webauthn_challenge import WebAuthnChallenge
 
 # TransAct models
 from .activity_category import ActivityCategory
@@ -26,6 +28,7 @@ from .item_category import ItemCategory
 from .item_parts_category import ItemPartsCategory
 from .item_subcategory import ItemSubcategory
 from .item import Item
+from .lab_membership_request import LabMembershipRequest
 from .laboratory import Laboratory
 from .location_of_body_category import LocationOfBodyCategory
 from .pcr_method import PCRMethod

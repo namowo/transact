@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useForm } from 'vee-validate'
+import * as yup from 'yup'
 import Select from 'primevue/select'
 import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
 import InputText from 'primevue/inputtext'
 import Textarea from 'primevue/textarea'
+import Message from 'primevue/message'
 import { determinationOfSheddingPropensityCategoryApi } from '@/api/categories'
 import type { DeterminationOfSheddingPropensityCategory } from '@/api/types'
 
@@ -32,10 +35,6 @@ async function load() {
 }
 
 onMounted(load)
-
-const showAddDialog = ref(false)
-const saving = ref(false)
-const saveError = ref('')
 
 interface FormState {
   authors: string
@@ -67,31 +66,69 @@ function emptyForm(): FormState {
   }
 }
 
-const form = ref<FormState>(emptyForm())
+// Either a title or an author identifies the reference - neither field is
+// required on its own, but at least one of the two must be filled in.
+const schema = yup.object({
+  authors: yup.string().trim().defined(),
+  title: yup.string().trim().defined(),
+  doi: yup.string().trim().defined(),
+  restrictions_prior_to_sampling: yup.string().trim().defined(),
+  monitored_transfer_factors: yup.string().trim().defined(),
+  number_of_participants: yup.string().trim().defined(),
+  replicates: yup.string().trim().defined(),
+  shedder_test: yup.string().trim().defined(),
+  classification_criteria: yup.string().trim().defined(),
+  classification_scheme: yup.string().trim().defined(),
+  classification_outcome: yup.string().trim().defined(),
+}).test(
+  'authors-or-title',
+  'Please provide at least a title or an author.',
+  (values) => !!values.title?.trim() || !!values.authors?.trim(),
+)
+
+const { defineField, errors, handleSubmit, resetForm } = useForm<FormState>({
+  validationSchema: schema,
+  initialValues: emptyForm(),
+})
+
+const [authors] = defineField('authors')
+const [title] = defineField('title')
+const [doi] = defineField('doi')
+const [restrictionsPriorToSampling] = defineField('restrictions_prior_to_sampling')
+const [monitoredTransferFactors] = defineField('monitored_transfer_factors')
+const [numberOfParticipants] = defineField('number_of_participants')
+const [replicates] = defineField('replicates')
+const [shedderTest] = defineField('shedder_test')
+const [classificationCriteria] = defineField('classification_criteria')
+const [classificationScheme] = defineField('classification_scheme')
+const [classificationOutcome] = defineField('classification_outcome')
+
+const showAddDialog = ref(false)
+const saving = ref(false)
+const saveError = ref('')
 
 function openAddDialog() {
-  form.value = emptyForm()
+  resetForm({ values: emptyForm() })
   saveError.value = ''
   showAddDialog.value = true
 }
 
-async function saveNewOption() {
-  if (!form.value.title.trim() && !form.value.authors.trim()) return
+const saveNewOption = handleSubmit(async (values) => {
   saving.value = true
   saveError.value = ''
   try {
     const created = await determinationOfSheddingPropensityCategoryApi.create({
-      authors: form.value.authors.trim() || null,
-      title: form.value.title.trim() || null,
-      doi: form.value.doi.trim() || null,
-      restrictions_prior_to_sampling: form.value.restrictions_prior_to_sampling.trim() || null,
-      monitored_transfer_factors: form.value.monitored_transfer_factors.trim() || null,
-      number_of_participants: form.value.number_of_participants.trim() || null,
-      replicates: form.value.replicates.trim() || null,
-      shedder_test: form.value.shedder_test.trim() || null,
-      classification_criteria: form.value.classification_criteria.trim() || null,
-      classification_scheme: form.value.classification_scheme.trim() || null,
-      classification_outcome: form.value.classification_outcome.trim() || null,
+      authors: values.authors.trim() || null,
+      title: values.title.trim() || null,
+      doi: values.doi.trim() || null,
+      restrictions_prior_to_sampling: values.restrictions_prior_to_sampling.trim() || null,
+      monitored_transfer_factors: values.monitored_transfer_factors.trim() || null,
+      number_of_participants: values.number_of_participants.trim() || null,
+      replicates: values.replicates.trim() || null,
+      shedder_test: values.shedder_test.trim() || null,
+      classification_criteria: values.classification_criteria.trim() || null,
+      classification_scheme: values.classification_scheme.trim() || null,
+      classification_outcome: values.classification_outcome.trim() || null,
     })
     options.value = [...options.value, created]
     modelValue.value = created.id
@@ -101,7 +138,7 @@ async function saveNewOption() {
   } finally {
     saving.value = false
   }
-}
+})
 </script>
 
 <template>
@@ -129,64 +166,62 @@ async function saveNewOption() {
       :style="{ width: '36rem' }"
     >
       <div class="flex flex-col gap-4">
+        <Message v-if="errors['']" severity="error" size="small" variant="simple">
+          {{ errors[''] }}
+        </Message>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div class="flex flex-col gap-2">
             <label class="font-medium text-sm">Authors</label>
-            <InputText v-model="form.authors" fluid autofocus />
+            <InputText v-model="authors" fluid autofocus />
           </div>
           <div class="flex flex-col gap-2">
             <label class="font-medium text-sm">Title</label>
-            <InputText v-model="form.title" fluid />
+            <InputText v-model="title" fluid />
           </div>
         </div>
         <div class="flex flex-col gap-2">
           <label class="font-medium text-sm">DOI (Optional)</label>
-          <InputText v-model="form.doi" fluid />
+          <InputText v-model="doi" fluid />
         </div>
         <div class="flex flex-col gap-2">
           <label class="font-medium text-sm">Restrictions prior to sampling (Optional)</label>
-          <Textarea v-model="form.restrictions_prior_to_sampling" rows="2" fluid />
+          <Textarea v-model="restrictionsPriorToSampling" rows="2" fluid />
         </div>
         <div class="flex flex-col gap-2">
           <label class="font-medium text-sm">Monitored transfer factors (Optional)</label>
-          <Textarea v-model="form.monitored_transfer_factors" rows="2" fluid />
+          <Textarea v-model="monitoredTransferFactors" rows="2" fluid />
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div class="flex flex-col gap-2">
             <label class="font-medium text-sm">Number of participants (Optional)</label>
-            <InputText v-model="form.number_of_participants" fluid />
+            <InputText v-model="numberOfParticipants" fluid />
           </div>
           <div class="flex flex-col gap-2">
             <label class="font-medium text-sm">Replicates (Optional)</label>
-            <InputText v-model="form.replicates" fluid />
+            <InputText v-model="replicates" fluid />
           </div>
         </div>
         <div class="flex flex-col gap-2">
           <label class="font-medium text-sm">Shedder test (Optional)</label>
-          <Textarea v-model="form.shedder_test" rows="2" fluid />
+          <Textarea v-model="shedderTest" rows="2" fluid />
         </div>
         <div class="flex flex-col gap-2">
           <label class="font-medium text-sm">Classification criteria (Optional)</label>
-          <Textarea v-model="form.classification_criteria" rows="2" fluid />
+          <Textarea v-model="classificationCriteria" rows="2" fluid />
         </div>
         <div class="flex flex-col gap-2">
           <label class="font-medium text-sm">Classification scheme (Optional)</label>
-          <Textarea v-model="form.classification_scheme" rows="2" fluid />
+          <Textarea v-model="classificationScheme" rows="2" fluid />
         </div>
         <div class="flex flex-col gap-2">
           <label class="font-medium text-sm">Classification outcome (Optional)</label>
-          <Textarea v-model="form.classification_outcome" rows="2" fluid />
+          <Textarea v-model="classificationOutcome" rows="2" fluid />
         </div>
         <p v-if="saveError" class="text-sm text-red-500">{{ saveError }}</p>
       </div>
       <template #footer>
         <Button label="Cancel" text @click="showAddDialog = false" />
-        <Button
-          label="Add"
-          :loading="saving"
-          :disabled="!form.title.trim() && !form.authors.trim()"
-          @click="saveNewOption"
-        />
+        <Button label="Add" :loading="saving" @click="saveNewOption" />
       </template>
     </Dialog>
   </div>

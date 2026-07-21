@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from app.api.routers import utils
 from app.api.routers import auth
 from app.api.routers import users
+from app.api.routers import webauthn
 
 # TransAct routers
 from app.api.routers import activity_category
@@ -23,6 +24,7 @@ from app.api.routers import item
 from app.api.routers import item_category
 from app.api.routers import item_parts_category
 from app.api.routers import item_subcategory
+from app.api.routers import lab_membership_requests
 from app.api.routers import laboratory
 from app.api.routers import location_of_body_category
 from app.api.routers import pcr_method
@@ -60,6 +62,7 @@ from app.api.routers import experience_level
 api_router = APIRouter()
 
 api_router.include_router(auth.router, prefix="/auth", tags=["Auth"])
+api_router.include_router(webauthn.router, prefix="/auth/webauthn", tags=["Auth"])
 api_router.include_router(users.router, prefix="/users", tags=["Users"])
 
 # Categories
@@ -88,6 +91,11 @@ api_router.include_router(experience_level.router, prefix="/experience-levels", 
 
 # Laboratories
 api_router.include_router(laboratory.router, prefix="/laboratories", tags=["Laboratories"])
+api_router.include_router(
+    lab_membership_requests.router,
+    prefix="/lab-membership-requests",
+    tags=["Laboratories"],
+)
 
 # Methods
 api_router.include_router(ce_method.router, prefix="/ce-methods", tags=["Methods"])

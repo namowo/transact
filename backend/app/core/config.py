@@ -51,6 +51,11 @@ class Settings(BaseSettings):
     EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS: int = 48
     PASSWORD_RESET_TOKEN_EXPIRE_HOURS: int = 2
 
+    WEBAUTHN_RP_ID: str = "localhost"
+    WEBAUTHN_RP_NAME: str = "TransAct"
+    WEBAUTHN_ORIGIN: str = "http://localhost:5173"
+    WEBAUTHN_CHALLENGE_TTL_SECONDS: int = 300
+
     # FastAPI Settings
     HOST_URL: str = "http://localhost:8000"
     FRONTEND_URL: str = "http://localhost:5173"

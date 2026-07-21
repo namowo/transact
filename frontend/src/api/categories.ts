@@ -33,6 +33,7 @@ export const scenarioCategoryApi = namedCategoryApi('/scenario-categories')
 export const sourceOfDnaCategoryApi = namedCategoryApi('/source-of-dna-categories')
 export const surfaceMaterialCategoryApi = namedCategoryApi('/surface-material-categories')
 export const pressureEstimateApi = namedCategoryApi('/pressure-estimates')
+export const experienceLevelCategoryApi = namedCategoryApi('/experience-levels')
 export const frictionAppliedEstimateApi = namedCategoryApi('/friction-applied-estimates')
 export const principleOfExtractionMethodCategoryApi = namedCategoryApi(
   '/principle-of-extraction-method-categories',
