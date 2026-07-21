@@ -1,8 +1,16 @@
 import apiClient from './client'
-import type { RegisterPayload, User } from './types'
+import type { RegisterPayload, SetupStatus, SuperuserSetupPayload, User } from './types'
 
 export function register(payload: RegisterPayload) {
   return apiClient.post<User>('/auth/register', payload).then((r) => r.data)
+}
+
+export function fetchSetupStatus() {
+  return apiClient.get<SetupStatus>('/auth/setup-status').then((r) => r.data)
+}
+
+export function setup(payload: SuperuserSetupPayload) {
+  return apiClient.post<User>('/auth/setup', payload).then((r) => r.data)
 }
 
 export function login(email: string, password: string) {

@@ -178,5 +178,10 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         result = await db.execute(statement)
         return list(result.scalars().all())
 
+    async def superuser_exists(self, db: AsyncSession) -> bool:
+        statement = select(self.model.id).where(self.model.is_superuser.is_(True)).limit(1)
+        result = await db.execute(statement)
+        return result.scalars().first() is not None
+
 
 crud_user = CRUDUser()

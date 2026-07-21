@@ -407,6 +407,11 @@ const router = createRouter({
           component: () => import('@/views/auth/ResetPasswordView.vue'),
         },
         {
+          path: 'setup',
+          name: 'setup',
+          component: () => import('@/views/auth/SetupView.vue'),
+        },
+        {
           path: 'select-laboratory',
           name: 'select-laboratory',
           component: () => import('@/views/auth/SelectLaboratoryView.vue'),
@@ -425,6 +430,22 @@ const router = createRouter({
 
 router.beforeEach(async (to) => {
   const auth = useAuthStore()
+
+  // Checked before anything else - a freshly installed instance has no
+  // superuser yet, so every navigation is forced to the setup page until
+  // it's completed.
+  await auth.ensureSetupStatusLoaded()
+
+  if (auth.needsSetup) {
+    if (to.name !== 'setup') {
+      return { name: 'setup' }
+    }
+    return
+  }
+
+  if (to.name === 'setup') {
+    return { name: 'login' }
+  }
 
   // The session lives in an httpOnly cookie the frontend can't read, so
   // `isAuthenticated` is only known once this resolves. It's memoized, so

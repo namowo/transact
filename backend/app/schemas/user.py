@@ -15,6 +15,17 @@ class UserCreate(UserBase):
     password: str = Field(min_length=8)
 
 
+class SetupStatus(BaseModel):
+    needs_setup: bool
+
+
+class SuperuserSetup(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=8)
+    first_name: str
+    last_name: str
+
+
 class UserUpdate(BaseModel):
     first_name: Optional[str] = None
     last_name: Optional[str] = None

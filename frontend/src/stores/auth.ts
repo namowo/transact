@@ -10,10 +10,11 @@ import {
   type ChangePasswordPayload,
   type UpdateProfilePayload,
 } from '@/api/users'
-import type { RegisterPayload, User } from '@/api/types'
+import type { RegisterPayload, SuperuserSetupPayload, User } from '@/api/types'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
+  const needsSetup = ref(false)
 
   const isAuthenticated = computed(() => !!user.value)
   const isSuperuser = computed(() => !!user.value?.is_superuser)
@@ -25,6 +26,7 @@ export const useAuthStore = defineStore('auth', () => {
   )
 
   let userLoadedPromise: Promise<void> | null = null
+  let setupStatusPromise: Promise<void> | null = null
 
   async function login(email: string, password: string) {
     user.value = await authApi.login(email, password)
@@ -51,6 +53,29 @@ export const useAuthStore = defineStore('auth', () => {
       userLoadedPromise = fetchCurrentUser()
     }
     return userLoadedPromise
+  }
+
+  async function fetchSetupStatus() {
+    try {
+      needsSetup.value = (await authApi.fetchSetupStatus()).needs_setup
+    } catch {
+      needsSetup.value = false
+    }
+  }
+
+  // Memoized like ensureUserLoaded - the setup gate only needs to be
+  // resolved once per page load, and stops mattering entirely once setup
+  // has been completed for the lifetime of the app.
+  function ensureSetupStatusLoaded() {
+    if (!setupStatusPromise) {
+      setupStatusPromise = fetchSetupStatus()
+    }
+    return setupStatusPromise
+  }
+
+  async function completeSetup(payload: SuperuserSetupPayload) {
+    user.value = await authApi.setup(payload)
+    needsSetup.value = false
   }
 
   // Called by the API client's 401 response interceptor - clears local
@@ -92,6 +117,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   return {
     user,
+    needsSetup,
     isAuthenticated,
     isSuperuser,
     canQualityCheck,
@@ -100,6 +126,8 @@ export const useAuthStore = defineStore('auth', () => {
     register,
     fetchCurrentUser,
     ensureUserLoaded,
+    ensureSetupStatusLoaded,
+    completeSetup,
     handleUnauthorized,
     logout,
     updateProfile,

@@ -23,6 +23,17 @@ export interface RegisterPayload {
   last_name: string
 }
 
+export interface SetupStatus {
+  needs_setup: boolean
+}
+
+export interface SuperuserSetupPayload {
+  email: string
+  password: string
+  first_name: string
+  last_name: string
+}
+
 export interface WebAuthnCredential {
   id: number
   device_name: string | null
