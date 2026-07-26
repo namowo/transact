@@ -12,6 +12,18 @@ class Recovery(Base):
     id: Mapped[int] = mapped_column(
         primary_key=True, index=True, unique=True, nullable=False
     )
+    study_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("study.id", ondelete="SET NULL")
+    )
+    study: Mapped[Optional["Study"]] = relationship(
+        lazy="selectin", back_populates="recoveries", foreign_keys=[study_id]
+    )
+    recovery_set_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("recovery_set.id", ondelete="SET NULL")
+    )
+    recovery_set: Mapped[Optional["RecoverySet"]] = relationship(
+        lazy="selectin", back_populates="recoveries", foreign_keys=[recovery_set_id]
+    )
     surface_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("surface.id", ondelete="SET NULL")
     )
@@ -45,3 +57,5 @@ from app.models.surface import Surface
 from app.models.sampling_method import SamplingMethod
 from app.models.extraction_method import ExtractionMethod
 from app.models.experience_level import ExperienceLevel
+from app.models.study import Study
+from app.models.recovery_set import RecoverySet

@@ -1,0 +1,26 @@
+[
+  {
+    "name": "metal"
+  },
+  {
+    "name": "rubber"
+  },
+  {
+    "name": "plastic"
+  },
+  {
+    "name": "paper"
+  },
+  {
+    "name": "glass"
+  },
+  {
+    "name": "fabric"
+  },
+  {
+    "name": "ceramic"
+  },
+  {
+    "name": "other"
+  }
+]

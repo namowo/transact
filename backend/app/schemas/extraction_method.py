@@ -7,7 +7,7 @@ class ExtractionMethodBase(BaseModel):
     laboratory_id: Optional[int] = None
     principle_of_extraction_method_category_id: Optional[int] = None
     extraction_protocol: Optional[str] = None
-    extraction_platform: Optional[str] = None
+    extraction_platform_id: Optional[int] = None
     additional_lysis_buffer_components: Optional[str] = None
     volume_lysis_buffer_components: Optional[int] = None
     lysis_incubation_time: Optional[int] = None
@@ -31,7 +31,9 @@ class ExtractionMethodRead(ExtractionMethodBase):
     id: int
     laboratory: Optional["LaboratoryRead"] = None
     principle_of_extraction_method_category: Optional["PrincipleOfExtractionMethodCategoryRead"] = None
+    extraction_platform: Optional["PlatformRead"] = None
 
 
 from app.schemas.laboratory import LaboratoryRead
 from app.schemas.principle_of_extraction_method_category import PrincipleOfExtractionMethodCategoryRead
+from app.schemas.platform import PlatformRead

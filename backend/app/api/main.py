@@ -8,16 +8,20 @@ from app.api.routers import webauthn
 # TransAct routers
 from app.api.routers import activity_category
 from app.api.routers import body_part_condition_category
+from app.api.routers import ce_device
 from app.api.routers import ce_method
 from app.api.routers import condition_during_contact
 from app.api.routers import condition_of_item_part_category
 from app.api.routers import contact
+from app.api.routers import contact_template
 from app.api.routers import cutting_method
 from app.api.routers import determination_of_shedding_propensity_category
 from app.api.routers import disturbance_category
+from app.api.routers import dye_set
 from app.api.routers import epg_analysis_method
 from app.api.routers import epg_interpretation_method
 from app.api.routers import extraction_method
+from app.api.routers import genotyping_software
 from app.api.routers import geographic_location_category
 from app.api.routers import individual
 from app.api.routers import item
@@ -27,27 +31,40 @@ from app.api.routers import item_subcategory
 from app.api.routers import lab_membership_requests
 from app.api.routers import laboratory
 from app.api.routers import location_of_body_category
+from app.api.routers import manufacturer
+from app.api.routers import pcr_kit
 from app.api.routers import pcr_method
 from app.api.routers import persistence
 from app.api.routers import picking_method
+from app.api.routers import platform
 from app.api.routers import post_pcr_treatment_method
 from app.api.routers import principle_of_extraction_method_category
 from app.api.routers import principle_of_quant_method_category
+from app.api.routers import quantification_kit
 from app.api.routers import quantification_method
 from app.api.routers import recovery
+from app.api.routers import recovery_set
 from app.api.routers import result
 from app.api.routers import sampling_method
 from app.api.routers import scenario
 from app.api.routers import scenario_category
 from app.api.routers import scraping_method
+from app.api.routers import sex
+from app.api.routers import size_standard
+from app.api.routers import dna_shedding_propensity_category
 from app.api.routers import skin_disease_category
 from app.api.routers import source_of_dna_category
+from app.api.routers import statistical_software
 from app.api.routers import study
+from app.api.routers import supplier
 from app.api.routers import surface
 from app.api.routers import surface_material_category
+from app.api.routers import surface_template
 from app.api.routers import swab_method
 from app.api.routers import swabbing_technique_category
 from app.api.routers import tape_method
+from app.api.routers import thermocycler
+from app.api.routers import type_of_formamide
 from app.api.routers import type_of_swab_category
 from app.api.routers import vacuum_method
 from app.api.routers import scraping_device
@@ -58,6 +75,8 @@ from app.api.routers import type_of_tape
 from app.api.routers import friction_applied_estimate
 from app.api.routers import pressure_estimate
 from app.api.routers import experience_level
+from app.api.routers import wetting_agent
+from app.api.routers import polymer
 
 api_router = APIRouter()
 
@@ -79,6 +98,8 @@ api_router.include_router(location_of_body_category.router, prefix="/location-of
 api_router.include_router(principle_of_extraction_method_category.router, prefix="/principle-of-extraction-method-categories", tags=["Categories"])
 api_router.include_router(principle_of_quant_method_category.router, prefix="/principle-of-quant-method-categories", tags=["Categories"])
 api_router.include_router(scenario_category.router, prefix="/scenario-categories", tags=["Categories"])
+api_router.include_router(sex.router, prefix="/sexes", tags=["Categories"])
+api_router.include_router(dna_shedding_propensity_category.router, prefix="/dna-shedding-propensity-categories", tags=["Categories"])
 api_router.include_router(skin_disease_category.router, prefix="/skin-disease-categories", tags=["Categories"])
 api_router.include_router(source_of_dna_category.router, prefix="/source-of-dna-categories", tags=["Categories"])
 api_router.include_router(surface_material_category.router, prefix="/surface-material-categories", tags=["Categories"])
@@ -88,6 +109,22 @@ api_router.include_router(type_of_tape.router, prefix="/type-of-tape", tags=["Ca
 api_router.include_router(friction_applied_estimate.router, prefix="/friction-applied-estimates", tags=["Categories"])
 api_router.include_router(pressure_estimate.router, prefix="/pressure-estimates", tags=["Categories"])
 api_router.include_router(experience_level.router, prefix="/experience-levels", tags=["Categories"])
+
+# Equipment / reagents / software (lookup tables referenced from Methods)
+api_router.include_router(supplier.router, prefix="/suppliers", tags=["Equipment"])
+api_router.include_router(pcr_kit.router, prefix="/pcr-kits", tags=["Equipment"])
+api_router.include_router(thermocycler.router, prefix="/thermocyclers", tags=["Equipment"])
+api_router.include_router(ce_device.router, prefix="/ce-devices", tags=["Equipment"])
+api_router.include_router(polymer.router, prefix="/polymers", tags=["Equipment"])
+api_router.include_router(dye_set.router, prefix="/dye-sets", tags=["Equipment"])
+api_router.include_router(type_of_formamide.router, prefix="/types-of-formamide", tags=["Equipment"])
+api_router.include_router(size_standard.router, prefix="/size-standards", tags=["Equipment"])
+api_router.include_router(genotyping_software.router, prefix="/genotyping-software", tags=["Equipment"])
+api_router.include_router(statistical_software.router, prefix="/statistical-software", tags=["Equipment"])
+api_router.include_router(quantification_kit.router, prefix="/quantification-kits", tags=["Equipment"])
+api_router.include_router(manufacturer.router, prefix="/manufacturers", tags=["Equipment"])
+api_router.include_router(platform.router, prefix="/platforms", tags=["Equipment"])
+api_router.include_router(wetting_agent.router, prefix="/wetting-agents", tags=["Equipment"])
 
 # Laboratories
 api_router.include_router(laboratory.router, prefix="/laboratories", tags=["Laboratories"])
@@ -127,10 +164,12 @@ api_router.include_router(individual.router, prefix="/individuals", tags=["Indiv
 api_router.include_router(item.router, prefix="/items", tags=["Items"])
 
 # Surfaces
+api_router.include_router(surface_template.router, prefix="/surface-templates", tags=["Surfaces"])
 api_router.include_router(surface.router, prefix="/surfaces", tags=["Surfaces"])
 
 # Contacts
 api_router.include_router(condition_during_contact.router, prefix="/conditions-during-contact", tags=["Contacts"])
+api_router.include_router(contact_template.router, prefix="/contact-templates", tags=["Contacts"])
 api_router.include_router(contact.router, prefix="/contacts", tags=["Contacts"])
 
 # Scenarios
@@ -138,5 +177,6 @@ api_router.include_router(persistence.router, prefix="/persistences", tags=["Sce
 api_router.include_router(scenario.router, prefix="/scenarios", tags=["Scenarios"])
 
 # Results
+api_router.include_router(recovery_set.router, prefix="/recovery-sets", tags=["Results"])
 api_router.include_router(recovery.router, prefix="/recoveries", tags=["Results"])
 api_router.include_router(result.router, prefix="/results", tags=["Results"])

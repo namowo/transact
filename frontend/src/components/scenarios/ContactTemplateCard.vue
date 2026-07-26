@@ -6,10 +6,14 @@ import InputNumber from 'primevue/inputnumber'
 import ToggleSwitch from 'primevue/toggleswitch'
 import Button from 'primevue/button'
 import Divider from 'primevue/divider'
-import SurfaceForm from './SurfaceForm.vue'
+import SurfaceTemplateForm from './SurfaceTemplateForm.vue'
 import CategorySelect from './CategorySelect.vue'
-import { activityCategoryApi } from '@/api/categories'
-import type { ContactDraft } from './contactDraft'
+import {
+  activityCategoryApi,
+  pressureEstimateApi,
+  frictionAppliedEstimateApi,
+} from '@/api/categories'
+import type { ContactTemplateDraft } from './contactTemplateDraft'
 
 const props = defineProps<{
   index: number
@@ -19,24 +23,24 @@ const props = defineProps<{
 
 const emit = defineEmits<{ remove: [] }>()
 
-const draft = defineModel<ContactDraft>({ required: true })
+const draft = defineModel<ContactTemplateDraft>({ required: true })
 const collapsed = defineModel<boolean>('collapsed', { default: false })
 
 function errorFor(field: string): string | undefined {
-  return props.errors[`contacts[${props.index}].${field}`]
+  return props.errors[`contactTemplates[${props.index}].${field}`]
 }
 </script>
 
 <template>
   <Panel v-model:collapsed="collapsed" toggleable>
     <template #header>
-      <span class="font-semibold">Contact #{{ props.index + 1 }}</span>
+      <span class="font-semibold">Contact template #{{ props.index + 1 }}</span>
     </template>
 
     <div class="flex flex-col gap-4">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <SurfaceForm v-model="draft.donorSurface" label="Donor surface" />
-        <SurfaceForm v-model="draft.recipientSurface" label="Recipient surface" />
+        <SurfaceTemplateForm v-model="draft.donorSurfaceTemplate" label="Donor surface" />
+        <SurfaceTemplateForm v-model="draft.recipientSurfaceTemplate" label="Recipient surface" />
       </div>
 
       <Divider />
@@ -67,6 +71,19 @@ function errorFor(field: string): string | undefined {
             {{ errorFor('frictionApplied') }}
           </Message>
         </div>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <CategorySelect
+          v-model="draft.pressureEstimateId"
+          label="Pressure estimate (Optional)"
+          :api="pressureEstimateApi"
+        />
+        <CategorySelect
+          v-model="draft.frictionAppliedEstimateId"
+          label="Friction applied estimate (Optional)"
+          :api="frictionAppliedEstimateApi"
+        />
       </div>
 
       <div class="flex flex-col gap-2">
@@ -123,7 +140,7 @@ function errorFor(field: string): string | undefined {
       <Divider />
 
       <Button
-        label="Remove contact"
+        label="Remove contact template"
         icon="pi pi-trash"
         severity="danger"
         outlined

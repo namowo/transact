@@ -5,25 +5,19 @@ import * as yup from 'yup'
 import Select from 'primevue/select'
 import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
-import SelectButton from 'primevue/selectbutton'
-import InputText from 'primevue/inputtext'
 import InputNumber from 'primevue/inputnumber'
 import Message from 'primevue/message'
+import CategorySelect from './CategorySelect.vue'
 import SkinDiseaseCategorySelect from './SkinDiseaseCategorySelect.vue'
 import DeterminationOfSheddingPropensityCategorySelect from './DeterminationOfSheddingPropensityCategorySelect.vue'
 import { createIndividual, listIndividuals, updateIndividual } from '@/api/individuals'
+import { sexApi, dnaSheddingPropensityCategoryApi } from '@/api/categories'
 import type { Individual } from '@/api/types'
 
 // Selecting an individual here just picks which Individual row a surface
 // points at; all of that person's editable fields (sex, age, ...) live in
 // this component's dialog too, so they aren't duplicated in SurfaceForm.
 const individualId = defineModel<number | null>({ default: null })
-
-const sexOptions = [
-  { label: 'm', value: 'm' },
-  { label: 'f', value: 'f' },
-  { label: 'd', value: 'd' },
-]
 
 const individuals = ref<Individual[]>([])
 const loading = ref(false)
@@ -34,9 +28,10 @@ const loading = ref(false)
 function describeIndividual(individual: Individual): string {
   const position = individuals.value.findIndex((candidate) => candidate.id === individual.id)
   const name = `Individual ${position + 1}`
-  const parts = [individual.sex, individual.age != null ? `${individual.age}y` : null].filter(
-    Boolean,
-  )
+  const parts = [
+    individual.sex?.name,
+    individual.age != null ? `${individual.age}y` : null,
+  ].filter(Boolean)
   return parts.length ? `${name} (${parts.join(', ')})` : name
 }
 
@@ -56,27 +51,27 @@ const selectedIndividual = computed(
 )
 
 interface FormState {
-  sex: string | null
+  sexId: number | null
   age: number | null
-  dnaSheddingPropensity: string | null
+  dnaSheddingPropensityCategoryId: number | null
   skinDiseaseCategoryId: number | null
   determinationCategoryId: number | null
 }
 
 function emptyForm(individual: Individual | null): FormState {
   return {
-    sex: individual?.sex ?? null,
+    sexId: individual?.sex_id ?? null,
     age: individual?.age ?? null,
-    dnaSheddingPropensity: individual?.dna_shedding_propensity ?? null,
+    dnaSheddingPropensityCategoryId: individual?.dna_shedding_propensity_category_id ?? null,
     skinDiseaseCategoryId: individual?.skin_disease_category_id ?? null,
     determinationCategoryId: individual?.determination_of_shedding_propensity_category_id ?? null,
   }
 }
 
 const schema = yup.object({
-  sex: yup.string().nullable().defined(),
+  sexId: yup.number().nullable().defined(),
   age: yup.number().nullable().min(0, 'Age must be zero or greater.'),
-  dnaSheddingPropensity: yup.string().nullable().defined(),
+  dnaSheddingPropensityCategoryId: yup.number().nullable().defined(),
   skinDiseaseCategoryId: yup.number().nullable().defined(),
   determinationCategoryId: yup.number().nullable().defined(),
 })
@@ -86,9 +81,9 @@ const { defineField, errors, handleSubmit, resetForm: resetFormValues } = useFor
   initialValues: emptyForm(null),
 })
 
-const [formSex] = defineField('sex')
+const [formSexId] = defineField('sexId')
 const [formAge] = defineField('age')
-const [formDnaSheddingPropensity] = defineField('dnaSheddingPropensity')
+const [formDnaSheddingPropensityCategoryId] = defineField('dnaSheddingPropensityCategoryId')
 const [formSkinDiseaseCategoryId] = defineField('skinDiseaseCategoryId')
 const [formDeterminationCategoryId] = defineField('determinationCategoryId')
 
@@ -117,9 +112,9 @@ const saveIndividual = handleSubmit(async (values) => {
   saveError.value = ''
   try {
     const payload = {
-      sex: values.sex,
+      sex_id: values.sexId,
       age: values.age,
-      dna_shedding_propensity: values.dnaSheddingPropensity,
+      dna_shedding_propensity_category_id: values.dnaSheddingPropensityCategoryId,
       skin_disease_category_id: values.skinDiseaseCategoryId,
       determination_of_shedding_propensity_category_id: values.determinationCategoryId,
     }
@@ -175,15 +170,11 @@ const saveIndividual = handleSubmit(async (values) => {
     >
       <div class="flex flex-col gap-4">
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div class="flex flex-col gap-2">
-            <label class="font-medium text-sm">Sex (Optional)</label>
-            <SelectButton
-              v-model="formSex"
-              :options="sexOptions"
-              option-label="label"
-              option-value="value"
-            />
-          </div>
+          <CategorySelect
+            v-model="formSexId"
+            label="Sex (Optional)"
+            :api="sexApi"
+          />
           <div class="flex flex-col gap-2">
             <label class="font-medium text-sm">Age (Optional)</label>
             <InputNumber v-model="formAge" :invalid="!!errors.age" fluid />
@@ -192,10 +183,11 @@ const saveIndividual = handleSubmit(async (values) => {
             </Message>
           </div>
         </div>
-        <div class="flex flex-col gap-2">
-          <label class="font-medium text-sm">DNA shedding propensity (Optional)</label>
-          <InputText v-model="formDnaSheddingPropensity" fluid />
-        </div>
+        <CategorySelect
+          v-model="formDnaSheddingPropensityCategoryId"
+          label="DNA shedding propensity (Optional)"
+          :api="dnaSheddingPropensityCategoryApi"
+        />
         <SkinDiseaseCategorySelect v-model="formSkinDiseaseCategoryId" />
         <DeterminationOfSheddingPropensityCategorySelect v-model="formDeterminationCategoryId" />
         <p v-if="saveError" class="text-sm text-red-500">{{ saveError }}</p>

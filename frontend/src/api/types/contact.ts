@@ -30,9 +30,12 @@ export interface ConditionDuringContactInput {
   geographic_location_category_id?: number | null
 }
 
+// An actual, realized instance of a ContactTemplate. Fields here override
+// the template's corresponding value when set; a null override means the
+// template's value applies.
 export interface Contact {
   id: number
-  scenario_id?: number | null
+  contact_template_id?: number | null
   donor_surface_id?: number | null
   donor_surface?: Surface | null
   recipient_surface_id?: number | null
@@ -40,7 +43,11 @@ export interface Contact {
   // Seconds, matching the backend's timedelta field.
   duration?: number | null
   pressure?: number | null
+  pressure_estimate_id?: number | null
+  pressure_estimate?: NamedCategory | null
   friction_applied?: number | null
+  friction_applied_estimate_id?: number | null
+  friction_applied_estimate?: NamedCategory | null
   contact_area?: number | null
   description_of_contact?: string | null
   activity_category_id?: number | null
@@ -50,13 +57,14 @@ export interface Contact {
 }
 
 export interface ContactInput {
-  scenario_id?: number | null
+  contact_template_id: number
   donor_surface_id?: number | null
   recipient_surface_id?: number | null
-  // Seconds, matching the backend's timedelta field.
   duration?: number | null
   pressure?: number | null
+  pressure_estimate_id?: number | null
   friction_applied?: number | null
+  friction_applied_estimate_id?: number | null
   contact_area?: number | null
   description_of_contact?: string | null
   activity_category_id?: number | null

@@ -1,0 +1,44 @@
+[
+  {
+    "name": "handle"
+  },
+  {
+    "name": "head"
+  },
+  {
+    "name": "tip"
+  },
+  {
+    "name": "ferrule"
+  },
+  {
+    "name": "shank"
+  },
+  {
+    "name": "slide"
+  },
+  {
+    "name": "trigger"
+  },
+  {
+    "name": "grip"
+  },
+  {
+    "name": "magazine"
+  },
+  {
+    "name": "frame"
+  },
+  {
+    "name": "muzzle"
+  },
+  {
+    "name": "cylinder"
+  },
+  {
+    "name": "cartridge case"
+  },
+  {
+    "name": "whole item"
+  }
+]

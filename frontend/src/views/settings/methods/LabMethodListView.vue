@@ -88,6 +88,9 @@ async function deleteRow(row: MethodRow) {
 function columnValue(row: MethodRow, key: string) {
   const value = row[key]
   if (typeof value === 'boolean') return value ? 'Yes' : 'No'
+  if (value && typeof value === 'object' && 'name' in value) {
+    return (value as { name?: string | null }).name ?? '—'
+  }
   return (value as string | number | null | undefined) ?? '—'
 }
 </script>
@@ -133,7 +136,10 @@ function columnValue(row: MethodRow, key: string) {
           v-for="colKey in config.listColumns"
           :key="colKey"
           :field="colKey"
-          :header="config.fields.find((f) => f.key === colKey)?.label ?? colKey"
+          :header="
+            config.fields.find((f) => f.key === colKey || f.key === `${colKey}_id`)?.label ??
+            colKey
+          "
           sortable
           :showFilterOperator="false"
           :showAddButton="false"

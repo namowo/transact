@@ -6,9 +6,7 @@ from pydantic import BaseModel, ConfigDict
 class ScrapingMethodBase(BaseModel):
     scraping_device_id: Optional[int] = None
     description: Optional[str] = None
-    catalogue_number_of_supplier: Optional[str] = None
-    full_name_as_by_supplier: Optional[str] = None
-    supplier: Optional[str] = None
+    supplier_id: Optional[int] = None
 
 
 class ScrapingMethodCreate(ScrapingMethodBase):
@@ -24,6 +22,8 @@ class ScrapingMethodRead(ScrapingMethodBase):
 
     id: int
     scraping_device: Optional["ScrapingDeviceRead"] = None
+    supplier: Optional["SupplierRead"] = None
 
 
 from app.schemas.scraping_device import ScrapingDeviceRead
+from app.schemas.supplier import SupplierRead

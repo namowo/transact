@@ -15,10 +15,8 @@ import Tab from 'primevue/tab'
 import TabPanels from 'primevue/tabpanels'
 import TabPanel from 'primevue/tabpanel'
 import CategorySelect from '@/components/scenarios/CategorySelect.vue'
-import ContactCard from '@/components/scenarios/ContactCard.vue'
+import ContactTemplateCard from '@/components/scenarios/ContactTemplateCard.vue'
 import DurationInput from '@/components/scenarios/DurationInput.vue'
-import RecoveriesTab from '@/components/scenarios/RecoveriesTab.vue'
-import ResultsTab from '@/components/scenarios/ResultsTab.vue'
 import {
   scenarioCategoryApi,
   disturbanceCategoryApi,
@@ -31,12 +29,11 @@ import {
   savePersistenceDraft,
 } from '@/components/scenarios/persistenceDraft'
 import {
-  contactDraftFromContact,
-  emptyContactDraft,
-  saveContactDraft,
-} from '@/components/scenarios/contactDraft'
-import type { ContactDraft } from '@/components/scenarios/contactDraft'
-import type { Contact, Recovery } from '@/api/types'
+  contactTemplateDraftFromContactTemplate,
+  emptyContactTemplateDraft,
+  saveContactTemplateDraft,
+} from '@/components/scenarios/contactTemplateDraft'
+import type { ContactTemplateDraft } from '@/components/scenarios/contactTemplateDraft'
 
 const props = defineProps<{ studyId: string; id?: string }>()
 
@@ -50,17 +47,11 @@ const loadError = ref('')
 const submitting = ref(false)
 const submitError = ref('')
 
-// Persisted contacts (with resolved donor/recipient surfaces), used to scope
-// the Recoveries/Results tabs. Distinct from the `contacts` field array,
-// which holds in-progress drafts including unsaved edits.
-const savedContacts = ref<Contact[]>([])
-const scopedRecoveries = ref<Recovery[]>([])
-
 interface ScenarioFormValues {
   realistic: boolean
   scenarioCategoryId: number | null
   persistence: ReturnType<typeof emptyPersistenceDraft>
-  contacts: ContactDraft[]
+  contactTemplates: ContactTemplateDraft[]
 }
 
 const schema = yup.object({
@@ -88,7 +79,7 @@ const schema = yup.object({
     disturbanceCategoryId: yup.number().nullable().defined(),
     geographicLocationCategoryId: yup.number().nullable().defined(),
   }),
-  contacts: yup.array().of(
+  contactTemplates: yup.array().of(
     yup.object({
       duration: yup.number().nullable().min(0, 'Duration must be zero or greater.'),
       pressure: yup.number().nullable().min(0, 'Pressure must be zero or greater.'),
@@ -111,7 +102,7 @@ const { defineField, errors, handleSubmit, setValues } = useForm<ScenarioFormVal
     realistic: true,
     scenarioCategoryId: null,
     persistence: emptyPersistenceDraft(),
-    contacts: [emptyContactDraft()],
+    contactTemplates: [emptyContactTemplateDraft()],
   },
 })
 
@@ -129,12 +120,16 @@ const [disturbanceCategoryId] = defineField('persistence.disturbanceCategoryId')
 const [geographicLocationCategoryId] = defineField('persistence.geographicLocationCategoryId')
 
 const {
-  fields: contactFields,
-  push: pushContact,
-  remove: removeContactField,
-} = useFieldArray<ContactDraft>('contacts')
+  fields: contactTemplateFields,
+  push: pushContactTemplate,
+  remove: removeContactTemplateField,
+} = useFieldArray<ContactTemplateDraft>('contactTemplates')
 
-const collapsedContacts = ref<boolean[]>([false])
+const collapsedContactTemplates = ref<boolean[]>([false])
+
+// The scenario's own persistence link(s); loaded so an edit doesn't drop
+// other persistencies already linked to this scenario.
+let existingPersistenceIds: number[] = []
 
 onMounted(async () => {
   if (editingId.value === null) return
@@ -142,19 +137,21 @@ onMounted(async () => {
   loading.value = true
   try {
     const scenario = await getScenario(editingId.value)
-    const contacts = scenario.contacts.length
-      ? scenario.contacts.map(contactDraftFromContact)
-      : [emptyContactDraft()]
+    const contactTemplates = scenario.contact_templates.length
+      ? scenario.contact_templates.map(contactTemplateDraftFromContactTemplate)
+      : [emptyContactTemplateDraft()]
+    existingPersistenceIds = scenario.persistencies.map((p) => p.id)
     setValues({
       realistic: !!scenario.realistic,
       scenarioCategoryId: scenario.scenario_category_id ?? null,
-      persistence: persistenceDraftFromPersistence(scenario.persistence),
-      contacts,
+      persistence: persistenceDraftFromPersistence(scenario.persistencies[0] ?? null),
+      contactTemplates,
     })
-    // Existing contacts start collapsed so the form doesn't open on a wall
-    // of fields; a single freshly-added contact starts expanded.
-    collapsedContacts.value = contacts.map(() => scenario.contacts.length > 0)
-    savedContacts.value = scenario.contacts
+    // Existing contact templates start collapsed so the form doesn't open on
+    // a wall of fields; a single freshly-added template starts expanded.
+    collapsedContactTemplates.value = contactTemplates.map(
+      () => scenario.contact_templates.length > 0,
+    )
   } catch {
     loadError.value = 'Could not load this scenario.'
   } finally {
@@ -162,15 +159,15 @@ onMounted(async () => {
   }
 })
 
-function addContact() {
-  collapsedContacts.value = collapsedContacts.value.map(() => true)
-  pushContact(emptyContactDraft())
-  collapsedContacts.value.push(false)
+function addContactTemplate() {
+  collapsedContactTemplates.value = collapsedContactTemplates.value.map(() => true)
+  pushContactTemplate(emptyContactTemplateDraft())
+  collapsedContactTemplates.value.push(false)
 }
 
-function removeContact(index: number) {
-  removeContactField(index)
-  collapsedContacts.value.splice(index, 1)
+function removeContactTemplate(index: number) {
+  removeContactTemplateField(index)
+  collapsedContactTemplates.value.splice(index, 1)
 }
 
 const onSubmit = handleSubmit(async (values) => {
@@ -178,21 +175,26 @@ const onSubmit = handleSubmit(async (values) => {
   submitError.value = ''
   try {
     const persistenceId = await savePersistenceDraft(values.persistence)
+    const persistenceIds = persistenceId
+      ? Array.from(new Set([...existingPersistenceIds, persistenceId]))
+      : existingPersistenceIds
 
     const payload = {
       realistic: values.realistic,
       scenario_category_id: values.scenarioCategoryId,
-      study_id: studyId.value,
-      persistence_id: persistenceId,
+      study_ids: [studyId.value],
+      persistence_ids: persistenceIds,
     }
 
     const scenario = editingId.value
       ? await updateScenario(editingId.value, payload)
       : await createScenario(payload)
 
-    for (const contact of values.contacts) {
-      await saveContactDraft(contact, scenario.id)
+    const contactTemplateIds: number[] = []
+    for (const contactTemplate of values.contactTemplates) {
+      contactTemplateIds.push(await saveContactTemplateDraft(contactTemplate, scenario.id))
     }
+    await updateScenario(scenario.id, { contact_template_ids: contactTemplateIds })
 
     router.push({ name: 'scenarios', params: { studyId: studyId.value } })
   } catch {
@@ -224,9 +226,9 @@ function onCancel() {
         <TabList>
           <Tab value="details">Details</Tab>
           <Tab value="persistence">Persistence</Tab>
-          <Tab value="contacts">Contacts ({{ contactFields.length }})</Tab>
-          <Tab value="recoveries" :disabled="editingId === null">Recoveries</Tab>
-          <Tab value="results" :disabled="editingId === null">Results</Tab>
+          <Tab value="contactTemplates">
+            Contact templates ({{ contactTemplateFields.length }})
+          </Tab>
         </TabList>
         <TabPanels>
           <TabPanel value="details">
@@ -353,40 +355,28 @@ function onCancel() {
             </div>
           </TabPanel>
 
-          <TabPanel value="contacts">
+          <TabPanel value="contactTemplates">
             <div class="flex flex-col gap-4">
-              <ContactCard
-                v-for="(contactField, index) in contactFields"
-                :key="contactField.key"
-                v-model="contactField.value"
+              <ContactTemplateCard
+                v-for="(contactTemplateField, index) in contactTemplateFields"
+                :key="contactTemplateField.key"
+                v-model="contactTemplateField.value"
                 :errors="errors"
                 :index="index"
-                :collapsed="collapsedContacts[index]"
-                :removable="contactFields.length > 1"
-                @update:collapsed="collapsedContacts[index] = $event"
-                @remove="removeContact(index)"
+                :collapsed="collapsedContactTemplates[index]"
+                :removable="contactTemplateFields.length > 1"
+                @update:collapsed="collapsedContactTemplates[index] = $event"
+                @remove="removeContactTemplate(index)"
               />
 
               <Button
-                label="Add contact"
+                label="Add contact template"
                 icon="pi pi-plus"
                 outlined
                 class="self-start"
-                @click="addContact"
+                @click="addContactTemplate"
               />
             </div>
-          </TabPanel>
-
-          <TabPanel value="recoveries">
-            <RecoveriesTab
-              v-if="editingId !== null"
-              :contacts="savedContacts"
-              @update:recoveries="scopedRecoveries = $event"
-            />
-          </TabPanel>
-
-          <TabPanel value="results">
-            <ResultsTab v-if="editingId !== null" :recoveries="scopedRecoveries" />
           </TabPanel>
         </TabPanels>
       </Tabs>

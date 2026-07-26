@@ -4,6 +4,8 @@ from pydantic import BaseModel, ConfigDict
 
 
 class RecoveryBase(BaseModel):
+    study_id: Optional[int] = None
+    recovery_set_id: Optional[int] = None
     surface_id: Optional[int] = None
     sampling_method_id: Optional[int] = None
     extraction_method_id: Optional[int] = None
@@ -24,12 +26,14 @@ class RecoveryRead(RecoveryBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    recovery_set: Optional["RecoverySetRead"] = None
     surface: Optional["SurfaceRead"] = None
     sampling_method: Optional["SamplingMethodRead"] = None
     extraction_method: Optional["ExtractionMethodRead"] = None
     experience_level_of_sampler: Optional["ExperienceLevelRead"] = None
 
 
+from app.schemas.recovery_set import RecoverySetRead
 from app.schemas.surface import SurfaceRead
 from app.schemas.sampling_method import SamplingMethodRead
 from app.schemas.extraction_method import ExtractionMethodRead

@@ -1,0 +1,38 @@
+[
+  {
+    "name": "automated bead-based extraction method",
+    "description": "Uses magnetic beads to bind DNA, with automated systems handling washing and elution steps."
+  },
+  {
+    "name": "manual bead-based extraction method",
+    "description": "Uses magnetic beads manually to bind DNA, followed by washing and elution steps performed manually."
+  },
+  {
+    "name": "organic extraction",
+    "description": "Uses phenol-chloroform to separate DNA from proteins and other cellular debris."
+  },
+  {
+    "name": "chelex",
+    "description": "Uses Chelex resin to chelate metal ions and protect DNA during boiling, releasing DNA from cells."
+  },
+  {
+    "name": "ethanol precipitation",
+    "description": "Uses ethanol to precipitate DNA out of solution, allowing for its collection by centrifugation."
+  },
+  {
+    "name": "none (direct PCR)",
+    "description": "Amplifies DNA directly from biological samples without prior extraction or purification."
+  },
+  {
+    "name": "manual silica-column-based extraction method",
+    "description": "Uses silica columns to bind DNA, with manual washing and elution steps."
+  },
+  {
+    "name": "automated silica-column-based extraction method",
+    "description": "Uses silica columns in an automated system to bind DNA, with automated washing and elution steps."
+  },
+  {
+    "name": "rapid procession solution",
+    "description": "Uses specialized buffers to quickly lyse cells and release DNA for rapid analysis."
+  }
+]

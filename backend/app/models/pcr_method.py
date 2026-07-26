@@ -18,8 +18,18 @@ class PCRMethod(Base):
     laboratory: Mapped[Optional["Laboratory"]] = relationship(
         lazy="selectin", foreign_keys=[laboratory_id]
     )
-    pcr_kit: Mapped[Optional[str]]
-    thermocycler: Mapped[Optional[str]]
+    pcr_kit_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("pcr_kit.id", ondelete="SET NULL")
+    )
+    pcr_kit: Mapped[Optional["PCRKit"]] = relationship(
+        lazy="selectin", foreign_keys=[pcr_kit_id]
+    )
+    thermocycler_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("thermocycler.id", ondelete="SET NULL")
+    )
+    thermocycler: Mapped[Optional["Thermocycler"]] = relationship(
+        lazy="selectin", foreign_keys=[thermocycler_id]
+    )
     initial_denaturation_temp: Mapped[Optional[float]]
     initial_denaturation_time: Mapped[Optional[timedelta]]
     no_of_cycles: Mapped[Optional[int]]
@@ -36,3 +46,5 @@ class PCRMethod(Base):
 
 
 from app.models.laboratory import Laboratory
+from app.models.pcr_kit import PCRKit
+from app.models.thermocycler import Thermocycler

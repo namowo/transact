@@ -18,10 +18,16 @@ class EPGAnalysisMethod(Base):
     laboratory: Mapped[Optional["Laboratory"]] = relationship(
         lazy="selectin", foreign_keys=[laboratory_id]
     )
-    genotyping_software: Mapped[Optional[str]]
+    genotyping_software_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("genotyping_software.id", ondelete="SET NULL")
+    )
+    genotyping_software: Mapped[Optional["GenotypingSoftware"]] = relationship(
+        lazy="selectin", foreign_keys=[genotyping_software_id]
+    )
     analytical_threshold: Mapped[Optional[int]]
     application_analytical_threshold: Mapped[Optional[str]]
     stutter_filter: Mapped[Optional[str]]
 
 
 from app.models.laboratory import Laboratory
+from app.models.genotyping_software import GenotypingSoftware

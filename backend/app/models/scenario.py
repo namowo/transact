@@ -1,9 +1,29 @@
-from typing import Optional
-
-from sqlalchemy import ForeignKey
+from sqlalchemy import ForeignKey, Table, Column
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
+
+study_scenario = Table(
+    "study_scenario",
+    Base.metadata,
+    Column("study_id", ForeignKey("study.id", ondelete="CASCADE"), primary_key=True),
+    Column(
+        "scenario_id", ForeignKey("scenario.id", ondelete="CASCADE"), primary_key=True
+    ),
+)
+
+scenario_persistence = Table(
+    "scenario_persistence",
+    Base.metadata,
+    Column(
+        "scenario_id", ForeignKey("scenario.id", ondelete="CASCADE"), primary_key=True
+    ),
+    Column(
+        "persistence_id",
+        ForeignKey("persistence.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+)
 
 
 class Scenario(Base):
@@ -19,25 +39,24 @@ class Scenario(Base):
     scenario_category: Mapped["ScenarioCategory"] = relationship(
         lazy="selectin", foreign_keys=[scenario_category_id]
     )
-    study_id: Mapped[int] = mapped_column(ForeignKey("study.id", ondelete="SET NULL"))
-    study: Mapped["Study"] = relationship(
-        lazy="selectin", back_populates="scenarios", foreign_keys=[study_id]
-    )
-    contacts: Mapped[list["Contact"]] = relationship(
+    studies: Mapped[list["Study"]] = relationship(
         lazy="selectin",
-        back_populates="scenario",
-        cascade="all, delete-orphan",
-        foreign_keys="Contact.scenario_id",
+        secondary=study_scenario,
+        back_populates="scenarios",
     )
-    persistence_id: Mapped[Optional[int]] = mapped_column(
-        ForeignKey("persistence.id", ondelete="SET NULL")
+    contact_templates: Mapped[list["ContactTemplate"]] = relationship(
+        lazy="selectin",
+        secondary="scenario_contact_template",
+        back_populates="scenarios",
     )
-    persistence: Mapped[Optional["Persistence"]] = relationship(
-        lazy="selectin", foreign_keys=[persistence_id]
+    persistencies: Mapped[list["Persistence"]] = relationship(
+        lazy="selectin",
+        secondary=scenario_persistence,
+        back_populates="scenarios",
     )
 
 
 from app.models.scenario_category import ScenarioCategory
 from app.models.study import Study
-from app.models.contact import Contact
+from app.models.contact_template import ContactTemplate
 from app.models.persistence import Persistence

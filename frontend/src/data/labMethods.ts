@@ -23,6 +23,20 @@ import {
   typeOfSwabCategoryApi,
   typeOfTapeApi,
   vacuumDeviceApi,
+  pcrKitApi,
+  thermocyclerApi,
+  ceDeviceApi,
+  polymerApi,
+  dyeSetApi,
+  typeOfFormamideApi,
+  sizeStandardApi,
+  genotypingSoftwareApi,
+  statisticalSoftwareApi,
+  quantificationKitApi,
+  manufacturerApi,
+  platformApi,
+  wettingAgentApi,
+  supplierApi,
 } from '@/api/categories'
 import type { NamedCategory, NamedCategoryInput } from '@/api/types'
 
@@ -71,7 +85,12 @@ export const labMethods: MethodConfig[] = [
         categoryApi: principleOfExtractionMethodCategoryApi,
       },
       { key: 'extraction_protocol', label: 'Extraction protocol', type: 'text' },
-      { key: 'extraction_platform', label: 'Extraction platform', type: 'text' },
+      {
+        key: 'extraction_platform_id',
+        label: 'Extraction platform',
+        type: 'category',
+        categoryApi: platformApi,
+      },
       {
         key: 'additional_lysis_buffer_components',
         label: 'Additional lysis buffer components',
@@ -112,8 +131,18 @@ export const labMethods: MethodConfig[] = [
     laboratoryScoped: true,
     listColumns: ['pcr_kit', 'thermocycler'],
     fields: [
-      { key: 'pcr_kit', label: 'PCR kit', type: 'text' },
-      { key: 'thermocycler', label: 'Thermocycler', type: 'text' },
+      {
+        key: 'pcr_kit_id',
+        label: 'PCR kit',
+        type: 'category',
+        categoryApi: pcrKitApi,
+      },
+      {
+        key: 'thermocycler_id',
+        label: 'Thermocycler',
+        type: 'category',
+        categoryApi: thermocyclerApi,
+      },
       { key: 'initial_denaturation_temp', label: 'Initial denaturation temp.', type: 'number' },
       { key: 'initial_denaturation_time', label: 'Initial denaturation time', type: 'text' },
       { key: 'no_of_cycles', label: 'No. of cycles', type: 'number' },
@@ -136,11 +165,26 @@ export const labMethods: MethodConfig[] = [
     laboratoryScoped: true,
     listColumns: ['ce_device', 'application_type'],
     fields: [
-      { key: 'ce_device', label: 'CE device', type: 'text' },
+      {
+        key: 'ce_device_id',
+        label: 'CE device',
+        type: 'category',
+        categoryApi: ceDeviceApi,
+      },
       { key: 'application_type', label: 'Application type', type: 'text' },
       { key: 'capillary_length', label: 'Capillary length', type: 'number' },
-      { key: 'polymer', label: 'Polymer', type: 'text' },
-      { key: 'dye_set', label: 'Dye set', type: 'text' },
+      {
+        key: 'polymer_id',
+        label: 'Polymer',
+        type: 'category',
+        categoryApi: polymerApi,
+      },
+      {
+        key: 'dye_set_id',
+        label: 'Dye set',
+        type: 'category',
+        categoryApi: dyeSetApi,
+      },
       { key: 'oven_temperature', label: 'Oven temperature', type: 'number' },
       { key: 'run_voltage', label: 'Run voltage', type: 'number' },
       { key: 'pre_run_voltage', label: 'Pre-run voltage', type: 'number' },
@@ -148,9 +192,19 @@ export const labMethods: MethodConfig[] = [
       { key: 'run_time', label: 'Run time', type: 'text' },
       { key: 'pre_run_time', label: 'Pre-run time', type: 'text' },
       { key: 'injection_time', label: 'Injection time', type: 'text' },
-      { key: 'type_of_formamide', label: 'Type of formamide', type: 'text' },
+      {
+        key: 'type_of_formamide_id',
+        label: 'Type of formamide',
+        type: 'category',
+        categoryApi: typeOfFormamideApi,
+      },
       { key: 'volume_formamide', label: 'Volume of formamide', type: 'number' },
-      { key: 'size_standard', label: 'Size standard', type: 'text' },
+      {
+        key: 'size_standard_id',
+        label: 'Size standard',
+        type: 'category',
+        categoryApi: sizeStandardApi,
+      },
       { key: 'volume_size_standard', label: 'Volume of size standard', type: 'number' },
       { key: 'input_volume_pcr_product', label: 'Input volume PCR product', type: 'number' },
       { key: 'final_volume', label: 'Final volume', type: 'number' },
@@ -169,9 +223,24 @@ export const labMethods: MethodConfig[] = [
         type: 'category',
         categoryApi: principleOfQuantMethodCategoryApi,
       },
-      { key: 'kit', label: 'Kit', type: 'text' },
-      { key: 'manufacturer', label: 'Manufacturer', type: 'text' },
-      { key: 'platform', label: 'Platform', type: 'text' },
+      {
+        key: 'kit_id',
+        label: 'Kit',
+        type: 'category',
+        categoryApi: quantificationKitApi,
+      },
+      {
+        key: 'manufacturer_id',
+        label: 'Manufacturer',
+        type: 'category',
+        categoryApi: manufacturerApi,
+      },
+      {
+        key: 'platform_id',
+        label: 'Platform',
+        type: 'category',
+        categoryApi: platformApi,
+      },
       { key: 'description_of_protocol', label: 'Description of protocol', type: 'textarea' },
       {
         key: 'abbreviations_to_manufacturers_protocol',
@@ -187,7 +256,12 @@ export const labMethods: MethodConfig[] = [
     laboratoryScoped: true,
     listColumns: ['genotyping_software', 'stutter_filter'],
     fields: [
-      { key: 'genotyping_software', label: 'Genotyping software', type: 'text' },
+      {
+        key: 'genotyping_software_id',
+        label: 'Genotyping software',
+        type: 'category',
+        categoryApi: genotypingSoftwareApi,
+      },
       { key: 'analytical_threshold', label: 'Analytical threshold', type: 'number' },
       {
         key: 'application_analytical_threshold',
@@ -205,7 +279,12 @@ export const labMethods: MethodConfig[] = [
     listColumns: ['determination_of_noc', 'statistical_software'],
     fields: [
       { key: 'determination_of_noc', label: 'Determination of NOC', type: 'text' },
-      { key: 'statistical_software', label: 'Statistical software', type: 'text' },
+      {
+        key: 'statistical_software_id',
+        label: 'Statistical software',
+        type: 'category',
+        categoryApi: statisticalSoftwareApi,
+      },
       {
         key: 'parameters_modelled_by_software',
         label: 'Parameters modelled by software',
@@ -254,7 +333,12 @@ export const labMethods: MethodConfig[] = [
         type: 'category',
         categoryApi: swabbingTechniqueCategoryApi,
       },
-      { key: 'wetting_agent', label: 'Wetting agent', type: 'text' },
+      {
+        key: 'wetting_agent_id',
+        label: 'Wetting agent',
+        type: 'category',
+        categoryApi: wettingAgentApi,
+      },
       { key: 'volume_of_wetting_agent', label: 'Volume of wetting agent', type: 'number' },
       { key: 'specification', label: 'Specification', type: 'text' },
       { key: 'description', label: 'Description', type: 'textarea' },
@@ -265,7 +349,7 @@ export const labMethods: MethodConfig[] = [
     label: 'Tape',
     api: tapeMethodApi,
     laboratoryScoped: false,
-    listColumns: ['full_name_as_by_supplier', 'supplier'],
+    listColumns: ['supplier'],
     fields: [
       {
         key: 'type_of_tape_id',
@@ -275,12 +359,11 @@ export const labMethods: MethodConfig[] = [
       },
       { key: 'description', label: 'Description', type: 'textarea' },
       {
-        key: 'catalogue_number_of_supplier',
-        label: 'Catalogue number of supplier',
-        type: 'text',
+        key: 'supplier_id',
+        label: 'Supplier',
+        type: 'category',
+        categoryApi: supplierApi,
       },
-      { key: 'full_name_as_by_supplier', label: "Full name (supplier's)", type: 'text' },
-      { key: 'supplier', label: 'Supplier', type: 'text' },
     ],
   },
   {
@@ -288,7 +371,7 @@ export const labMethods: MethodConfig[] = [
     label: 'Vacuum',
     api: vacuumMethodApi,
     laboratoryScoped: false,
-    listColumns: ['full_name_as_by_supplier', 'supplier'],
+    listColumns: ['supplier'],
     fields: [
       {
         key: 'vacuum_device_id',
@@ -298,12 +381,11 @@ export const labMethods: MethodConfig[] = [
       },
       { key: 'description', label: 'Description', type: 'textarea' },
       {
-        key: 'catalogue_number_of_supplier',
-        label: 'Catalogue number of supplier',
-        type: 'text',
+        key: 'supplier_id',
+        label: 'Supplier',
+        type: 'category',
+        categoryApi: supplierApi,
       },
-      { key: 'full_name_as_by_supplier', label: "Full name (supplier's)", type: 'text' },
-      { key: 'supplier', label: 'Supplier', type: 'text' },
     ],
   },
   {
@@ -311,7 +393,7 @@ export const labMethods: MethodConfig[] = [
     label: 'Cutting',
     api: cuttingMethodApi,
     laboratoryScoped: false,
-    listColumns: ['full_name_as_by_supplier', 'supplier'],
+    listColumns: ['supplier'],
     fields: [
       {
         key: 'cutting_device_id',
@@ -321,12 +403,11 @@ export const labMethods: MethodConfig[] = [
       },
       { key: 'description', label: 'Description', type: 'textarea' },
       {
-        key: 'catalogue_number_of_supplier',
-        label: 'Catalogue number of supplier',
-        type: 'text',
+        key: 'supplier_id',
+        label: 'Supplier',
+        type: 'category',
+        categoryApi: supplierApi,
       },
-      { key: 'full_name_as_by_supplier', label: "Full name (supplier's)", type: 'text' },
-      { key: 'supplier', label: 'Supplier', type: 'text' },
     ],
   },
   {
@@ -334,7 +415,7 @@ export const labMethods: MethodConfig[] = [
     label: 'Scraping',
     api: scrapingMethodApi,
     laboratoryScoped: false,
-    listColumns: ['full_name_as_by_supplier', 'supplier'],
+    listColumns: ['supplier'],
     fields: [
       {
         key: 'scraping_device_id',
@@ -344,12 +425,11 @@ export const labMethods: MethodConfig[] = [
       },
       { key: 'description', label: 'Description', type: 'textarea' },
       {
-        key: 'catalogue_number_of_supplier',
-        label: 'Catalogue number of supplier',
-        type: 'text',
+        key: 'supplier_id',
+        label: 'Supplier',
+        type: 'category',
+        categoryApi: supplierApi,
       },
-      { key: 'full_name_as_by_supplier', label: "Full name (supplier's)", type: 'text' },
-      { key: 'supplier', label: 'Supplier', type: 'text' },
     ],
   },
   {
@@ -357,7 +437,7 @@ export const labMethods: MethodConfig[] = [
     label: 'Picking',
     api: pickingMethodApi,
     laboratoryScoped: false,
-    listColumns: ['full_name_as_by_supplier', 'supplier'],
+    listColumns: ['supplier'],
     fields: [
       {
         key: 'picking_device_id',
@@ -367,12 +447,11 @@ export const labMethods: MethodConfig[] = [
       },
       { key: 'description', label: 'Description', type: 'textarea' },
       {
-        key: 'catalogue_number_of_supplier',
-        label: 'Catalogue number of supplier',
-        type: 'text',
+        key: 'supplier_id',
+        label: 'Supplier',
+        type: 'category',
+        categoryApi: supplierApi,
       },
-      { key: 'full_name_as_by_supplier', label: "Full name (supplier's)", type: 'text' },
-      { key: 'supplier', label: 'Supplier', type: 'text' },
     ],
   },
 ]

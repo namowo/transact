@@ -44,9 +44,14 @@ class Study(Base):
     corresponding_author_phone: Mapped[Optional[str]]
     scenarios: Mapped[list["Scenario"]] = relationship(
         lazy="selectin",
+        secondary="study_scenario",
+        back_populates="studies",
+    )
+    recoveries: Mapped[list["Recovery"]] = relationship(
+        lazy="selectin",
         back_populates="study",
         cascade="all, delete-orphan",
-        foreign_keys="Scenario.study_id",
+        foreign_keys="Recovery.study_id",
     )
 
 

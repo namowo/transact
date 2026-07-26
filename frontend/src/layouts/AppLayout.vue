@@ -67,11 +67,17 @@ const navGroups = computed<{ label: string; items: (NavLink | NavGroupLink)[] }[
               children: [
                 { label: 'By Laboratory', to: { name: 'studies-laboratory' } },
                 { label: 'All', to: { name: 'studies-all' } },
-                ...(auth.canQualityCheck
-                  ? [{ label: 'Quality Check', to: { name: 'studies-quality-check' } }]
-                  : []),
               ],
             },
+            ...(auth.canQualityCheck
+              ? [
+                  {
+                    label: 'Quality Check',
+                    icon: 'pi pi-check-square',
+                    to: { name: 'studies-quality-check' },
+                  },
+                ]
+              : []),
           ],
         },
         {

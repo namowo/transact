@@ -27,10 +27,24 @@ export interface SkinDiseaseCategoryInput {
 export interface TypeOfSwabCategory {
   id: number
   name?: string | null
+  description?: string | null
+  supplier_id?: number | null
+  supplier?: Supplier | null
+}
+
+// Shared by cutting/picking/scraping/tape/vacuum methods and type-of-swab, so
+// supplier names/catalogue entries aren't duplicated per method.
+export interface Supplier {
+  id: number
+  name?: string | null
   catalogue_number_of_supplier?: string | null
   full_name_as_by_supplier?: string | null
-  description?: string | null
-  supplier?: string | null
+}
+
+export interface SupplierInput {
+  name?: string | null
+  catalogue_number_of_supplier?: string | null
+  full_name_as_by_supplier?: string | null
 }
 
 // A literature reference describing how shedding propensity was determined

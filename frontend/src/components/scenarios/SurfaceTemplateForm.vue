@@ -3,7 +3,6 @@ import SelectButton from 'primevue/selectbutton'
 import Textarea from 'primevue/textarea'
 import ToggleSwitch from 'primevue/toggleswitch'
 import CategorySelect from './CategorySelect.vue'
-import IndividualSelect from './IndividualSelect.vue'
 import ItemSelect from './ItemSelect.vue'
 import {
   bodyPartConditionCategoryApi,
@@ -13,11 +12,11 @@ import {
   sourceOfDnaCategoryApi,
   surfaceMaterialCategoryApi,
 } from '@/api/categories'
-import type { SurfaceDraft } from './surfaceDraft'
+import type { SurfaceTemplateDraft } from './surfaceTemplateDraft'
 
 const props = defineProps<{ label: string }>()
 
-const draft = defineModel<SurfaceDraft>({ required: true })
+const draft = defineModel<SurfaceTemplateDraft>({ required: true })
 
 const kindOptions = [
   { label: 'Individual', value: 'individual' as const },
@@ -44,7 +43,9 @@ const kindOptions = [
 
     <template v-else>
       <template v-if="draft.kind === 'individual'">
-        <IndividualSelect v-model="draft.individualId" />
+        <p class="text-sm text-surface-500 dark:text-surface-400">
+          The individual itself is chosen later, during data entry.
+        </p>
 
         <CategorySelect
           v-model="draft.locationOfBodyCategoryId"

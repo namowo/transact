@@ -602,7 +602,7 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         obj_in_data = obj_in.model_copy(
             deep=True, update={field: None for field in association_fields.keys()}
         )
-        new_instance = await self.create(db, obj_in_data)
+        new_instance = await CRUDBase.create(self, db, obj_in_data)
 
         # Handle each association field
         for field_name, (model, relationship_attr) in association_fields.items():
@@ -673,7 +673,8 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         )
 
         # Update the main instance with user-specific context fields
-        instance = await self.update(
+        instance = await CRUDBase.update(
+            self,
             db,
             id,
             obj_in_copy,

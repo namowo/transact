@@ -1,4 +1,5 @@
 import type { NamedCategory } from './categories'
+import type { RecoverySet } from './recoverySet'
 import type { Surface } from './surface'
 import type {
   CEMethod,
@@ -13,6 +14,9 @@ import type {
 
 export interface Recovery {
   id: number
+  study_id?: number | null
+  recovery_set_id?: number | null
+  recovery_set?: RecoverySet | null
   surface_id?: number | null
   surface?: Surface | null
   sampling_method_id?: number | null
@@ -26,6 +30,8 @@ export interface Recovery {
 }
 
 export interface RecoveryInput {
+  study_id: number | null
+  recovery_set_id: number | null
   surface_id: number | null
   sampling_method_id: number | null
   extraction_method_id: number | null

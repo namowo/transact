@@ -10,14 +10,15 @@ import Select from 'primevue/select'
 import Button from 'primevue/button'
 import Message from 'primevue/message'
 import ProgressSpinner from 'primevue/progressspinner'
-import Tabs from 'primevue/tabs'
-import TabList from 'primevue/tablist'
-import Tab from 'primevue/tab'
-import TabPanels from 'primevue/tabpanels'
-import TabPanel from 'primevue/tabpanel'
+import Stepper from 'primevue/stepper'
+import StepList from 'primevue/steplist'
+import StepPanels from 'primevue/steppanels'
+import Step from 'primevue/step'
+import StepPanel from 'primevue/steppanel'
 import { createStudy, getStudy, updateStudy } from '@/api/studies'
 import { useAuthStore } from '@/stores/auth'
 import ScenariosList from '@/components/scenarios/ScenariosList.vue'
+import DataEntryView from '@/views/data/DataEntryView.vue'
 import type { StudyCreate, StudyUpdate } from '@/api/types'
 
 const props = defineProps<{ id?: string }>()
@@ -29,6 +30,25 @@ const auth = useAuthStore()
 const editingId = computed(() => (props.id ? Number(props.id) : null))
 const loadingStudy = ref(false)
 const loadError = ref('')
+
+// Which step to open, e.g. from the study list card's "Plan" / "Add data"
+// buttons deep-linking via ?step=planning or ?step=data-entry. Kept in sync
+// both ways: the URL seeds the initial step (so reloading or sharing a link
+// re-opens the same step), and switching steps in the UI updates the URL.
+const validSteps = ['details', 'planning', 'data-entry'] as const
+type StepName = (typeof validSteps)[number]
+
+function stepFromQuery(): StepName {
+  const step = route.query.step
+  return (validSteps as readonly string[]).includes(step as string) ? (step as StepName) : 'details'
+}
+
+const activeStep = computed<StepName>({
+  get: () => stepFromQuery(),
+  set: (value) => {
+    router.replace({ query: { ...route.query, step: value } })
+  },
+})
 
 const authorTitleOptions = ['Dr.', 'Prof.', 'Prof. Dr.', 'PhD', 'MSc', 'BSc']
 
@@ -295,13 +315,14 @@ function onCancel() {
 
     <Message v-else-if="loadError" severity="error" size="small">{{ loadError }}</Message>
 
-    <Tabs v-else value="details">
-      <TabList>
-        <Tab value="details">Details</Tab>
-        <Tab v-if="editingId !== null" value="scenarios">Scenarios</Tab>
-      </TabList>
-      <TabPanels>
-        <TabPanel value="details">
+    <Stepper v-else v-model:value="activeStep" :linear="false">
+      <StepList>
+        <Step value="1">Study details</Step>
+        <Step value="2" :disabled="editingId === null">Planning</Step>
+        <Step value="3" :disabled="editingId === null">Add data</Step>
+      </StepList>
+      <StepPanels>
+        <StepPanel value="1">
           <form class="flex flex-col gap-4 max-w-2xl" @submit.prevent="onSubmit">
             <div class="flex flex-col gap-2">
               <label for="study-title" class="font-medium text-sm">Title</label>
@@ -502,11 +523,14 @@ function onCancel() {
               <Button label="Cancel" text type="button" @click="onCancel" />
             </div>
           </form>
-        </TabPanel>
-        <TabPanel v-if="editingId !== null" value="scenarios">
-          <ScenariosList :study-id="editingId" />
-        </TabPanel>
-      </TabPanels>
-    </Tabs>
+        </StepPanel>
+        <StepPanel value="2">
+          <ScenariosList v-if="editingId !== null" :study-id="editingId" />
+        </StepPanel>
+        <StepPanel value="3">
+          <DataEntryView v-if="editingId !== null" :study-id="String(editingId)" />
+        </StepPanel>
+      </StepPanels>
+    </Stepper>
   </div>
 </template>

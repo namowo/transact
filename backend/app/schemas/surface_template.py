@@ -1,0 +1,47 @@
+from typing import Optional
+
+from pydantic import BaseModel, ConfigDict
+
+
+class SurfaceTemplateBase(BaseModel):
+    location_of_body_category_id: Optional[int] = None
+    body_part_condition_category_id: Optional[int] = None
+    item_id: Optional[int] = None
+    item_parts_category_id: Optional[int] = None
+    condition_of_item_part_category_id: Optional[int] = None
+    surface_material_category_id: Optional[int] = None
+    source_of_dna_category_id: Optional[int] = None
+    photo_path: Optional[str] = None
+    background_dna: Optional[bool] = None
+    prevalence: Optional[bool] = None
+    further_description_of_background_and_prevalence: Optional[str] = None
+
+
+class SurfaceTemplateCreate(SurfaceTemplateBase):
+    pass
+
+
+class SurfaceTemplateUpdate(SurfaceTemplateBase):
+    pass
+
+
+class SurfaceTemplateRead(SurfaceTemplateBase):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    location_of_body_category: Optional["LocationOfBodyCategoryRead"] = None
+    body_part_condition_category: Optional["BodyPartConditionCategoryRead"] = None
+    item: Optional["ItemRead"] = None
+    item_parts_category: Optional["ItemPartsCategoryRead"] = None
+    condition_of_item_part_category: Optional["ConditionOfItemPartCategoryRead"] = None
+    surface_material_category: Optional["SurfaceMaterialCategoryRead"] = None
+    source_of_dna_category: Optional["SourceOfDNACategoryRead"] = None
+
+
+from app.schemas.location_of_body_category import LocationOfBodyCategoryRead
+from app.schemas.body_part_condition_category import BodyPartConditionCategoryRead
+from app.schemas.item import ItemRead
+from app.schemas.item_parts_category import ItemPartsCategoryRead
+from app.schemas.condition_of_item_part_category import ConditionOfItemPartCategoryRead
+from app.schemas.surface_material_category import SurfaceMaterialCategoryRead
+from app.schemas.source_of_dna_category import SourceOfDNACategoryRead

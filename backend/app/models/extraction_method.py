@@ -27,7 +27,12 @@ class ExtractionMethod(Base):
         lazy="selectin", foreign_keys=[principle_of_extraction_method_category_id]
     )
     extraction_protocol: Mapped[Optional[str]]
-    extraction_platform: Mapped[Optional[str]]
+    extraction_platform_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("platform.id", ondelete="SET NULL")
+    )
+    extraction_platform: Mapped[Optional["Platform"]] = relationship(
+        lazy="selectin", foreign_keys=[extraction_platform_id]
+    )
     # TODO Hier auch eine Mehrzahl und ggf. nicht atomar?
     additional_lysis_buffer_components: Mapped[Optional[str]]
     volume_lysis_buffer_components: Mapped[Optional[float]]
@@ -42,3 +47,4 @@ from app.models.laboratory import Laboratory
 from app.models.principle_of_extraction_method_category import (
     PrincipleOfExtractionMethodCategory,
 )
+from app.models.platform import Platform

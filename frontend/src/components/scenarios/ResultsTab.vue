@@ -87,11 +87,11 @@ function methodLabel(
     | EPGAnalysisMethod
     | EPGInterpretationMethod,
 ): string {
-  if ('kit' in method && method.kit) return method.kit
-  if ('pcr_kit' in method && method.pcr_kit) return method.pcr_kit
-  if ('ce_device' in method && method.ce_device) return method.ce_device
-  if ('genotyping_software' in method && method.genotyping_software)
-    return method.genotyping_software
+  if ('kit' in method && method.kit?.name) return method.kit.name
+  if ('pcr_kit' in method && method.pcr_kit?.name) return method.pcr_kit.name
+  if ('ce_device' in method && method.ce_device?.name) return method.ce_device.name
+  if ('genotyping_software' in method && method.genotyping_software?.name)
+    return method.genotyping_software.name
   if ('determination_of_noc' in method && method.determination_of_noc)
     return method.determination_of_noc
   return `#${method.id}`

@@ -1,25 +1,36 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import DataView from 'primevue/dataview'
 import Tag from 'primevue/tag'
 import Button from 'primevue/button'
+import Dialog from 'primevue/dialog'
 import ProgressSpinner from 'primevue/progressspinner'
-import { listScenarios, deleteScenario } from '@/api/scenarios'
+import EntitySelect from './EntitySelect.vue'
+import { listScenarios, deleteScenario, updateScenario } from '@/api/scenarios'
 import type { Scenario } from '@/api/types'
 
 const props = defineProps<{ studyId: number }>()
 
 const router = useRouter()
 
-const scenarios = ref<Scenario[]>([])
+const allScenarios = ref<Scenario[]>([])
 const loading = ref(false)
+
+const scenarios = computed(() =>
+  allScenarios.value.filter((scenario) => scenario.studies.some((s) => s.id === props.studyId)),
+)
+
+// Scenarios not yet linked to this study, offered in the "Add existing
+// scenario" dialog - a scenario may belong to many studies.
+const linkableScenarios = computed(() =>
+  allScenarios.value.filter((scenario) => !scenario.studies.some((s) => s.id === props.studyId)),
+)
 
 async function load() {
   loading.value = true
   try {
-    const allScenarios = await listScenarios()
-    scenarios.value = allScenarios.filter((scenario) => scenario.study_id === props.studyId)
+    allScenarios.value = await listScenarios()
   } finally {
     loading.value = false
   }
@@ -29,7 +40,42 @@ onMounted(load)
 
 async function onDelete(scenario: Scenario) {
   await deleteScenario(scenario.id)
-  scenarios.value = scenarios.value.filter((s) => s.id !== scenario.id)
+  allScenarios.value = allScenarios.value.filter((s) => s.id !== scenario.id)
+}
+
+function scenarioLabel(scenario: Scenario): string {
+  return `${scenario.scenario_category?.name ?? 'Uncategorized'} — Scenario #${scenario.id}`
+}
+
+const linkDialogVisible = ref(false)
+const scenarioToLink = ref<number | null>(null)
+const linking = ref(false)
+
+function openLinkDialog() {
+  scenarioToLink.value = null
+  linkDialogVisible.value = true
+}
+
+async function linkScenario() {
+  if (scenarioToLink.value === null) return
+  const scenario = allScenarios.value.find((s) => s.id === scenarioToLink.value)
+  if (!scenario) return
+
+  linking.value = true
+  try {
+    const studyIds = [...scenario.studies.map((s) => s.id), props.studyId]
+    const updated = await updateScenario(scenario.id, { study_ids: studyIds })
+    allScenarios.value = allScenarios.value.map((s) => (s.id === updated.id ? updated : s))
+    linkDialogVisible.value = false
+  } finally {
+    linking.value = false
+  }
+}
+
+async function unlinkScenario(scenario: Scenario) {
+  const studyIds = scenario.studies.map((s) => s.id).filter((id) => id !== props.studyId)
+  const updated = await updateScenario(scenario.id, { study_ids: studyIds })
+  allScenarios.value = allScenarios.value.map((s) => (s.id === updated.id ? updated : s))
 }
 
 defineExpose({ load })
@@ -37,7 +83,14 @@ defineExpose({ load })
 
 <template>
   <div class="flex flex-col gap-6">
-    <div class="flex items-center justify-end">
+    <div class="flex items-center justify-end gap-2">
+      <Button
+        label="Add existing scenario"
+        icon="pi pi-link"
+        outlined
+        :disabled="!linkableScenarios.length"
+        @click="openLinkDialog"
+      />
       <Button
         label="Add scenario"
         icon="pi pi-plus"
@@ -72,9 +125,16 @@ defineExpose({ load })
                   :value="item.realistic ? 'Realistic' : 'Not realistic'"
                   :severity="item.realistic ? 'success' : 'warn'"
                 />
+                <Tag
+                  v-if="item.studies.length > 1"
+                  :value="`Shared across ${item.studies.length} studies`"
+                  severity="info"
+                />
               </div>
               <div class="text-sm text-surface-500 dark:text-surface-400">
-                {{ item.contacts.length }} contact{{ item.contacts.length === 1 ? '' : 's' }}
+                {{ item.contact_templates.length }} contact template{{
+                  item.contact_templates.length === 1 ? '' : 's'
+                }}
               </div>
             </div>
             <div class="flex flex-row sm:flex-col gap-2 shrink-0">
@@ -91,6 +151,14 @@ defineExpose({ load })
                 "
               />
               <Button
+                v-if="item.studies.length > 1"
+                label="Remove from this study"
+                icon="pi pi-times"
+                severity="warn"
+                outlined
+                @click="unlinkScenario(item)"
+              />
+              <Button
                 label="Delete"
                 icon="pi pi-trash"
                 severity="danger"
@@ -102,5 +170,30 @@ defineExpose({ load })
         </div>
       </template>
     </DataView>
+
+    <Dialog
+      v-model:visible="linkDialogVisible"
+      header="Add existing scenario"
+      modal
+      :style="{ width: '28rem' }"
+    >
+      <div class="flex flex-col gap-4">
+        <EntitySelect
+          v-model="scenarioToLink"
+          label="Scenario"
+          :options="linkableScenarios"
+          :option-label="scenarioLabel"
+        />
+      </div>
+      <template #footer>
+        <Button label="Cancel" text @click="linkDialogVisible = false" />
+        <Button
+          label="Add"
+          :loading="linking"
+          :disabled="scenarioToLink === null"
+          @click="linkScenario"
+        />
+      </template>
+    </Dialog>
   </div>
 </template>

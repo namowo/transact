@@ -33,6 +33,11 @@ class Persistence(Base):
     geographic_location_category: Mapped[Optional["GeographicLocationCategory"]] = (
         relationship(lazy="selectin", foreign_keys=[geographic_location_category_id])
     )
+    scenarios: Mapped[list["Scenario"]] = relationship(
+        lazy="selectin",
+        secondary="scenario_persistence",
+        back_populates="persistencies",
+    )
 
 
 from app.models.disturbance_category import DisturbanceCategory

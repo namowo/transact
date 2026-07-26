@@ -196,20 +196,46 @@ function choosePurpose(purpose: 'transfer' | 'repository') {
             </div>
             <div v-if="auth.isAuthenticated" class="flex flex-row sm:flex-col gap-2 shrink-0">
               <Button
-                label="Edit"
+                label="Details"
                 icon="pi pi-pencil"
                 severity="secondary"
                 outlined
                 :disabled="!canEdit(item)"
-                @click="router.push({ name: 'studies-edit', params: { id: item.id } })"
+                @click="
+                  router.push({
+                    name: 'studies-edit',
+                    params: { id: item.id },
+                    query: { step: 'details' },
+                  })
+                "
               />
               <Button
-                label="Scenarios"
+                label="Planning"
                 icon="pi pi-sitemap"
                 severity="secondary"
                 outlined
                 :disabled="!canEdit(item)"
-                @click="router.push({ name: 'scenarios', params: { studyId: item.id } })"
+                @click="
+                  router.push({
+                    name: 'studies-edit',
+                    params: { id: item.id },
+                    query: { step: 'planning' },
+                  })
+                "
+              />
+              <Button
+                label="Add data"
+                icon="pi pi-database"
+                severity="secondary"
+                outlined
+                :disabled="!canEdit(item)"
+                @click="
+                  router.push({
+                    name: 'studies-edit',
+                    params: { id: item.id },
+                    query: { step: 'data-entry' },
+                  })
+                "
               />
               <Button
                 label="Download"

@@ -12,7 +12,12 @@ class SwabMethod(Base):
     id: Mapped[int] = mapped_column(
         primary_key=True, index=True, unique=True, nullable=False
     )
-    wetting_agent: Mapped[Optional[str]]
+    wetting_agent_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("wetting_agent.id", ondelete="SET NULL")
+    )
+    wetting_agent: Mapped[Optional["WettingAgent"]] = relationship(
+        lazy="selectin", foreign_keys=[wetting_agent_id]
+    )
     volume_of_wetting_agent: Mapped[Optional[float]]
     specification: Mapped[Optional[str]]
     description: Mapped[Optional[str]]
@@ -32,3 +37,4 @@ class SwabMethod(Base):
 
 from app.models.type_of_swab_category import TypeOfSwabCategory
 from app.models.swabbing_technique_category import SwabbingTechniqueCategory
+from app.models.wetting_agent import WettingAgent

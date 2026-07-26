@@ -20,6 +20,8 @@ import type {
   QuantificationMethodInput,
   Recovery,
   RecoveryInput,
+  RecoverySet,
+  RecoverySetInput,
   Result,
   ResultInput,
   SamplingMethod,
@@ -80,4 +82,5 @@ export const samplingMethodApi = methodApi<SamplingMethod, SamplingMethodInput>(
 )
 
 export const recoveryApi = methodApi<Recovery, RecoveryInput>('/recoveries')
+export const recoverySetApi = methodApi<RecoverySet, RecoverySetInput>('/recovery-sets')
 export const resultApi = methodApi<Result, ResultInput>('/results')

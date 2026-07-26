@@ -6,6 +6,8 @@ import type {
   SkinDiseaseCategoryInput,
   DeterminationOfSheddingPropensityCategory,
   DeterminationOfSheddingPropensityCategoryInput,
+  Supplier,
+  SupplierInput,
 } from './types'
 
 // Every "simple" lookup category (disturbance, surface material, body part
@@ -30,6 +32,10 @@ export const itemPartsCategoryApi = namedCategoryApi('/item-parts-categories')
 export const itemSubcategoryApi = namedCategoryApi('/item-subcategories')
 export const locationOfBodyCategoryApi = namedCategoryApi('/location-of-body-categories')
 export const scenarioCategoryApi = namedCategoryApi('/scenario-categories')
+export const sexApi = namedCategoryApi('/sexes')
+export const dnaSheddingPropensityCategoryApi = namedCategoryApi(
+  '/dna-shedding-propensity-categories',
+)
 export const sourceOfDnaCategoryApi = namedCategoryApi('/source-of-dna-categories')
 export const surfaceMaterialCategoryApi = namedCategoryApi('/surface-material-categories')
 export const pressureEstimateApi = namedCategoryApi('/pressure-estimates')
@@ -48,6 +54,21 @@ export const cuttingDeviceApi = namedCategoryApi('/cutting-devices')
 export const vacuumDeviceApi = namedCategoryApi('/vacuum-devices')
 export const scrapingDeviceApi = namedCategoryApi('/scraping-devices')
 export const pickingDeviceApi = namedCategoryApi('/picking-devices')
+
+// Equipment / reagents / software referenced from the lab Methods
+export const pcrKitApi = namedCategoryApi('/pcr-kits')
+export const thermocyclerApi = namedCategoryApi('/thermocyclers')
+export const ceDeviceApi = namedCategoryApi('/ce-devices')
+export const polymerApi = namedCategoryApi('/polymers')
+export const dyeSetApi = namedCategoryApi('/dye-sets')
+export const typeOfFormamideApi = namedCategoryApi('/types-of-formamide')
+export const sizeStandardApi = namedCategoryApi('/size-standards')
+export const genotypingSoftwareApi = namedCategoryApi('/genotyping-software')
+export const statisticalSoftwareApi = namedCategoryApi('/statistical-software')
+export const quantificationKitApi = namedCategoryApi('/quantification-kits')
+export const manufacturerApi = namedCategoryApi('/manufacturers')
+export const platformApi = namedCategoryApi('/platforms')
+export const wettingAgentApi = namedCategoryApi('/wetting-agents')
 
 export const skinDiseaseCategoryApi = {
   list: () => apiClient.get<SkinDiseaseCategory[]>('/skin-disease-categories').then((r) => r.data),
@@ -69,4 +90,10 @@ export const determinationOfSheddingPropensityCategoryApi = {
         payload,
       )
       .then((r) => r.data),
+}
+
+export const supplierApi = {
+  list: () => apiClient.get<Supplier[]>('/suppliers').then((r) => r.data),
+  create: (payload: SupplierInput) =>
+    apiClient.post<Supplier>('/suppliers', payload).then((r) => r.data),
 }

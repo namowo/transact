@@ -19,9 +19,13 @@ class TapeMethod(Base):
         lazy="selectin", foreign_keys=[type_of_tape_id]
     )
     description: Mapped[Optional[str]]
-    catalogue_number_of_supplier: Mapped[Optional[str]]
-    full_name_as_by_supplier: Mapped[Optional[str]]
-    supplier: Mapped[Optional[str]]
+    supplier_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("supplier.id", ondelete="SET NULL")
+    )
+    supplier: Mapped[Optional["Supplier"]] = relationship(
+        lazy="selectin", foreign_keys=[supplier_id]
+    )
 
 
 from app.models.type_of_tape import TypeOfTape
+from app.models.supplier import Supplier

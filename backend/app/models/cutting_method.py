@@ -19,10 +19,13 @@ class CuttingMethod(Base):
         lazy="selectin", foreign_keys=[cutting_device_id]
     )
     description: Mapped[Optional[str]]
-    catalogue_number_of_supplier: Mapped[Optional[str]]
-    full_name_as_by_supplier: Mapped[Optional[str]]
-    # TODO Macht es Sinn die Supplier auch in eine eigene Tabelle zu überführen?
-    supplier: Mapped[Optional[str]]
+    supplier_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("supplier.id", ondelete="SET NULL")
+    )
+    supplier: Mapped[Optional["Supplier"]] = relationship(
+        lazy="selectin", foreign_keys=[supplier_id]
+    )
 
 
 from app.models.cutting_device import CuttingDevice
+from app.models.supplier import Supplier

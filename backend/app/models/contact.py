@@ -8,16 +8,20 @@ from app.core.db import Base
 
 
 class Contact(Base):
+    """An actual, realized instance of a ContactTemplate."""
+
     __tablename__ = "contact"
 
     id: Mapped[int] = mapped_column(
         primary_key=True, index=True, unique=True, nullable=False
     )
-    scenario_id: Mapped[int] = mapped_column(
-        ForeignKey("scenario.id", ondelete="CASCADE")
+    contact_template_id: Mapped[int] = mapped_column(
+        ForeignKey("contact_template.id", ondelete="CASCADE")
     )
-    scenario: Mapped["Scenario"] = relationship(
-        lazy="selectin", back_populates="contacts", foreign_keys=[scenario_id]
+    contact_template: Mapped["ContactTemplate"] = relationship(
+        lazy="selectin",
+        back_populates="contacts",
+        foreign_keys=[contact_template_id],
     )
     donor_surface_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("surface.id", ondelete="SET NULL")
@@ -31,6 +35,8 @@ class Contact(Base):
     recipient_surface: Mapped[Optional["Surface"]] = relationship(
         lazy="selectin", foreign_keys=[recipient_surface_id]
     )
+    # The following override the corresponding ContactTemplate attribute when set;
+    # a null value means the template's value applies.
     duration: Mapped[Optional[timedelta]]
     pressure: Mapped[Optional[float]]
     pressure_estimate_id: Mapped[Optional[int]] = mapped_column(
@@ -46,7 +52,6 @@ class Contact(Base):
     friction_applied_estimate: Mapped[Optional["FrictionAppliedEstimate"]] = (
         relationship(lazy="selectin", foreign_keys=[friction_applied_estimate_id])
     )
-    # TODO What is contact area?
     contact_area: Mapped[Optional[float]]
     description_of_contact: Mapped[Optional[str]]
     activity_category_id: Mapped[Optional[int]] = mapped_column(

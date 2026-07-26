@@ -1,6 +1,7 @@
 from typing import Optional
 
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import ForeignKey
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
 
@@ -12,7 +13,13 @@ class TypeOfSwabCategory(Base):
         primary_key=True, index=True, unique=True, nullable=False
     )
     name: Mapped[Optional[str]]
-    catalogue_number_of_supplier: Mapped[Optional[str]]
-    full_name_as_by_supplier: Mapped[Optional[str]]
     description: Mapped[Optional[str]]
-    supplier: Mapped[Optional[str]]
+    supplier_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("supplier.id", ondelete="SET NULL")
+    )
+    supplier: Mapped[Optional["Supplier"]] = relationship(
+        lazy="selectin", foreign_keys=[supplier_id]
+    )
+
+
+from app.models.supplier import Supplier

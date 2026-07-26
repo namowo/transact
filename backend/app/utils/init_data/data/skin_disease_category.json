@@ -1,0 +1,27 @@
+[
+  {
+    "name": "atopic dermatitits",
+    "influence_on_shedding_propensity": true,
+    "literature": "DOI 10.1007/s00414-011-0579-0"
+  },
+  {
+    "name": "psoriasis",
+    "influence_on_shedding_propensity": true,
+    "literature": "DOI 10.1007/s00414-011-0579-0"
+  },
+  {
+    "name": "dermal ulcer",
+    "influence_on_shedding_propensity": false,
+    "literature": "DOI 10.1007/s00414-011-0579-0"
+  },
+  {
+    "name": "none",
+    "influence_on_shedding_propensity": false,
+    "literature": null
+  },
+  {
+    "name": "unknown",
+    "influence_on_shedding_propensity": null,
+    "literature": null
+  }
+]

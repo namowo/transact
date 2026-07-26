@@ -1,0 +1,42 @@
+[
+  {
+    "name": "Polar Region",
+    "description": "Arctic and Antarctic"
+  },
+  {
+    "name": "Desert",
+    "description": "Sahara, Atacama, Arabian Desert"
+  },
+  {
+    "name": "Rainforest",
+    "description": "Amazon, Congo Basin, Southeast Asian Rainforests"
+  },
+  {
+    "name": "Temperate Forest",
+    "description": "Eastern United States, Western Europe"
+  },
+  {
+    "name": "Grassland",
+    "description": "Prairies in North America, Steppes in Eurasia, Pampas in South America"
+  },
+  {
+    "name": "Mountainous Region",
+    "description": "Himalayas, Andes, Rockies"
+  },
+  {
+    "name": "Coastal Area",
+    "description": "Various Global Coasts"
+  },
+  {
+    "name": "Tundra",
+    "description": "Siberia, Northern Canada, Alaska"
+  },
+  {
+    "name": "Wetland",
+    "description": "Everglades, Pantanal, Okavango Delta"
+  },
+  {
+    "name": "Subtropical Region",
+    "description": "Mediterranean, Southern United States, parts of China"
+  }
+]

@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict
 class EPGInterpretationMethodBase(BaseModel):
     laboratory_id: Optional[int] = None
     determination_of_noc: Optional[str] = None
-    statistical_software: Optional[str] = None
+    statistical_software_id: Optional[int] = None
     parameters_modelled_by_software: Optional[str] = None
     allele_frequency_database: Optional[str] = None
 
@@ -24,6 +24,8 @@ class EPGInterpretationMethodRead(EPGInterpretationMethodBase):
 
     id: int
     laboratory: Optional["LaboratoryRead"] = None
+    statistical_software: Optional["StatisticalSoftwareRead"] = None
 
 
 from app.schemas.laboratory import LaboratoryRead
+from app.schemas.statistical_software import StatisticalSoftwareRead

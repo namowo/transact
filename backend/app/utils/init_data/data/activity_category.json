@@ -1,0 +1,56 @@
+[
+  {
+    "name": "Shooting"
+  },
+  {
+    "name": "Stabbing"
+  },
+  {
+    "name": "Biting"
+  },
+  {
+    "name": "Handshake"
+  },
+  {
+    "name": "Handwashing"
+  },
+  {
+    "name": "Kissing"
+  },
+  {
+    "name": "Screwing (Srewdriver)"
+  },
+  {
+    "name": "Touching"
+  },
+  {
+    "name": "Unknown"
+  },
+  {
+    "name": "Scratching"
+  },
+  {
+    "name": "Washing in Washing Machine"
+  },
+  {
+    "name": "Washing by hand"
+  },
+  {
+    "name": "Speaking"
+  },
+  {
+    "name": "Eating"
+  },
+  {
+    "name": "Drinking"
+  },
+  {
+    "name": "Not Specified"
+  },
+  {
+    "name": "None"
+  },
+  {
+    "name": "Grabbing"
+  }
+]

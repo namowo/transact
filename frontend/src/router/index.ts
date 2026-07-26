@@ -51,16 +51,6 @@ const router = createRouter({
               meta: { requiresAuth: true, breadcrumb: 'Add study' },
             },
             {
-              path: 'quality-check',
-              name: 'studies-quality-check',
-              component: () => import('@/views/studies/QualityCheckQueueView.vue'),
-              meta: {
-                requiresAuth: true,
-                requiresQualityChecker: true,
-                breadcrumb: 'Quality Check',
-              },
-            },
-            {
               path: ':id/edit',
               name: 'studies-edit',
               component: () => import('@/views/studies/StudyFormView.vue'),
@@ -94,7 +84,24 @@ const router = createRouter({
                 },
               ],
             },
+            {
+              path: ':studyId/data',
+              name: 'data-entry',
+              component: () => import('@/views/data/DataEntryView.vue'),
+              props: true,
+              meta: { requiresAuth: true, breadcrumb: 'Data entry' },
+            },
           ],
+        },
+        {
+          path: 'quality-check',
+          name: 'studies-quality-check',
+          component: () => import('@/views/studies/QualityCheckQueueView.vue'),
+          meta: {
+            requiresAuth: true,
+            requiresQualityChecker: true,
+            breadcrumb: 'Quality Check',
+          },
         },
         {
           path: 'settings',

@@ -1,0 +1,30 @@
+[
+  {
+    "name": "Pristine",
+    "description": "Surfaces that are flawless, without any signs of wear, scratches, or damage. They appear brand new and untouched."
+  },
+  {
+    "name": "Excellent",
+    "description": "Surfaces that show minimal signs of wear, with only very minor scratches or blemishes that are hardly noticeable."
+  },
+  {
+    "name": "Very Good",
+    "description": "Surfaces that have been gently used and show some signs of wear, such as light scratches or scuffs, but are still well-maintained."
+  },
+  {
+    "name": "Good",
+    "description": "Surfaces that show moderate signs of wear, including visible scratches, scuffs, or small dents, but are still in decent condition."
+  },
+  {
+    "name": "Fair",
+    "description": "Surfaces that have noticeable signs of wear and may have scratches, dents, or other damage that affects their appearance but doesn't impair their functionality."
+  },
+  {
+    "name": "Poor",
+    "description": "Surfaces that are heavily worn, damaged, or marked with significant scratches, dents, or other defects that greatly affect their appearance and usability."
+  },
+  {
+    "name": "Damaged",
+    "description": "Surfaces that are severely damaged or broken, making them unusable or in need of extensive repair."
+  }
+]

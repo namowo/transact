@@ -1,0 +1,18 @@
+[
+  {
+    "name": "dry swabbing",
+    "description": "use a dry swab applying medium pressure and firmly rotate the swab"
+  },
+  {
+    "name": "wet swabbing",
+    "description": "use a moistened swab applying medium pressure and firmly rotate the swab"
+  },
+  {
+    "name": "double swabbing with two swabs",
+    "description": "first use a moistened swab, then use a second dry swab. Collect the sample applying medium pressure and rotating the swabs"
+  },
+  {
+    "name": "double swabbing with single swab",
+    "description": "first use tha half of the swab that has been moistened, then use the dry side. Apply medium pressure while collecting the sample."
+  }
+]

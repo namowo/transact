@@ -26,12 +26,30 @@ class QuantificationMethod(Base):
     ] = relationship(
         lazy="selectin", foreign_keys=[principle_of_quant_method_category_id]
     )
-    kit: Mapped[Optional[str]]
-    manufacturer: Mapped[Optional[str]]
-    platform: Mapped[Optional[str]]
+    kit_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("quantification_kit.id", ondelete="SET NULL")
+    )
+    kit: Mapped[Optional["QuantificationKit"]] = relationship(
+        lazy="selectin", foreign_keys=[kit_id]
+    )
+    manufacturer_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("manufacturer.id", ondelete="SET NULL")
+    )
+    manufacturer: Mapped[Optional["Manufacturer"]] = relationship(
+        lazy="selectin", foreign_keys=[manufacturer_id]
+    )
+    platform_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("platform.id", ondelete="SET NULL")
+    )
+    platform: Mapped[Optional["Platform"]] = relationship(
+        lazy="selectin", foreign_keys=[platform_id]
+    )
     description_of_protocol: Mapped[Optional[str]]
     abbreviations_to_manufacturers_protocol: Mapped[Optional[str]]
 
 
 from app.models.laboratory import Laboratory
 from app.models.principle_of_quant_method_category import PrincipleOfQuantMethodCategory
+from app.models.quantification_kit import QuantificationKit
+from app.models.manufacturer import Manufacturer
+from app.models.platform import Platform

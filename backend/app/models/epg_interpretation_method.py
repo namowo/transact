@@ -19,9 +19,15 @@ class EPGInterpretationMethod(Base):
         lazy="selectin", foreign_keys=[laboratory_id]
     )
     determination_of_noc: Mapped[Optional[str]]
-    statistical_software: Mapped[Optional[str]]
+    statistical_software_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("statistical_software.id", ondelete="SET NULL")
+    )
+    statistical_software: Mapped[Optional["StatisticalSoftware"]] = relationship(
+        lazy="selectin", foreign_keys=[statistical_software_id]
+    )
     parameters_modelled_by_software: Mapped[Optional[str]]
     allele_frequency_database: Mapped[Optional[str]]
 
 
 from app.models.laboratory import Laboratory
+from app.models.statistical_software import StatisticalSoftware

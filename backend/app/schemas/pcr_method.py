@@ -6,8 +6,8 @@ from pydantic import BaseModel, ConfigDict
 
 class PCRMethodBase(BaseModel):
     laboratory_id: Optional[int] = None
-    pcr_kit: Optional[str] = None
-    thermocycler: Optional[str] = None
+    pcr_kit_id: Optional[int] = None
+    thermocycler_id: Optional[int] = None
     initial_denaturation_temp: Optional[float] = None
     initial_denaturation_time: Optional[timedelta] = None
     no_of_cycles: Optional[int] = None
@@ -36,6 +36,10 @@ class PCRMethodRead(PCRMethodBase):
 
     id: int
     laboratory: Optional["LaboratoryRead"] = None
+    pcr_kit: Optional["PCRKitRead"] = None
+    thermocycler: Optional["ThermocyclerRead"] = None
 
 
 from app.schemas.laboratory import LaboratoryRead
+from app.schemas.pcr_kit import PCRKitRead
+from app.schemas.thermocycler import ThermocyclerRead

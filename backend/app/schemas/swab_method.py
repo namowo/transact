@@ -4,7 +4,7 @@ from pydantic import BaseModel, ConfigDict
 
 
 class SwabMethodBase(BaseModel):
-    wetting_agent: Optional[str] = None
+    wetting_agent_id: Optional[int] = None
     volume_of_wetting_agent: Optional[float] = None
     specification: Optional[str] = None
     description: Optional[str] = None
@@ -26,7 +26,9 @@ class SwabMethodRead(SwabMethodBase):
     id: int
     type_of_swab_category: Optional["TypeOfSwabCategoryRead"] = None
     swabbing_technique_category: Optional["SwabbingTechniqueCategoryRead"] = None
+    wetting_agent: Optional["WettingAgentRead"] = None
 
 
 from app.schemas.type_of_swab_category import TypeOfSwabCategoryRead
 from app.schemas.swabbing_technique_category import SwabbingTechniqueCategoryRead
+from app.schemas.wetting_agent import WettingAgentRead

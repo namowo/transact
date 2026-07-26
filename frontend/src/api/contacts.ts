@@ -6,6 +6,14 @@ import type {
   ConditionDuringContactInput,
 } from './types'
 
+export function listContacts() {
+  return apiClient.get<Contact[]>('/contacts').then((r) => r.data)
+}
+
+export function getContact(id: number) {
+  return apiClient.get<Contact>(`/contacts/${id}`).then((r) => r.data)
+}
+
 export function createContact(payload: ContactInput) {
   return apiClient.post<Contact>('/contacts', payload).then((r) => r.data)
 }

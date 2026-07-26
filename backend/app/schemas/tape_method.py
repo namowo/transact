@@ -6,9 +6,7 @@ from pydantic import BaseModel, ConfigDict
 class TapeMethodBase(BaseModel):
     type_of_tape_id: Optional[int] = None
     description: Optional[str] = None
-    catalogue_number_of_supplier: Optional[str] = None
-    full_name_as_by_supplier: Optional[str] = None
-    supplier: Optional[str] = None
+    supplier_id: Optional[int] = None
 
 
 class TapeMethodCreate(TapeMethodBase):
@@ -24,6 +22,8 @@ class TapeMethodRead(TapeMethodBase):
 
     id: int
     type_of_tape: Optional["TypeOfTapeRead"] = None
+    supplier: Optional["SupplierRead"] = None
 
 
 from app.schemas.type_of_tape import TypeOfTapeRead
+from app.schemas.supplier import SupplierRead
