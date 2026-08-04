@@ -3,18 +3,21 @@ from datetime import datetime, timezone
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.crud.author import get_or_create_author
 from app.crud.base import CRUDBase
 from app.crud.exceptions import DatabaseCommitError
-from app.models.author import Author
 from app.models.study import Study
+from app.models.study_author import StudyAuthor
 from app.models.user import User
 from app.schemas.study import StudyCreate, StudyUpdate
 
 
-def _authors_from(authors) -> list[Author]:
+async def _study_authors_from(db: AsyncSession, authors) -> list[StudyAuthor]:
     return [
-        Author(**author.model_dump(), position=index)
-        for index, author in enumerate(authors)
+        StudyAuthor(
+            author=await get_or_create_author(db, author_in), position=index
+        )
+        for index, author_in in enumerate(authors)
     ]
 
 
@@ -27,7 +30,7 @@ class CRUDStudy(CRUDBase[Study, StudyCreate, StudyUpdate]):
             exclude={"authors"}, exclude_none=True, exclude_unset=True
         )
         new_study = Study(**obj_data)
-        new_study.authors = _authors_from(obj_in.authors)
+        new_study.study_authors = await _study_authors_from(db, obj_in.authors)
         db.add(new_study)
 
         try:
@@ -48,7 +51,7 @@ class CRUDStudy(CRUDBase[Study, StudyCreate, StudyUpdate]):
             setattr(study, field, value)
 
         if obj_in.authors is not None:
-            study.authors = _authors_from(obj_in.authors)
+            study.study_authors = await _study_authors_from(db, obj_in.authors)
 
         try:
             await db.commit()

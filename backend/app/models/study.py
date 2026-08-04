@@ -20,8 +20,10 @@ class Study(Base):
         lazy="selectin", foreign_keys=[laboratory_id]
     )
     doi: Mapped[Optional[str]]
-    authors: Mapped[list["Author"]] = relationship(
-        lazy="selectin", cascade="all, delete-orphan", order_by="Author.position"
+    study_authors: Mapped[list["StudyAuthor"]] = relationship(
+        lazy="selectin",
+        cascade="all, delete-orphan",
+        order_by="StudyAuthor.position",
     )
     description: Mapped[Optional[str]]
     year: Mapped[Optional[str]]
@@ -54,7 +56,12 @@ class Study(Base):
         foreign_keys="Recovery.study_id",
     )
 
+    @property
+    def authors(self) -> list["Author"]:
+        return [study_author.author for study_author in self.study_authors]
+
 
 from app.models.author import Author
 from app.models.laboratory import Laboratory
+from app.models.study_author import StudyAuthor
 from app.models.user import User

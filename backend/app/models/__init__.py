@@ -7,17 +7,23 @@ from .webauthn_challenge import WebAuthnChallenge
 
 # TransAct models
 from .activity_category import ActivityCategory
+from .application_analytical_threshold import ApplicationAnalyticalThreshold
 from .author import Author
 from .body_part_condition_category import BodyPartConditionCategory
 from .ce_device import CEDevice
 from .ce_method import CEMethod
+from .classification_criteria import ClassificationCriteria
+from .classification_scheme import ClassificationScheme
 from .condition_during_contact import ConditionDuringContact
 from .condition_of_item_part_category import ConditionOfItemPartCategory
 from .contact import Contact
 from .contact_template import ContactTemplate
 from .cutting_device import CuttingDevice
 from .cutting_method import CuttingMethod
+from .degradation_category import DegradationCategory
 from .determination_of_shedding_propensity_category import DeterminationOfSheddingPropensityCategory
+from .determination_of_shedding_propensity_category_restriction import DeterminationOfSheddingPropensityCategoryRestriction
+from .determination_of_shedding_propensity_category_shedder_test import DeterminationOfSheddingPropensityCategoryShedderTest
 from .disturbance_category import DisturbanceCategory
 from .dna_shedding_propensity_category import DNASheddingPropensityCategory
 from .dye_set import DyeSet
@@ -29,6 +35,7 @@ from .friction_applied_estimate import FrictionAppliedEstimate
 from .genotyping_software import GenotypingSoftware
 from .geographic_location_category import GeographicLocationCategory
 from .individual import Individual
+from .inhibition_category import InhibitionCategory
 from .item_category import ItemCategory
 from .item_parts_category import ItemPartsCategory
 from .item_subcategory import ItemSubcategory
@@ -37,6 +44,8 @@ from .lab_membership_request import LabMembershipRequest
 from .laboratory import Laboratory
 from .location_of_body_category import LocationOfBodyCategory
 from .manufacturer import Manufacturer
+from .monitored_transfer_factor import MonitoredTransferFactor
+from .pcr import PCR
 from .pcr_kit import PCRKit
 from .pcr_method import PCRMethod
 from .persistence import Persistence
@@ -51,6 +60,7 @@ from .quantification_kit import QuantificationKit
 from .quantification_method import QuantificationMethod
 from .recovery import Recovery
 from .recovery_set import RecoverySet
+from .restriction_prior_to_sampling import RestrictionPriorToSampling
 from .result import Result
 from .sampling_method import SamplingMethod
 from .scenario_category import ScenarioCategory
@@ -58,11 +68,14 @@ from .scenario import Scenario
 from .scraping_device import ScrapingDevice
 from .scraping_method import ScrapingMethod
 from .sex import Sex
+from .shedder_test import ShedderTest
 from .size_standard import SizeStandard
 from .skin_disease_category import SkinDiseaseCategory
 from .source_of_dna_category import SourceOfDNACategory
 from .statistical_software import StatisticalSoftware
 from .study import Study
+from .study_author import StudyAuthor
+from .stutter_filter import StutterFilter
 from .supplier import Supplier
 from .surface_material_category import SurfaceMaterialCategory
 from .surface import Surface

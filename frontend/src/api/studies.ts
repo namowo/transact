@@ -20,3 +20,7 @@ export function updateStudy(id: number, payload: StudyUpdate) {
 export function passQualityCheck(id: number) {
   return apiClient.post<Study>(`/studies/${id}/quality-check`).then((r) => r.data)
 }
+
+export function deleteStudy(id: number) {
+  return apiClient.delete<void>(`/studies/${id}`).then((r) => r.data)
+}

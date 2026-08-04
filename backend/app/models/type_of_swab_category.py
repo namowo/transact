@@ -14,6 +14,8 @@ class TypeOfSwabCategory(Base):
     )
     name: Mapped[Optional[str]]
     description: Mapped[Optional[str]]
+    catalogue_number_of_supplier: Mapped[Optional[str]]
+    full_name_as_by_supplier: Mapped[Optional[str]]
     supplier_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("supplier.id", ondelete="SET NULL")
     )

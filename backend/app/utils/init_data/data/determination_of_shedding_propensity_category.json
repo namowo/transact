@@ -1,67 +1,201 @@
 [
   {
-    "authors": "Lowe, A.; Murray, C.; Whitaker, J.; Tully, G.; Gill, P.; Lowe, Alex; Murray, Caroline; Whitaker, Jonathan; Tully, Gillian; Gill, Peter",
     "title": "The propensity of individuals to deposit DNA and secondary transfer of low level DNA from individuals to inert surfaces",
     "doi": "10.1016/S0379-0738(02)00207-4",
-    "restrictions_prior_to_sampling": "Hand washing, glove wearing (15 min)",
-    "monitored_transfer_factors": "Hand washing, sex",
-    "number_of_participants": "30",
-    "replicates": "3",
-    "shedder_test": "Hold 50-ml plastic tube (10 s)",
-    "classification_criteria": "Median full donor profile = good",
-    "classification_scheme": "Binary (good/bad)",
+    "authors": [
+      {
+        "first_name": "Alex",
+        "last_name": "Lowe"
+      },
+      {
+        "first_name": "Caroline",
+        "last_name": "Murray"
+      },
+      {
+        "first_name": "Jonathan",
+        "last_name": "Whitaker"
+      },
+      {
+        "first_name": "Gillian",
+        "last_name": "Tully"
+      },
+      {
+        "first_name": "Peter",
+        "last_name": "Gill"
+      }
+    ],
+    "restrictions": [
+      {
+        "name": "Hand washing",
+        "duration": "PT900S"
+      },
+      {
+        "name": "glove wearing",
+        "duration": "PT900S"
+      }
+    ],
+    "monitored_transfer_factor_names": [
+      "Hand washing",
+      "sex"
+    ],
+    "number_of_participants": 30,
+    "replicates": 3,
+    "shedder_tests": [
+      {
+        "name": "Hold 50-ml plastic tube",
+        "duration": "PT10S"
+      }
+    ],
+    "classification_criteria_name": "Median full donor profile = good",
+    "classification_scheme_name": "Binary (good/bad)",
     "classification_outcome": "18 good shedders"
   },
   {
-    "authors": "Phipps, Matthew; Petricevic, Susan",
     "title": "The tendency of individuals to transfer DNA to handled items",
     "doi": "10.1016/j.forsciint.2006.07.010",
-    "restrictions_prior_to_sampling": "Hand washing, food consumption, touching other persons, glove wearing (15 min)",
-    "monitored_transfer_factors": "Hand washing, sex, handedness",
-    "number_of_participants": "60",
-    "replicates": "1 + 1",
-    "shedder_test": "Hold 50-ml plastic tubes (10 s) with both hands",
-    "classification_criteria": "Median full donor profile = good",
-    "classification_scheme": "Binary (good/bad)",
+    "authors": [
+      {
+        "first_name": "Matthew",
+        "last_name": "Phipps"
+      },
+      {
+        "first_name": "Susan",
+        "last_name": "Petricevic"
+      }
+    ],
+    "restrictions": [
+      {
+        "name": "Hand washing",
+        "duration": "PT900S"
+      },
+      {
+        "name": "food consumption",
+        "duration": "PT900S"
+      },
+      {
+        "name": "touching other persons",
+        "duration": "PT900S"
+      },
+      {
+        "name": "glove wearing",
+        "duration": "PT900S"
+      }
+    ],
+    "monitored_transfer_factor_names": [
+      "Hand washing",
+      "sex",
+      "handedness"
+    ],
+    "number_of_participants": 60,
+    "replicates": null,
+    "shedder_tests": [
+      {
+        "name": "Hold 50-ml plastic tubes  with both hands",
+        "duration": "PT10S"
+      }
+    ],
+    "classification_criteria_name": "Median full donor profile = good",
+    "classification_scheme_name": "Binary (good/bad)",
     "classification_outcome": "0 good shedders"
   },
   {
-    "authors": "Phipps, Matthew; Petricevic, Susan",
     "title": "The tendency of individuals to transfer DNA to handled items",
     "doi": "10.1016/j.forsciint.2006.07.010",
-    "restrictions_prior_to_sampling": "Hand washing, food consumption, touching other persons, glove wearing (15 min)",
-    "monitored_transfer_factors": "Hand washing, sex, handedness",
-    "number_of_participants": "60",
-    "replicates": "1",
-    "shedder_test": "Hold 50-ml plastic tube (10 s), non-dominant hand",
-    "classification_criteria": "Median full donor profile = good",
-    "classification_scheme": "Binary (good/bad)",
+    "authors": [
+      {
+        "first_name": "Matthew",
+        "last_name": "Phipps"
+      },
+      {
+        "first_name": "Susan",
+        "last_name": "Petricevic"
+      }
+    ],
+    "restrictions": [
+      {
+        "name": "Hand washing",
+        "duration": "PT900S"
+      },
+      {
+        "name": "food consumption",
+        "duration": "PT900S"
+      },
+      {
+        "name": "touching other persons",
+        "duration": "PT900S"
+      },
+      {
+        "name": "glove wearing",
+        "duration": "PT900S"
+      }
+    ],
+    "monitored_transfer_factor_names": [
+      "Hand washing",
+      "sex",
+      "handedness"
+    ],
+    "number_of_participants": 60,
+    "replicates": 1,
+    "shedder_tests": [
+      {
+        "name": "Hold 50-ml plastic tube",
+        "duration": "PT10S"
+      },
+      {
+        "name": "non-dominant hand",
+        "duration": "PT10S"
+      }
+    ],
+    "classification_criteria_name": "Median full donor profile = good",
+    "classification_scheme_name": "Binary (good/bad)",
     "classification_outcome": "8 good shedders"
   },
   {
-    "authors": "Djuric, Marija; Varljen, Tatjana; Stanojevic, Aleksandar; Stojkovic, Oliver",
     "title": "DNA typing from handled items",
     "doi": "10.1016/j.fsigss.2007.10.161",
-    "restrictions_prior_to_sampling": "Hand washing (15 min)",
-    "monitored_transfer_factors": "Hand washing, sex, handedness",
-    "number_of_participants": "7",
-    "replicates": "1",
-    "shedder_test": "Hold plastic tube (10 s), Dominant hand",
-    "classification_criteria": "Median full donor profile = good",
-    "classification_scheme": "Binary (good/bad)",
+    "authors": [
+      {
+        "first_name": "Marija",
+        "last_name": "Djuric"
+      },
+      {
+        "first_name": "Tatjana",
+        "last_name": "Varljen"
+      },
+      {
+        "first_name": "Aleksandar",
+        "last_name": "Stanojevic"
+      },
+      {
+        "first_name": "Oliver",
+        "last_name": "Stojkovic"
+      }
+    ],
+    "restrictions": [
+      {
+        "name": "Hand washing",
+        "duration": "PT900S"
+      }
+    ],
+    "monitored_transfer_factor_names": [
+      "Hand washing",
+      "sex",
+      "handedness"
+    ],
+    "number_of_participants": 7,
+    "replicates": 1,
+    "shedder_tests": [
+      {
+        "name": "Hold plastic tube",
+        "duration": "PT10S"
+      },
+      {
+        "name": "Dominant hand",
+        "duration": "PT10S"
+      }
+    ],
+    "classification_criteria_name": "Median full donor profile = good",
+    "classification_scheme_name": "Binary (good/bad)",
     "classification_outcome": "3 good shedders"
-  },
-  {
-    "authors": "not determined",
-    "title": "not determined",
-    "doi": "not determined",
-    "restrictions_prior_to_sampling": "not determined",
-    "monitored_transfer_factors": "not determined",
-    "number_of_participants": "not determined",
-    "replicates": "not determined",
-    "shedder_test": "not determined",
-    "classification_criteria": "not determined",
-    "classification_scheme": "not determined",
-    "classification_outcome": "not determined"
   }
 ]

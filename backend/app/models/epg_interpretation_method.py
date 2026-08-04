@@ -27,7 +27,23 @@ class EPGInterpretationMethod(Base):
     )
     parameters_modelled_by_software: Mapped[Optional[str]]
     allele_frequency_database: Mapped[Optional[str]]
+    application_analytical_threshold_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("application_analytical_threshold.id", ondelete="SET NULL")
+    )
+    application_analytical_threshold: Mapped[
+        Optional["ApplicationAnalyticalThreshold"]
+    ] = relationship(
+        lazy="selectin", foreign_keys=[application_analytical_threshold_id]
+    )
+    stutter_filter_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("stutter_filter.id", ondelete="SET NULL")
+    )
+    stutter_filter: Mapped[Optional["StutterFilter"]] = relationship(
+        lazy="selectin", foreign_keys=[stutter_filter_id]
+    )
 
 
+from app.models.application_analytical_threshold import ApplicationAnalyticalThreshold
 from app.models.laboratory import Laboratory
 from app.models.statistical_software import StatisticalSoftware
+from app.models.stutter_filter import StutterFilter

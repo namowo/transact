@@ -15,16 +15,24 @@ belongs to, since several Excel names differ from their model:
 - 07aa_TypeOfSwabCategories.SupplierCategoryID is a 1-based row index
   into 07aaa_SupplierCategories, resolved here to a supplier name and
   resolved again to an id at import time in categories.py
-- 07aa_TypeOfSwabCategories.CatalogueNumberOfSupplier/FullNameAsBySupplier
-  are dropped: those columns belong to the Supplier model, and this
-  sheet only carries one such value per swab type, which isn't reliable
-  enough to overwrite the shared Supplier row
-- ItemCategory/ItemPartsCategory/ItemSubcategory have no FK between them
-  in the schema, so their cross-reference columns in the sheets are
-  dropped and only the flat name lists are imported
+- 05ba_ItemPartsCategories.ItemCategoryID / 06bab_ItemSubcategories.
+  ItemCategoryID are resolved the same way, to an item_category name
+- 06ab_DeterminationOfSheddingPro packs several non-atomic fields
+  (Authors, RestrictionsPriorToSampling, MonitoredTransferFactors,
+  ShedderTest) into single free-text cells. These are split on commas
+  into separate lookup rows; a trailing "(N min)"/"(N s)" is parsed as
+  a duration attached to the row as a whole (it's ambiguous which
+  comma-separated phrase it belongs to when there's more than one -
+  those rows are printed as warnings for manual review after import)
+- Cut-OutMethods/CuttingDevice, Results/Degradation, Results/Inhibition,
+  EPGInterpretationMethods/ApplicationAnalyticalThreshold and
+  EPGInterpretationMethods/StutterFilter enum rows (Definitionen file)
+  -> cutting_device, degradation_category, inhibition_category,
+  application_analytical_threshold, stutter_filter lookup tables
 """
 
 import json
+import re
 from pathlib import Path
 
 import openpyxl
@@ -62,7 +70,7 @@ def dump(name, records):
     print(f"wrote {len(records)} records -> {path}")
 
 
-def main():
+def extract():
     wb = openpyxl.load_workbook(CATEGORIES_XLSX, data_only=True)
 
     # --- simple name-only / name+description sheets -> flat lookup tables ---
@@ -111,18 +119,42 @@ def main():
     records = [{"name": row["ItemPartMaterialCategory"]} for row in rows(ws)]
     dump("surface_material_category", records)
 
-    # --- 05ba_ItemPartsCategories -> item_parts_category (name only; no FK in schema) ---
+    # --- 06ba_ItemCategories, needed to resolve item_category_id below ---
+    item_category_names = [
+        row["ItemCategory"] for row in rows(wb["06ba_ItemCategories"])
+    ]
+
+    # --- 05ba_ItemPartsCategories -> item_parts_category (name, item_category_name) ---
     ws = wb["05ba_ItemPartsCategories"]
-    seen = []
+    seen = {}
     for row in rows(ws):
         name = row["ItemPartsCategory"]
-        if name not in seen:
-            seen.append(name)
-    dump("item_parts_category", [{"name": n} for n in seen])
+        item_category_name = row.get("ItemCategoryID")
+        if name is not None and name not in seen:
+            seen[name] = item_category_name
+    dump(
+        "item_parts_category",
+        [
+            {"name": name, "item_category_name": item_category_name}
+            for name, item_category_name in seen.items()
+        ],
+    )
 
-    # --- 06bab_ItemSubcategories -> item_subcategory (name only; no FK in schema) ---
+    # --- 06bab_ItemSubcategories -> item_subcategory (name, item_category_name) ---
+    # ItemCategoryID here is a 1-based row index into 06ba_ItemCategories.
     ws = wb["06bab_ItemSubcategories"]
-    records = [{"name": row["ItemSubcategory"]} for row in rows(ws)]
+    records = []
+    for row in rows(ws):
+        name = row.get("ItemSubcategory")
+        if name is None:
+            continue
+        category_id = row.get("ItemCategoryID")
+        item_category_name = (
+            item_category_names[int(category_id) - 1]
+            if category_id and 0 < int(category_id) <= len(item_category_names)
+            else None
+        )
+        records.append({"name": name, "item_category_name": item_category_name})
     dump("item_subcategory", records)
 
     # --- 06aa_SkinDiseaseCategories -> skin_disease_category ---
@@ -144,25 +176,96 @@ def main():
     dump("skin_disease_category", records)
 
     # --- 06ab_DeterminationOfSheddingPro -> determination_of_shedding_propensity_category ---
+    # Authors/RestrictionsPriorToSampling/MonitoredTransferFactors/ShedderTest
+    # are free text, not atomic - see module docstring. Split into rows for
+    # the new lookup tables here; categories.py resolves the *_name fields.
+    DURATION_RE = re.compile(r"\(\s*([\d.]+)\s*(min|s|sec|seconds?|minutes?)\s*\)")
+
+    def parse_duration(text):
+        match = DURATION_RE.search(text)
+        if not match:
+            return None, text
+        value, unit = match.groups()
+        value = float(value)
+        seconds = value * 60 if unit.startswith("min") else value
+        remainder = (text[: match.start()] + text[match.end() :]).strip(" ,")
+        return f"PT{seconds:g}S", remainder
+
+    def split_phrases(text):
+        """Best-effort split of a free-text cell into atomic phrases."""
+        duration, remainder = parse_duration(text)
+        phrases = [p.strip() for p in remainder.split(",") if p.strip()]
+        if len(phrases) > 1 and duration is not None:
+            print(
+                f"WARNING: ambiguous duration {duration!r} in {text!r} - "
+                f"attached to last phrase {phrases[-1]!r}, please review"
+            )
+        return phrases, duration
+
+    def parse_author_names(text):
+        # "Last, First; Last2, First2; ..." - some rows repeat the same
+        # author as both "Last, F." and "Last, First"; dedupe on
+        # (last_name, first initial), keeping the fuller spelling.
+        by_key = {}
+        for part in text.split(";"):
+            part = part.strip()
+            if not part or "," not in part:
+                continue
+            last, _, first = part.partition(",")
+            last, first = last.strip(), first.strip()
+            if not last or not first:
+                continue
+            key = (last.lower(), first[0].lower())
+            existing = by_key.get(key)
+            if existing is None or len(first) > len(existing["first_name"]):
+                by_key[key] = {"first_name": first, "last_name": last}
+        return list(by_key.values())
+
     ws = wb["06ab_DeterminationOfSheddingPro"]
-    key_map = {
-        "Authors": "authors",
-        "Title": "title",
-        "doi": "doi",
-        "RestrictionsPriorToSampling": "restrictions_prior_to_sampling",
-        "MonitoredTransferFactors": "monitored_transfer_factors",
-        "NumberOfParticipants": "number_of_participants",
-        "Replicates": "replicates",
-        "ShedderTest": "shedder_test",
-        "ClassificationCriteria": "classification_criteria",
-        "ClassificationScheme": "classification_scheme",
-        "ClassificationOutcome": "classification_outcome",
-    }
     records = []
     for row in rows(ws):
-        if row.get("Authors") is None:
+        authors_raw = row.get("Authors")
+        if authors_raw is None or authors_raw == "not determined":
             continue
-        records.append({key_map[k]: v for k, v in row.items() if k in key_map})
+
+        restrictions, restriction_duration = split_phrases(
+            row.get("RestrictionsPriorToSampling") or ""
+        )
+        transfer_factors, _ = split_phrases(row.get("MonitoredTransferFactors") or "")
+        shedder_tests, shedder_test_duration = split_phrases(
+            row.get("ShedderTest") or ""
+        )
+
+        number_of_participants = row.get("NumberOfParticipants")
+        replicates = row.get("Replicates")
+        records.append(
+            {
+                "title": row.get("Title"),
+                "doi": row.get("doi"),
+                "authors": parse_author_names(authors_raw),
+                "restrictions": [
+                    {"name": name, "duration": restriction_duration}
+                    for name in restrictions
+                ],
+                "monitored_transfer_factor_names": transfer_factors,
+                "number_of_participants": (
+                    int(number_of_participants)
+                    if number_of_participants
+                    and number_of_participants.isdigit()
+                    else None
+                ),
+                "replicates": (
+                    int(replicates) if replicates and replicates.isdigit() else None
+                ),
+                "shedder_tests": [
+                    {"name": name, "duration": shedder_test_duration}
+                    for name in shedder_tests
+                ],
+                "classification_criteria_name": row.get("ClassificationCriteria"),
+                "classification_scheme_name": row.get("ClassificationScheme"),
+                "classification_outcome": row.get("ClassificationOutcome"),
+            }
+        )
     dump("determination_of_shedding_propensity_category", records)
 
     # --- 09a_PrincipleOfQuantMethodCateg -> principle_of_quant_method_category ---
@@ -178,10 +281,6 @@ def main():
     dump("supplier", [{"name": n} for n in supplier_names])
 
     # --- 07aa_TypeOfSwabCategories -> type_of_swab_category ---
-    # Note: CatalogueNumberOfSupplier / FullNameAsBySupplier columns are dropped
-    # here on purpose - they belong to the Supplier model, not TypeOfSwabCategory,
-    # and the sheet only provides one such value per swab type (not reliable
-    # enough to safely overwrite the referenced Supplier row).
     ws = wb["07aa_TypeOfSwabCategories"]
     records = []
     for row in rows(ws):
@@ -198,6 +297,8 @@ def main():
             {
                 "name": name,
                 "description": row.get("Description"),
+                "catalogue_number_of_supplier": row.get("CatalogueNumberOfSupplier"),
+                "full_name_as_by_supplier": row.get("FullNameAsBySupplier"),
                 "supplier_name": supplier_name,  # resolved to supplier_id at import time
             }
         )
@@ -231,6 +332,32 @@ def main():
     ]
     dump("condition_of_item_part_category", condition_records)
 
+    dump(
+        "cutting_device",
+        [{"name": v} for v in enum_group("Cut-OutMethods", "CuttingDevice")],
+    )
+    dump(
+        "degradation_category",
+        [{"name": v} for v in enum_group("Results", "Degradation")],
+    )
+    dump(
+        "inhibition_category",
+        [{"name": v} for v in enum_group("Results", "Inhibition")],
+    )
+    dump(
+        "application_analytical_threshold",
+        [
+            {"name": v}
+            for v in enum_group(
+                "EPGInterpretationMethods", "ApplicationAnalyticalThreshold"
+            )
+        ],
+    )
+    dump(
+        "stutter_filter",
+        [{"name": v} for v in enum_group("EPGInterpretationMethods", "StutterFilter")],
+    )
+
 
 if __name__ == "__main__":
-    main()
+    extract()

@@ -3,11 +3,15 @@ import Panel from 'primevue/panel'
 import Message from 'primevue/message'
 import Textarea from 'primevue/textarea'
 import InputNumber from 'primevue/inputnumber'
+import InputGroup from 'primevue/inputgroup'
+import InputGroupAddon from 'primevue/inputgroupaddon'
 import ToggleSwitch from 'primevue/toggleswitch'
 import Button from 'primevue/button'
 import Divider from 'primevue/divider'
 import SurfaceTemplateForm from './SurfaceTemplateForm.vue'
 import CategorySelect from './CategorySelect.vue'
+import DurationValueInput from './DurationValueInput.vue'
+import FieldLabel from './FieldLabel.vue'
 import {
   activityCategoryApi,
   pressureEstimateApi,
@@ -45,32 +49,12 @@ function errorFor(field: string): string | undefined {
 
       <Divider />
 
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div class="flex flex-col gap-2">
-          <label class="font-medium text-sm">Duration (seconds, Optional)</label>
-          <InputNumber v-model="draft.duration" :invalid="!!errorFor('duration')" fluid />
-          <Message v-if="errorFor('duration')" severity="error" size="small" variant="simple">
-            {{ errorFor('duration') }}
-          </Message>
-        </div>
-        <div class="flex flex-col gap-2">
-          <label class="font-medium text-sm">Pressure (Optional)</label>
-          <InputNumber v-model="draft.pressure" :invalid="!!errorFor('pressure')" fluid />
-          <Message v-if="errorFor('pressure')" severity="error" size="small" variant="simple">
-            {{ errorFor('pressure') }}
-          </Message>
-        </div>
-        <div class="flex flex-col gap-2">
-          <label class="font-medium text-sm">Friction applied (Optional)</label>
-          <InputNumber
-            v-model="draft.frictionApplied"
-            :invalid="!!errorFor('frictionApplied')"
-            fluid
-          />
-          <Message v-if="errorFor('frictionApplied')" severity="error" size="small" variant="simple">
-            {{ errorFor('frictionApplied') }}
-          </Message>
-        </div>
+      <div class="flex flex-col gap-2">
+        <label class="font-medium text-sm">Duration (Optional)</label>
+        <DurationValueInput v-model="draft.duration" :invalid="!!errorFor('duration')" />
+        <Message v-if="errorFor('duration')" severity="error" size="small" variant="simple">
+          {{ errorFor('duration') }}
+        </Message>
       </div>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -87,8 +71,11 @@ function errorFor(field: string): string | undefined {
       </div>
 
       <div class="flex flex-col gap-2">
-        <label class="font-medium text-sm">Contact area (Optional)</label>
-        <InputNumber v-model="draft.contactArea" :invalid="!!errorFor('contactArea')" fluid />
+        <label class="font-medium text-sm">Contact area</label>
+        <InputGroup>
+          <InputNumber v-model="draft.contactArea" :invalid="!!errorFor('contactArea')" fluid />
+          <InputGroupAddon>cm²</InputGroupAddon>
+        </InputGroup>
         <Message v-if="errorFor('contactArea')" severity="error" size="small" variant="simple">
           {{ errorFor('contactArea') }}
         </Message>
@@ -110,23 +97,35 @@ function errorFor(field: string): string | undefined {
       <h4 class="font-medium text-sm">Conditions during contact</h4>
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div class="flex flex-col gap-2">
-          <label class="font-medium text-sm">Temperature (°C)</label>
-          <InputNumber v-model="draft.temperature" fluid />
+          <label class="font-medium text-sm">Temperature</label>
+          <InputGroup>
+            <InputNumber v-model="draft.temperature" fluid />
+            <InputGroupAddon>°C</InputGroupAddon>
+          </InputGroup>
         </div>
         <div class="flex flex-col gap-2">
-          <label class="font-medium text-sm">Humidity (%)</label>
-          <InputNumber v-model="draft.humidity" :invalid="!!errorFor('humidity')" fluid />
+          <label class="font-medium text-sm">Humidity</label>
+          <InputGroup>
+            <InputNumber v-model="draft.humidity" :invalid="!!errorFor('humidity')" fluid />
+            <InputGroupAddon>%</InputGroupAddon>
+          </InputGroup>
           <Message v-if="errorFor('humidity')" severity="error" size="small" variant="simple">
             {{ errorFor('humidity') }}
           </Message>
         </div>
         <div class="flex flex-col gap-2">
-          <label class="font-medium text-sm">UV irradiation</label>
-          <InputNumber
-            v-model="draft.uvIrradiation"
-            :invalid="!!errorFor('uvIrradiation')"
-            fluid
+          <FieldLabel
+            label="UV irradiation"
+            description="Record UV radiation exposure (type and intensity in mW/cm²) during contact. For orientation: no direct light (ambient indoor lighting like fluorescent or LED bulbs with minimal UV exposure, no direct sunlight): mostly UVA 0.0001–0.02 mW/cm²; sunlight exposure (direct or indirect exposure to natural sunlight (outdoors), intensity varies with time of day, geography, and weather condition): UVA and UVB (natural solar) 0.5–10+ mW/cm²."
           />
+          <InputGroup>
+            <InputNumber
+              v-model="draft.uvIrradiation"
+              :invalid="!!errorFor('uvIrradiation')"
+              fluid
+            />
+            <InputGroupAddon>mW/cm²</InputGroupAddon>
+          </InputGroup>
           <Message v-if="errorFor('uvIrradiation')" severity="error" size="small" variant="simple">
             {{ errorFor('uvIrradiation') }}
           </Message>

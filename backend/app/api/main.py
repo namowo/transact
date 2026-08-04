@@ -7,14 +7,18 @@ from app.api.routers import webauthn
 
 # TransAct routers
 from app.api.routers import activity_category
+from app.api.routers import application_analytical_threshold
 from app.api.routers import body_part_condition_category
 from app.api.routers import ce_device
 from app.api.routers import ce_method
+from app.api.routers import classification_criteria
+from app.api.routers import classification_scheme
 from app.api.routers import condition_during_contact
 from app.api.routers import condition_of_item_part_category
 from app.api.routers import contact
 from app.api.routers import contact_template
 from app.api.routers import cutting_method
+from app.api.routers import degradation_category
 from app.api.routers import determination_of_shedding_propensity_category
 from app.api.routers import disturbance_category
 from app.api.routers import dye_set
@@ -24,6 +28,7 @@ from app.api.routers import extraction_method
 from app.api.routers import genotyping_software
 from app.api.routers import geographic_location_category
 from app.api.routers import individual
+from app.api.routers import inhibition_category
 from app.api.routers import item
 from app.api.routers import item_category
 from app.api.routers import item_parts_category
@@ -32,6 +37,7 @@ from app.api.routers import lab_membership_requests
 from app.api.routers import laboratory
 from app.api.routers import location_of_body_category
 from app.api.routers import manufacturer
+from app.api.routers import monitored_transfer_factor
 from app.api.routers import pcr_kit
 from app.api.routers import pcr_method
 from app.api.routers import persistence
@@ -44,13 +50,16 @@ from app.api.routers import quantification_kit
 from app.api.routers import quantification_method
 from app.api.routers import recovery
 from app.api.routers import recovery_set
+from app.api.routers import restriction_prior_to_sampling
 from app.api.routers import result
 from app.api.routers import sampling_method
 from app.api.routers import scenario
 from app.api.routers import scenario_category
 from app.api.routers import scraping_method
 from app.api.routers import sex
+from app.api.routers import shedder_test
 from app.api.routers import size_standard
+from app.api.routers import stutter_filter
 from app.api.routers import dna_shedding_propensity_category
 from app.api.routers import skin_disease_category
 from app.api.routers import source_of_dna_category
@@ -86,9 +95,18 @@ api_router.include_router(users.router, prefix="/users", tags=["Users"])
 
 # Categories
 api_router.include_router(activity_category.router, prefix="/activity-categories", tags=["Categories"])
+api_router.include_router(application_analytical_threshold.router, prefix="/application-analytical-thresholds", tags=["Categories"])
 api_router.include_router(body_part_condition_category.router, prefix="/body-part-condition-categories", tags=["Categories"])
+api_router.include_router(classification_criteria.router, prefix="/classification-criteria", tags=["Categories"])
+api_router.include_router(classification_scheme.router, prefix="/classification-schemes", tags=["Categories"])
 api_router.include_router(condition_of_item_part_category.router, prefix="/condition-of-item-part-categories", tags=["Categories"])
+api_router.include_router(degradation_category.router, prefix="/degradation-categories", tags=["Categories"])
 api_router.include_router(determination_of_shedding_propensity_category.router, prefix="/determination-of-shedding-propensity-categories", tags=["Categories"])
+api_router.include_router(inhibition_category.router, prefix="/inhibition-categories", tags=["Categories"])
+api_router.include_router(monitored_transfer_factor.router, prefix="/monitored-transfer-factors", tags=["Categories"])
+api_router.include_router(restriction_prior_to_sampling.router, prefix="/restrictions-prior-to-sampling", tags=["Categories"])
+api_router.include_router(shedder_test.router, prefix="/shedder-tests", tags=["Categories"])
+api_router.include_router(stutter_filter.router, prefix="/stutter-filters", tags=["Categories"])
 api_router.include_router(disturbance_category.router, prefix="/disturbance-categories", tags=["Categories"])
 api_router.include_router(geographic_location_category.router, prefix="/geographic-location-categories", tags=["Categories"])
 api_router.include_router(item_category.router, prefix="/item-categories", tags=["Categories"])

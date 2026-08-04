@@ -1,20 +1,26 @@
 [
   {
-    "name": "pistol"
+    "name": "pistol",
+    "item_category_name": "gun"
   },
   {
-    "name": "revolver"
+    "name": "revolver",
+    "item_category_name": "gun"
   },
   {
-    "name": "hand hammer"
+    "name": "hand hammer",
+    "item_category_name": "screwdriver"
   },
   {
-    "name": "ball peen hammer"
+    "name": "ball peen hammer",
+    "item_category_name": "screwdriver"
   },
   {
-    "name": "sledge hammer"
+    "name": "sledge hammer",
+    "item_category_name": "screwdriver"
   },
   {
-    "name": "flat-head"
+    "name": "flat-head",
+    "item_category_name": null
   }
 ]

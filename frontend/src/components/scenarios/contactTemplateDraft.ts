@@ -16,9 +16,7 @@ export interface ContactTemplateDraft {
   recipientSurfaceTemplateId: number | null
   // Seconds.
   duration: number | null
-  pressure: number | null
   pressureEstimateId: number | null
-  frictionApplied: number | null
   frictionAppliedEstimateId: number | null
   contactArea: number | null
   descriptionOfContact: string | null
@@ -38,9 +36,7 @@ export function emptyContactTemplateDraft(): ContactTemplateDraft {
     recipientSurfaceTemplate: emptySurfaceTemplateDraft(),
     recipientSurfaceTemplateId: null,
     duration: null,
-    pressure: null,
     pressureEstimateId: null,
-    frictionApplied: null,
     frictionAppliedEstimateId: null,
     contactArea: null,
     descriptionOfContact: null,
@@ -65,9 +61,7 @@ export function contactTemplateDraftFromContactTemplate(
     ),
     recipientSurfaceTemplateId: template.recipient_surface_template_id ?? null,
     duration: template.duration ?? null,
-    pressure: template.pressure ?? null,
     pressureEstimateId: template.pressure_estimate_id ?? null,
-    frictionApplied: template.friction_applied ?? null,
     frictionAppliedEstimateId: template.friction_applied_estimate_id ?? null,
     contactArea: template.contact_area ?? null,
     descriptionOfContact: template.description_of_contact ?? null,
@@ -78,6 +72,10 @@ export function contactTemplateDraftFromContactTemplate(
     uvIrradiation: template.condition_during_contact?.uv_irradiation ?? null,
     indoors: !!template.condition_during_contact?.indoors,
   }
+}
+
+export function isBlankContactTemplateDraft(draft: ContactTemplateDraft): boolean {
+  return draft.donorSurfaceTemplate.kind === null && draft.recipientSurfaceTemplate.kind === null
 }
 
 function hasConditionData(draft: ContactTemplateDraft): boolean {
@@ -121,9 +119,7 @@ export async function saveContactTemplateDraft(
     donor_surface_template_id: donorSurfaceTemplateId,
     recipient_surface_template_id: recipientSurfaceTemplateId,
     duration: draft.duration,
-    pressure: draft.pressure,
     pressure_estimate_id: draft.pressureEstimateId,
-    friction_applied: draft.frictionApplied,
     friction_applied_estimate_id: draft.frictionAppliedEstimateId,
     contact_area: draft.contactArea,
     description_of_contact: draft.descriptionOfContact || null,

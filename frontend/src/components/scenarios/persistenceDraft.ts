@@ -50,7 +50,15 @@ export function persistenceDraftFromPersistence(
   }
 }
 
-function isBlankDraft(draft: PersistenceDraft): boolean {
+export function persistenceLabel(persistence: Persistence): string {
+  const parts = [
+    persistence.disturbance_category?.name,
+    persistence.geographic_location_category?.name,
+  ].filter((part): part is string => !!part)
+  return parts.length ? parts.join(' – ') : `Persistence #${persistence.id}`
+}
+
+export function isBlankPersistenceDraft(draft: PersistenceDraft): boolean {
   return (
     draft.intervalOfPersistence == null &&
     draft.temperature == null &&
@@ -66,7 +74,7 @@ function isBlankDraft(draft: PersistenceDraft): boolean {
 }
 
 export async function savePersistenceDraft(draft: PersistenceDraft): Promise<number | null> {
-  if (isBlankDraft(draft)) return draft.id
+  if (isBlankPersistenceDraft(draft)) return draft.id
 
   const payload = {
     interval_of_persistence: draft.intervalOfPersistence,

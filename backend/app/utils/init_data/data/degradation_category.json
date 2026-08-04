@@ -1,0 +1,17 @@
+[
+  {
+    "name": "severe"
+  },
+  {
+    "name": "moderate"
+  },
+  {
+    "name": "mild"
+  },
+  {
+    "name": "none"
+  },
+  {
+    "name": "not applied"
+  }
+]

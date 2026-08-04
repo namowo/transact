@@ -1,0 +1,40 @@
+from typing import Optional
+
+from pydantic import BaseModel, ConfigDict
+
+
+class PCRBase(BaseModel):
+    dna_quantity: Optional[float] = None
+    pcr_method_id: Optional[int] = None
+    sample_input_volume_in_pcr: Optional[float] = None
+    dna_input_amount_in_pcr: Optional[float] = None
+    post_pcr_treatment_method_id: Optional[int] = None
+    ce_method_id: Optional[int] = None
+    epg_analysis_method_id: Optional[int] = None
+    epg_interpretation_method_id: Optional[int] = None
+    no_of_contributors: Optional[int] = None
+    mixture_proportion: Optional[float] = None
+    total_rfu: Optional[int] = None
+    total_no_of_alleles: Optional[int] = None
+
+
+class PCRCreate(PCRBase):
+    pass
+
+
+class PCRRead(PCRBase):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    pcr_method: Optional["PCRMethodRead"] = None
+    post_pcr_treatment_method: Optional["PostPCRTreatmentMethodRead"] = None
+    ce_method: Optional["CEMethodRead"] = None
+    epg_analysis_method: Optional["EPGAnalysisMethodRead"] = None
+    epg_interpretation_method: Optional["EPGInterpretationMethodRead"] = None
+
+
+from app.schemas.pcr_method import PCRMethodRead
+from app.schemas.post_pcr_treatment_method import PostPCRTreatmentMethodRead
+from app.schemas.ce_method import CEMethodRead
+from app.schemas.epg_analysis_method import EPGAnalysisMethodRead
+from app.schemas.epg_interpretation_method import EPGInterpretationMethodRead

@@ -8,9 +8,7 @@ class ContactTemplateBase(BaseModel):
     donor_surface_template_id: Optional[int] = None
     recipient_surface_template_id: Optional[int] = None
     duration: Optional[timedelta] = None
-    pressure: Optional[float] = None
     pressure_estimate_id: Optional[int] = None
-    friction_applied: Optional[float] = None
     friction_applied_estimate_id: Optional[int] = None
     contact_area: Optional[float] = None
     description_of_contact: Optional[str] = None

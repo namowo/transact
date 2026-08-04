@@ -1,43 +1,47 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useFieldArray, useForm } from 'vee-validate'
 import * as yup from 'yup'
-import InputNumber from 'primevue/inputnumber'
-import Textarea from 'primevue/textarea'
 import ToggleSwitch from 'primevue/toggleswitch'
 import Button from 'primevue/button'
 import Message from 'primevue/message'
 import ProgressSpinner from 'primevue/progressspinner'
-import Tabs from 'primevue/tabs'
-import TabList from 'primevue/tablist'
-import Tab from 'primevue/tab'
-import TabPanels from 'primevue/tabpanels'
-import TabPanel from 'primevue/tabpanel'
+import Select from 'primevue/select'
+import { useToast } from 'primevue/usetoast'
+import Stepper from 'primevue/stepper'
+import StepList from 'primevue/steplist'
+import StepPanels from 'primevue/steppanels'
+import Step from 'primevue/step'
+import StepPanel from 'primevue/steppanel'
 import CategorySelect from '@/components/scenarios/CategorySelect.vue'
 import ContactTemplateCard from '@/components/scenarios/ContactTemplateCard.vue'
-import DurationInput from '@/components/scenarios/DurationInput.vue'
-import {
-  scenarioCategoryApi,
-  disturbanceCategoryApi,
-  geographicLocationCategoryApi,
-} from '@/api/categories'
+import PersistenceCard from '@/components/scenarios/PersistenceCard.vue'
+import { scenarioCategoryApi } from '@/api/categories'
 import { getScenario, createScenario, updateScenario } from '@/api/scenarios'
+import { listPersistences } from '@/api/persistences'
 import {
   emptyPersistenceDraft,
+  isBlankPersistenceDraft,
   persistenceDraftFromPersistence,
+  persistenceLabel,
   savePersistenceDraft,
 } from '@/components/scenarios/persistenceDraft'
+import type { PersistenceDraft } from '@/components/scenarios/persistenceDraft'
+import type { Persistence } from '@/api/types'
 import {
   contactTemplateDraftFromContactTemplate,
   emptyContactTemplateDraft,
+  isBlankContactTemplateDraft,
   saveContactTemplateDraft,
 } from '@/components/scenarios/contactTemplateDraft'
 import type { ContactTemplateDraft } from '@/components/scenarios/contactTemplateDraft'
 
 const props = defineProps<{ studyId: string; id?: string }>()
 
+const route = useRoute()
 const router = useRouter()
+const toast = useToast()
 
 const studyId = computed(() => Number(props.studyId))
 const editingId = computed(() => (props.id ? Number(props.id) : null))
@@ -47,43 +51,70 @@ const loadError = ref('')
 const submitting = ref(false)
 const submitError = ref('')
 
+// Which step to open, kept in the URL like the study workflow's stepper so
+// deep links and reloads land on the same step.
+const validSteps = ['details', 'persistence', 'contact-templates'] as const
+type StepName = (typeof validSteps)[number]
+const stepToPanel: Record<StepName, string> = {
+  details: '1',
+  persistence: '2',
+  'contact-templates': '3',
+}
+const panelToStep: Record<string, StepName> = {
+  '1': 'details',
+  '2': 'persistence',
+  '3': 'contact-templates',
+}
+
+function stepFromQuery(): StepName {
+  const step = route.query.step
+  return (validSteps as readonly string[]).includes(step as string) ? (step as StepName) : 'details'
+}
+
+const activeStep = computed<string>({
+  get: () => stepToPanel[stepFromQuery()],
+  set: (value) => {
+    router.replace({ query: { ...route.query, step: panelToStep[value] ?? 'details' } })
+  },
+})
+
 interface ScenarioFormValues {
   realistic: boolean
   scenarioCategoryId: number | null
-  persistence: ReturnType<typeof emptyPersistenceDraft>
+  persistencies: PersistenceDraft[]
   contactTemplates: ContactTemplateDraft[]
 }
+
+const persistenceSchema = yup.object({
+  intervalOfPersistence: yup
+    .number()
+    .nullable()
+    .min(0, 'Interval of persistence must be zero or greater.'),
+  temperature: yup.number().nullable().defined(),
+  humidity: yup
+    .number()
+    .nullable()
+    .min(0, 'Humidity must be between 0 and 100.')
+    .max(100, 'Humidity must be between 0 and 100.'),
+  uvIrradiation: yup.number().nullable().min(0, 'UV irradiation must be zero or greater.'),
+  indoors: yup.boolean().defined(),
+  changeOverTime: yup.boolean().defined(),
+  durationOfDisturbance: yup
+    .number()
+    .nullable()
+    .min(0, 'Duration of disturbance must be zero or greater.'),
+  descriptionOfDisturbance: yup.string().nullable().defined(),
+  disturbanceCategoryId: yup.number().nullable().defined(),
+  geographicLocationCategoryId: yup.number().nullable().defined(),
+})
 
 const schema = yup.object({
   realistic: yup.boolean().defined(),
   scenarioCategoryId: yup.number().nullable().required('Please select a scenario category.'),
-  persistence: yup.object({
-    intervalOfPersistence: yup
-      .number()
-      .nullable()
-      .min(0, 'Interval of persistence must be zero or greater.'),
-    temperature: yup.number().nullable().defined(),
-    humidity: yup
-      .number()
-      .nullable()
-      .min(0, 'Humidity must be between 0 and 100.')
-      .max(100, 'Humidity must be between 0 and 100.'),
-    uvIrradiation: yup.number().nullable().min(0, 'UV irradiation must be zero or greater.'),
-    indoors: yup.boolean().defined(),
-    changeOverTime: yup.boolean().defined(),
-    durationOfDisturbance: yup
-      .number()
-      .nullable()
-      .min(0, 'Duration of disturbance must be zero or greater.'),
-    descriptionOfDisturbance: yup.string().nullable().defined(),
-    disturbanceCategoryId: yup.number().nullable().defined(),
-    geographicLocationCategoryId: yup.number().nullable().defined(),
-  }),
+  persistencies: yup.array().of(persistenceSchema),
   contactTemplates: yup.array().of(
     yup.object({
       duration: yup.number().nullable().min(0, 'Duration must be zero or greater.'),
-      pressure: yup.number().nullable().min(0, 'Pressure must be zero or greater.'),
-      frictionApplied: yup.number().nullable().min(0, 'Friction applied must be zero or greater.'),
       contactArea: yup.number().nullable().min(0, 'Contact area must be zero or greater.'),
       temperature: yup.number().nullable().defined(),
       humidity: yup
@@ -96,28 +127,24 @@ const schema = yup.object({
   ),
 })
 
-const { defineField, errors, handleSubmit, setValues } = useForm<ScenarioFormValues>({
+const { defineField, errors, handleSubmit, setValues, values } = useForm<ScenarioFormValues>({
   validationSchema: schema,
   initialValues: {
     realistic: true,
     scenarioCategoryId: null,
-    persistence: emptyPersistenceDraft(),
+    persistencies: [emptyPersistenceDraft()],
     contactTemplates: [emptyContactTemplateDraft()],
   },
 })
 
 const [realistic] = defineField('realistic')
 const [scenarioCategoryId] = defineField('scenarioCategoryId')
-const [intervalOfPersistence] = defineField('persistence.intervalOfPersistence')
-const [temperature] = defineField('persistence.temperature')
-const [humidity] = defineField('persistence.humidity')
-const [uvIrradiation] = defineField('persistence.uvIrradiation')
-const [indoors] = defineField('persistence.indoors')
-const [changeOverTime] = defineField('persistence.changeOverTime')
-const [durationOfDisturbance] = defineField('persistence.durationOfDisturbance')
-const [descriptionOfDisturbance] = defineField('persistence.descriptionOfDisturbance')
-const [disturbanceCategoryId] = defineField('persistence.disturbanceCategoryId')
-const [geographicLocationCategoryId] = defineField('persistence.geographicLocationCategoryId')
+
+const {
+  fields: persistenceFields,
+  push: pushPersistence,
+  remove: removePersistenceField,
+} = useFieldArray<PersistenceDraft>('persistencies')
 
 const {
   fields: contactTemplateFields,
@@ -125,30 +152,44 @@ const {
   remove: removeContactTemplateField,
 } = useFieldArray<ContactTemplateDraft>('contactTemplates')
 
+const collapsedPersistencies = ref<boolean[]>([false])
 const collapsedContactTemplates = ref<boolean[]>([false])
 
-// The scenario's own persistence link(s); loaded so an edit doesn't drop
-// other persistencies already linked to this scenario.
-let existingPersistenceIds: number[] = []
+const existingPersistences = ref<Persistence[]>([])
+const existingPersistencesLoading = ref(false)
+const selectedExistingPersistenceId = ref<number | null>(null)
+
+const availableExistingPersistences = computed(() => {
+  const usedIds = new Set(values.persistencies.map((p) => p.id).filter((id): id is number => !!id))
+  return existingPersistences.value.filter((p) => !usedIds.has(p.id))
+})
 
 onMounted(async () => {
+  existingPersistencesLoading.value = true
+  listPersistences()
+    .then((data) => (existingPersistences.value = data))
+    .finally(() => (existingPersistencesLoading.value = false))
+
   if (editingId.value === null) return
 
   loading.value = true
   try {
     const scenario = await getScenario(editingId.value)
+    const persistencies = scenario.persistencies.length
+      ? scenario.persistencies.map(persistenceDraftFromPersistence)
+      : [emptyPersistenceDraft()]
     const contactTemplates = scenario.contact_templates.length
       ? scenario.contact_templates.map(contactTemplateDraftFromContactTemplate)
       : [emptyContactTemplateDraft()]
-    existingPersistenceIds = scenario.persistencies.map((p) => p.id)
     setValues({
       realistic: !!scenario.realistic,
       scenarioCategoryId: scenario.scenario_category_id ?? null,
-      persistence: persistenceDraftFromPersistence(scenario.persistencies[0] ?? null),
+      persistencies,
       contactTemplates,
     })
-    // Existing contact templates start collapsed so the form doesn't open on
-    // a wall of fields; a single freshly-added template starts expanded.
+    // Existing entries start collapsed so the form doesn't open on a wall of
+    // fields; freshly-added ones start expanded.
+    collapsedPersistencies.value = persistencies.map(() => scenario.persistencies.length > 0)
     collapsedContactTemplates.value = contactTemplates.map(
       () => scenario.contact_templates.length > 0,
     )
@@ -158,6 +199,29 @@ onMounted(async () => {
     loading.value = false
   }
 })
+
+function addPersistence() {
+  collapsedPersistencies.value = collapsedPersistencies.value.map(() => true)
+  pushPersistence(emptyPersistenceDraft())
+  collapsedPersistencies.value.push(false)
+}
+
+function addExistingPersistence() {
+  const persistence = existingPersistences.value.find(
+    (p) => p.id === selectedExistingPersistenceId.value,
+  )
+  if (!persistence) return
+
+  collapsedPersistencies.value = collapsedPersistencies.value.map(() => true)
+  pushPersistence(persistenceDraftFromPersistence(persistence))
+  collapsedPersistencies.value.push(true)
+  selectedExistingPersistenceId.value = null
+}
+
+function removePersistence(index: number) {
+  removePersistenceField(index)
+  collapsedPersistencies.value.splice(index, 1)
+}
 
 function addContactTemplate() {
   collapsedContactTemplates.value = collapsedContactTemplates.value.map(() => true)
@@ -170,20 +234,50 @@ function removeContactTemplate(index: number) {
   collapsedContactTemplates.value.splice(index, 1)
 }
 
-const onSubmit = handleSubmit(async (values) => {
+// The workflow mirrors the study stepper: details, persistence, contact
+// templates. Saving is only allowed once each step has real content -
+// otherwise the user is nudged back to whichever step is still empty.
+function firstIncompleteStep(): { step: StepName; message: string } | null {
+  if (!values.scenarioCategoryId) {
+    return { step: 'details', message: 'Please choose a scenario category before saving.' }
+  }
+  if (!values.persistencies.some((p) => !isBlankPersistenceDraft(p))) {
+    return {
+      step: 'persistence',
+      message: 'Add at least one persistence before saving this scenario.',
+    }
+  }
+  if (!values.contactTemplates.some((c) => !isBlankContactTemplateDraft(c))) {
+    return {
+      step: 'contact-templates',
+      message: 'Add at least one contact template before saving this scenario.',
+    }
+  }
+  return null
+}
+
+const onSubmit = handleSubmit(async (formValues) => {
+  const incomplete = firstIncompleteStep()
+  if (incomplete) {
+    activeStep.value = stepToPanel[incomplete.step]
+    toast.add({ severity: 'warn', summary: 'Scenario incomplete', detail: incomplete.message, life: 5000 })
+    return
+  }
+
   submitting.value = true
   submitError.value = ''
   try {
-    const persistenceId = await savePersistenceDraft(values.persistence)
-    const persistenceIds = persistenceId
-      ? Array.from(new Set([...existingPersistenceIds, persistenceId]))
-      : existingPersistenceIds
+    const persistenceIds: number[] = []
+    for (const persistence of formValues.persistencies) {
+      const persistenceId = await savePersistenceDraft(persistence)
+      if (persistenceId) persistenceIds.push(persistenceId)
+    }
 
     const payload = {
-      realistic: values.realistic,
-      scenario_category_id: values.scenarioCategoryId,
+      realistic: formValues.realistic,
+      scenario_category_id: formValues.scenarioCategoryId,
       study_ids: [studyId.value],
-      persistence_ids: persistenceIds,
+      persistence_ids: Array.from(new Set(persistenceIds)),
     }
 
     const scenario = editingId.value
@@ -191,7 +285,7 @@ const onSubmit = handleSubmit(async (values) => {
       : await createScenario(payload)
 
     const contactTemplateIds: number[] = []
-    for (const contactTemplate of values.contactTemplates) {
+    for (const contactTemplate of formValues.contactTemplates) {
       contactTemplateIds.push(await saveContactTemplateDraft(contactTemplate, scenario.id))
     }
     await updateScenario(scenario.id, { contact_template_ids: contactTemplateIds })
@@ -210,7 +304,7 @@ function onCancel() {
 </script>
 
 <template>
-  <div class="flex flex-col gap-6 max-w-3xl">
+  <div class="flex flex-col gap-6">
     <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-0">
       {{ editingId === null ? 'Add scenario' : 'Edit scenario' }}
     </h1>
@@ -222,21 +316,20 @@ function onCancel() {
     <Message v-else-if="loadError" severity="error" size="small">{{ loadError }}</Message>
 
     <form v-else class="flex flex-col gap-4" @submit.prevent="onSubmit">
-      <Tabs value="details">
-        <TabList>
-          <Tab value="details">Details</Tab>
-          <Tab value="persistence">Persistence</Tab>
-          <Tab value="contactTemplates">
-            Contact templates ({{ contactTemplateFields.length }})
-          </Tab>
-        </TabList>
-        <TabPanels>
-          <TabPanel value="details">
-            <div class="flex flex-col gap-4">
+      <Stepper v-model:value="activeStep" :linear="false">
+        <StepList class="sticky top-0 z-10 bg-surface-0 dark:bg-surface-900">
+          <Step value="1">Details</Step>
+          <Step value="2">Persistence</Step>
+          <Step value="3">Contact templates ({{ contactTemplateFields.length }})</Step>
+        </StepList>
+        <StepPanels>
+          <StepPanel value="1" class="bg-transparent!">
+            <div class="flex flex-col gap-4 max-w-2xl">
               <div class="flex flex-col gap-2">
                 <CategorySelect
                   v-model="scenarioCategoryId"
                   label="Scenario category"
+                  description="Use the label that you are also using in the sheet 'Activity Scenarios'. Provide the corresponding reference profiles in the sheet 'Reference Profiles'."
                   :api="scenarioCategoryApi"
                 />
                 <Message
@@ -253,109 +346,78 @@ function onCancel() {
                 <ToggleSwitch v-model="realistic" input-id="realistic" />
                 <label for="realistic" class="text-sm">Realistic scenario</label>
               </div>
-            </div>
-          </TabPanel>
 
-          <TabPanel value="persistence">
+              <div class="flex justify-end mt-2">
+                <Button label="Continue" icon="pi pi-arrow-right" icon-pos="right" @click="activeStep = '2'" />
+              </div>
+            </div>
+          </StepPanel>
+
+          <StepPanel value="2" class="bg-transparent!">
             <div class="flex flex-col gap-4">
-              <div class="flex flex-col gap-2">
-                <label class="font-medium text-sm">Interval of persistence (Optional)</label>
-                <DurationInput v-model="intervalOfPersistence" />
-                <Message
-                  v-if="errors['persistence.intervalOfPersistence']"
-                  severity="error"
-                  size="small"
-                  variant="simple"
-                >
-                  {{ errors['persistence.intervalOfPersistence'] }}
-                </Message>
-              </div>
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div class="flex flex-col gap-2">
-                  <label class="font-medium text-sm">Temperature (°C)</label>
-                  <InputNumber v-model="temperature" fluid />
-                </div>
-                <div class="flex flex-col gap-2">
-                  <label class="font-medium text-sm">Humidity (%)</label>
-                  <InputNumber
-                    v-model="humidity"
-                    :invalid="!!errors['persistence.humidity']"
-                    fluid
-                  />
-                  <Message
-                    v-if="errors['persistence.humidity']"
-                    severity="error"
-                    size="small"
-                    variant="simple"
-                  >
-                    {{ errors['persistence.humidity'] }}
-                  </Message>
-                </div>
-              </div>
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div class="flex flex-col gap-2">
-                  <label class="font-medium text-sm">UV irradiation (Optional)</label>
-                  <InputNumber
-                    v-model="uvIrradiation"
-                    :invalid="!!errors['persistence.uvIrradiation']"
-                    fluid
-                  />
-                  <Message
-                    v-if="errors['persistence.uvIrradiation']"
-                    severity="error"
-                    size="small"
-                    variant="simple"
-                  >
-                    {{ errors['persistence.uvIrradiation'] }}
-                  </Message>
-                </div>
-                <div class="flex flex-col gap-2">
-                  <label class="font-medium text-sm"
-                    >Duration of disturbance (seconds, Optional)</label
-                  >
-                  <InputNumber
-                    v-model="durationOfDisturbance"
-                    :invalid="!!errors['persistence.durationOfDisturbance']"
-                    fluid
-                  />
-                  <Message
-                    v-if="errors['persistence.durationOfDisturbance']"
-                    severity="error"
-                    size="small"
-                    variant="simple"
-                  >
-                    {{ errors['persistence.durationOfDisturbance'] }}
-                  </Message>
-                </div>
-              </div>
-              <div class="flex flex-wrap gap-6">
-                <div class="flex items-center gap-2">
-                  <ToggleSwitch v-model="indoors" input-id="indoors" />
-                  <label for="indoors" class="text-sm">Indoors</label>
-                </div>
-                <div class="flex items-center gap-2">
-                  <ToggleSwitch v-model="changeOverTime" input-id="change-over-time" />
-                  <label for="change-over-time" class="text-sm">Changes over time</label>
-                </div>
-              </div>
-              <CategorySelect
-                v-model="disturbanceCategoryId"
-                label="Disturbance"
-                :api="disturbanceCategoryApi"
+              <PersistenceCard
+                v-for="(persistenceField, index) in persistenceFields"
+                :key="persistenceField.key"
+                v-model="persistenceField.value"
+                :errors="errors"
+                :index="index"
+                :collapsed="collapsedPersistencies[index]"
+                :removable="persistenceFields.length > 1"
+                @update:collapsed="collapsedPersistencies[index] = $event"
+                @remove="removePersistence(index)"
               />
-              <CategorySelect
-                v-model="geographicLocationCategoryId"
-                label="Geographic location"
-                :api="geographicLocationCategoryApi"
-              />
-              <div class="flex flex-col gap-2">
-                <label class="font-medium text-sm">Description of disturbance (Optional)</label>
-                <Textarea v-model="descriptionOfDisturbance" rows="2" fluid />
+
+              <div class="flex flex-wrap items-end gap-2">
+                <Button
+                  label="Add persistence"
+                  icon="pi pi-plus"
+                  outlined
+                  @click="addPersistence"
+                />
+
+                <div class="flex flex-col gap-2">
+                  <label class="font-medium text-sm">Or add an existing persistence</label>
+                  <div class="flex gap-2">
+                    <Select
+                      v-model="selectedExistingPersistenceId"
+                      :options="availableExistingPersistences"
+                      option-label="id"
+                      option-value="id"
+                      :loading="existingPersistencesLoading"
+                      placeholder="Select an existing persistence"
+                      filter
+                      show-clear
+                      style="min-width: 20rem"
+                    >
+                      <template #option="{ option }">{{ persistenceLabel(option) }}</template>
+                      <template #value="{ value }">
+                        <span v-if="value">
+                          {{ persistenceLabel(existingPersistences.find((p) => p.id === value)!) }}
+                        </span>
+                      </template>
+                    </Select>
+                    <Button
+                      label="Add"
+                      :disabled="!selectedExistingPersistenceId"
+                      @click="addExistingPersistence"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div class="flex justify-between mt-2">
+                <Button label="Back" icon="pi pi-arrow-left" text @click="activeStep = '1'" />
+                <Button
+                  label="Continue"
+                  icon="pi pi-arrow-right"
+                  icon-pos="right"
+                  @click="activeStep = '3'"
+                />
               </div>
             </div>
-          </TabPanel>
+          </StepPanel>
 
-          <TabPanel value="contactTemplates">
+          <StepPanel value="3" class="bg-transparent!">
             <div class="flex flex-col gap-4">
               <ContactTemplateCard
                 v-for="(contactTemplateField, index) in contactTemplateFields"
@@ -376,10 +438,14 @@ function onCancel() {
                 class="self-start"
                 @click="addContactTemplate"
               />
+
+              <div class="flex justify-start mt-2">
+                <Button label="Back" icon="pi pi-arrow-left" text @click="activeStep = '2'" />
+              </div>
             </div>
-          </TabPanel>
-        </TabPanels>
-      </Tabs>
+          </StepPanel>
+        </StepPanels>
+      </Stepper>
 
       <Message v-if="submitError" severity="error" size="small">{{ submitError }}</Message>
 

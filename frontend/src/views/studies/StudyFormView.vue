@@ -9,13 +9,16 @@ import Textarea from 'primevue/textarea'
 import Select from 'primevue/select'
 import Button from 'primevue/button'
 import Message from 'primevue/message'
+import Divider from 'primevue/divider'
 import ProgressSpinner from 'primevue/progressspinner'
 import Stepper from 'primevue/stepper'
 import StepList from 'primevue/steplist'
 import StepPanels from 'primevue/steppanels'
 import Step from 'primevue/step'
 import StepPanel from 'primevue/steppanel'
-import { createStudy, getStudy, updateStudy } from '@/api/studies'
+import ConfirmDialog from 'primevue/confirmdialog'
+import { useConfirm } from 'primevue/useconfirm'
+import { createStudy, deleteStudy, getStudy, updateStudy } from '@/api/studies'
 import { useAuthStore } from '@/stores/auth'
 import ScenariosList from '@/components/scenarios/ScenariosList.vue'
 import DataEntryView from '@/views/data/DataEntryView.vue'
@@ -26,6 +29,7 @@ const props = defineProps<{ id?: string }>()
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+const confirm = useConfirm()
 
 const editingId = computed(() => (props.id ? Number(props.id) : null))
 const loadingStudy = ref(false)
@@ -37,20 +41,27 @@ const loadError = ref('')
 // re-opens the same step), and switching steps in the UI updates the URL.
 const validSteps = ['details', 'planning', 'data-entry'] as const
 type StepName = (typeof validSteps)[number]
+const stepToPanel: Record<StepName, string> = { details: '1', planning: '2', 'data-entry': '3' }
+const panelToStep: Record<string, StepName> = { '1': 'details', '2': 'planning', '3': 'data-entry' }
 
 function stepFromQuery(): StepName {
   const step = route.query.step
   return (validSteps as readonly string[]).includes(step as string) ? (step as StepName) : 'details'
 }
 
-const activeStep = computed<StepName>({
-  get: () => stepFromQuery(),
+const activeStep = computed<string>({
+  get: () => stepToPanel[stepFromQuery()],
   set: (value) => {
-    router.replace({ query: { ...route.query, step: value } })
+    router.replace({ query: { ...route.query, step: panelToStep[value] ?? 'details' } })
   },
 })
 
 const authorTitleOptions = ['Dr.', 'Prof.', 'Prof. Dr.', 'PhD', 'MSc', 'BSc']
+
+const purposeOptions: { label: string; value: 'transfer' | 'repository' }[] = [
+  { label: 'Plan a transfer experiment', value: 'transfer' },
+  { label: 'Add data to repository', value: 'repository' },
+]
 
 interface AuthorFormValue {
   title: string | null
@@ -301,10 +312,77 @@ const onSubmit = handleSubmit(async (values) => {
 function onCancel() {
   router.push({ name: 'studies-laboratory' })
 }
+
+const switchingPurpose = ref(false)
+const switchPurposeError = ref('')
+
+const otherPurposeOption = computed(() =>
+  purposeOptions.find((option) => option.value !== purpose.value),
+)
+
+async function switchPurpose(newPurpose: 'transfer' | 'repository') {
+  if (editingId.value === null) return
+  switchingPurpose.value = true
+  switchPurposeError.value = ''
+  try {
+    await updateStudy(editingId.value, {
+      plan_a_transfer_experiment: newPurpose === 'transfer',
+      add_data_to_repository: newPurpose === 'repository',
+    })
+    purpose.value = newPurpose
+  } catch {
+    switchPurposeError.value = 'Could not switch the study purpose. Please try again.'
+  } finally {
+    switchingPurpose.value = false
+  }
+}
+
+function confirmSwitchPurpose(newPurpose: 'transfer' | 'repository') {
+  if (newPurpose === purpose.value) return
+  const label = purposeOptions.find((option) => option.value === newPurpose)?.label ?? newPurpose
+  confirm.require({
+    message: `Switch this study's purpose to "${label}"?`,
+    header: 'Switch study purpose',
+    icon: 'pi pi-exclamation-triangle',
+    rejectProps: { label: 'Cancel', severity: 'secondary', text: true },
+    acceptProps: { label: 'Switch', severity: 'danger' },
+    accept: () => switchPurpose(newPurpose),
+  })
+}
+
+const deleting = ref(false)
+const deleteError = ref('')
+
+async function removeStudy() {
+  if (editingId.value === null) return
+  deleting.value = true
+  deleteError.value = ''
+  try {
+    await deleteStudy(editingId.value)
+    router.push({ name: 'studies-laboratory' })
+  } catch {
+    deleteError.value = 'Could not delete this study. Please try again.'
+  } finally {
+    deleting.value = false
+  }
+}
+
+function confirmDeleteStudy() {
+  confirm.require({
+    message: 'Delete this study permanently? This cannot be undone.',
+    header: 'Delete study',
+    icon: 'pi pi-exclamation-triangle',
+    rejectProps: { label: 'Cancel', severity: 'secondary', text: true },
+    acceptProps: { label: 'Delete', severity: 'danger' },
+    accept: removeStudy,
+  })
+}
 </script>
 
 <template>
   <div class="flex flex-col gap-6">
+    <ConfirmDialog />
+
     <h1 v-if="editingId === null" class="text-2xl font-bold text-surface-900 dark:text-surface-0">
       Add study
     </h1>
@@ -316,13 +394,13 @@ function onCancel() {
     <Message v-else-if="loadError" severity="error" size="small">{{ loadError }}</Message>
 
     <Stepper v-else v-model:value="activeStep" :linear="false">
-      <StepList>
+      <StepList class="sticky top-0 z-10 bg-surface-0 dark:bg-surface-900">
         <Step value="1">Study details</Step>
         <Step value="2" :disabled="editingId === null">Planning</Step>
         <Step value="3" :disabled="editingId === null">Add data</Step>
       </StepList>
       <StepPanels>
-        <StepPanel value="1">
+        <StepPanel value="1" class="bg-transparent!">
           <form class="flex flex-col gap-4 max-w-2xl" @submit.prevent="onSubmit">
             <div class="flex flex-col gap-2">
               <label for="study-title" class="font-medium text-sm">Title</label>
@@ -523,11 +601,64 @@ function onCancel() {
               <Button label="Cancel" text type="button" @click="onCancel" />
             </div>
           </form>
+
+          <template v-if="editingId !== null">
+            <div class="max-w-2xl pt-16">
+              <Divider />
+            </div>
+
+            <div class="max-w-2xl flex flex-col gap-4">
+              <div>
+                <h2 class="text-lg font-semibold text-red-700 dark:text-red-400">Danger zone</h2>
+                <p class="text-sm text-surface-500 dark:text-surface-400">
+                  These actions are irreversible or affect how this study is used elsewhere.
+                </p>
+              </div>
+
+              <div class="flex flex-col gap-2">
+                <label class="font-medium text-sm">Switch study purpose</label>
+                <p class="text-sm text-surface-500 dark:text-surface-400">
+                  Currently:
+                  <span class="font-medium text-surface-700 dark:text-surface-200">{{
+                    purposeOptions.find((option) => option.value === purpose)?.label
+                  }}</span>
+                </p>
+                <Button
+                  v-if="otherPurposeOption"
+                  type="button"
+                  :label="`Switch to: ${otherPurposeOption.label}`"
+                  severity="secondary"
+                  outlined
+                  class="w-fit"
+                  :loading="switchingPurpose"
+                  @click="confirmSwitchPurpose(otherPurposeOption.value)"
+                />
+                <Message v-if="switchPurposeError" severity="error" size="small" variant="simple">
+                  {{ switchPurposeError }}
+                </Message>
+              </div>
+
+              <div class="flex flex-col gap-2">
+                <label class="font-medium text-sm">Delete study</label>
+                <Button
+                  label="Delete"
+                  icon="pi pi-trash"
+                  severity="danger"
+                  class="w-fit"
+                  :loading="deleting"
+                  @click="confirmDeleteStudy"
+                />
+                <Message v-if="deleteError" severity="error" size="small" variant="simple">
+                  {{ deleteError }}
+                </Message>
+              </div>
+            </div>
+          </template>
         </StepPanel>
-        <StepPanel value="2">
+        <StepPanel value="2" class="bg-transparent!">
           <ScenariosList v-if="editingId !== null" :study-id="editingId" />
         </StepPanel>
-        <StepPanel value="3">
+        <StepPanel value="3" class="bg-transparent!">
           <DataEntryView v-if="editingId !== null" :study-id="String(editingId)" />
         </StepPanel>
       </StepPanels>

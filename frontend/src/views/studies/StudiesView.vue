@@ -194,52 +194,65 @@ function choosePurpose(purpose: 'transfer' | 'repository') {
                 >DOI: {{ item.doi }}</a
               >
             </div>
-            <div v-if="auth.isAuthenticated" class="flex flex-row sm:flex-col gap-2 shrink-0">
-              <Button
-                label="Details"
-                icon="pi pi-pencil"
-                severity="secondary"
-                outlined
-                :disabled="!canEdit(item)"
-                @click="
-                  router.push({
-                    name: 'studies-edit',
-                    params: { id: item.id },
-                    query: { step: 'details' },
-                  })
-                "
-              />
-              <Button
-                label="Planning"
-                icon="pi pi-sitemap"
-                severity="secondary"
-                outlined
-                :disabled="!canEdit(item)"
-                @click="
-                  router.push({
-                    name: 'studies-edit',
-                    params: { id: item.id },
-                    query: { step: 'planning' },
-                  })
-                "
-              />
-              <Button
-                label="Add data"
-                icon="pi pi-database"
-                severity="secondary"
-                outlined
-                :disabled="!canEdit(item)"
-                @click="
-                  router.push({
-                    name: 'studies-edit',
-                    params: { id: item.id },
-                    query: { step: 'data-entry' },
-                  })
-                "
-              />
+            <div v-if="auth.isAuthenticated" class="flex flex-row items-start gap-4 shrink-0">
+              <div class="flex flex-col gap-2">
+                <span
+                  class="text-xs font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-400"
+                >
+                  Edit
+                </span>
+                <div class="flex flex-row sm:flex-col gap-2">
+                  <Button
+                    label="Details"
+                    icon="pi pi-pencil"
+                    severity="secondary"
+                    size="small"
+                    outlined
+                    :disabled="!canEdit(item)"
+                    @click="
+                      router.push({
+                        name: 'studies-edit',
+                        params: { id: item.id },
+                        query: { step: 'details' },
+                      })
+                    "
+                  />
+                  <Button
+                    label="Planning"
+                    icon="pi pi-sitemap"
+                    severity="secondary"
+                    size="small"
+                    outlined
+                    :disabled="!canEdit(item)"
+                    @click="
+                      router.push({
+                        name: 'studies-edit',
+                        params: { id: item.id },
+                        query: { step: 'planning' },
+                      })
+                    "
+                  />
+                  <Button
+                    label="Add data"
+                    icon="pi pi-database"
+                    severity="secondary"
+                    size="small"
+                    outlined
+                    :disabled="!canEdit(item)"
+                    @click="
+                      router.push({
+                        name: 'studies-edit',
+                        params: { id: item.id },
+                        query: { step: 'data-entry' },
+                      })
+                    "
+                  />
+                </div>
+              </div>
               <Button
                 label="Download"
                 icon="pi pi-download"
+                size="small"
                 outlined
                 @click="downloadStudy(item)"
               />

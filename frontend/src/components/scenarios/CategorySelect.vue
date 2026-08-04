@@ -13,6 +13,7 @@ import type { NamedCategory } from '@/api/types'
 const props = defineProps<{
   modelValue: number | null
   label: string
+  description?: string
   api: {
     list: () => Promise<NamedCategory[]>
     create: (payload: {
@@ -85,7 +86,14 @@ const saveNewOption = handleSubmit(async (values) => {
 
 <template>
   <div class="flex flex-col gap-2">
-    <label class="font-medium text-sm">{{ label }}</label>
+    <div class="flex items-center gap-1.5">
+      <label class="font-medium text-sm">{{ label }}</label>
+      <i
+        v-if="description"
+        v-tooltip.top="{ value: description, pt: { text: { class: 'max-w-xs' } } }"
+        class="pi pi-info-circle text-surface-500 dark:text-surface-400 text-sm cursor-help"
+      />
+    </div>
     <div class="flex gap-2">
       <Select
         :model-value="modelValue"

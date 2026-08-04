@@ -1,6 +1,10 @@
 import apiClient from './client'
 import type { Persistence, PersistenceInput } from './types'
 
+export function listPersistences() {
+  return apiClient.get<Persistence[]>('/persistences').then((r) => r.data)
+}
+
 export function createPersistence(payload: PersistenceInput) {
   return apiClient.post<Persistence>('/persistences', payload).then((r) => r.data)
 }

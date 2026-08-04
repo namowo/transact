@@ -1,44 +1,58 @@
 [
   {
-    "name": "handle"
+    "name": "handle",
+    "item_category_name": "hammer"
   },
   {
-    "name": "head"
+    "name": "head",
+    "item_category_name": "hammer"
   },
   {
-    "name": "tip"
+    "name": "tip",
+    "item_category_name": "screwdriver"
   },
   {
-    "name": "ferrule"
+    "name": "ferrule",
+    "item_category_name": "screwdriver"
   },
   {
-    "name": "shank"
+    "name": "shank",
+    "item_category_name": "screwdriver"
   },
   {
-    "name": "slide"
+    "name": "slide",
+    "item_category_name": "gun"
   },
   {
-    "name": "trigger"
+    "name": "trigger",
+    "item_category_name": "gun"
   },
   {
-    "name": "grip"
+    "name": "grip",
+    "item_category_name": "gun"
   },
   {
-    "name": "magazine"
+    "name": "magazine",
+    "item_category_name": "gun"
   },
   {
-    "name": "frame"
+    "name": "frame",
+    "item_category_name": "gun"
   },
   {
-    "name": "muzzle"
+    "name": "muzzle",
+    "item_category_name": "gun"
   },
   {
-    "name": "cylinder"
+    "name": "cylinder",
+    "item_category_name": "gun"
   },
   {
-    "name": "cartridge case"
+    "name": "cartridge case",
+    "item_category_name": "gun"
   },
   {
-    "name": "whole item"
+    "name": "whole item",
+    "item_category_name": "hammer"
   }
 ]

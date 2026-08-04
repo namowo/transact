@@ -2,11 +2,15 @@
   {
     "name": "nylon flocked",
     "description": "20mm break point, active drying system",
+    "catalogue_number_of_supplier": "520C",
+    "full_name_as_by_supplier": "4N6FLOQSwab, Regular Shape",
     "supplier_name": "Copan Diagnostics Inc."
   },
   {
     "name": "viscose",
     "description": "Forensic swab, round, in the tube with ventilation membrane, with safety label, ETO treated, ISO 18385, passive drying, stem length: 85 mm, stem material: PS, swab tip round, swab material: viscose, tube: PP",
+    "catalogue_number_of_supplier": "80.630",
+    "full_name_as_by_supplier": "Forensic swab, round, in the tube with ventilation membrane, ISO 18385, 85 mm, viscose",
     "supplier_name": "SARSTEDT"
   }
 ]

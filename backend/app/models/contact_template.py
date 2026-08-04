@@ -46,14 +46,12 @@ class ContactTemplate(Base):
         lazy="selectin", foreign_keys=[recipient_surface_template_id]
     )
     duration: Mapped[Optional[timedelta]]
-    pressure: Mapped[Optional[float]]
     pressure_estimate_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("pressure_estimate.id", ondelete="SET NULL")
     )
     pressure_estimate: Mapped[Optional["PressureEstimate"]] = relationship(
         lazy="selectin", foreign_keys=[pressure_estimate_id]
     )
-    friction_applied: Mapped[Optional[float]]
     friction_applied_estimate_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("friction_applied_estiamte.id", ondelete="SET NULL")
     )

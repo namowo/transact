@@ -10,10 +10,8 @@ export interface ContactTemplate {
   recipient_surface_template?: SurfaceTemplate | null
   // Seconds, matching the backend's timedelta field.
   duration?: number | null
-  pressure?: number | null
   pressure_estimate_id?: number | null
   pressure_estimate?: NamedCategory | null
-  friction_applied?: number | null
   friction_applied_estimate_id?: number | null
   friction_applied_estimate?: NamedCategory | null
   contact_area?: number | null
@@ -28,9 +26,7 @@ export interface ContactTemplateInput {
   donor_surface_template_id?: number | null
   recipient_surface_template_id?: number | null
   duration?: number | null
-  pressure?: number | null
   pressure_estimate_id?: number | null
-  friction_applied?: number | null
   friction_applied_estimate_id?: number | null
   contact_area?: number | null
   description_of_contact?: string | null
