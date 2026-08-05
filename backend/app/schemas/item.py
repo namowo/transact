@@ -26,5 +26,14 @@ class ItemRead(ItemBase):
     item_subcategory: Optional["ItemSubcategoryRead"] = None
 
 
+class ItemGroup(BaseModel):
+    """Items grouped by category, shaped for a PrimeVue Select's
+    optionGroupLabel/optionGroupChildren."""
+
+    label: str
+    value: Optional[int] = None
+    items: list[ItemRead]
+
+
 from app.schemas.item_category import ItemCategoryRead
 from app.schemas.item_subcategory import ItemSubcategoryRead

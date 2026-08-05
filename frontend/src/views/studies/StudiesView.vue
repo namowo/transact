@@ -233,6 +233,7 @@ function choosePurpose(purpose: 'transfer' | 'repository') {
                     "
                   />
                   <Button
+                    v-if="item.add_data_to_repository"
                     label="Add data"
                     icon="pi pi-database"
                     severity="secondary"

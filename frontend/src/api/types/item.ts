@@ -16,3 +16,9 @@ export interface ItemInput {
   description?: string | null
   picture_path?: string | null
 }
+
+export interface ItemGroup {
+  label: string
+  value: number | null
+  items: Item[]
+}

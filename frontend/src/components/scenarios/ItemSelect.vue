@@ -8,30 +8,43 @@ import Dialog from 'primevue/dialog'
 import Textarea from 'primevue/textarea'
 import CategorySelect from './CategorySelect.vue'
 import { itemCategoryApi, itemSubcategoryApi } from '@/api/categories'
-import { createItem, listItems, updateItem } from '@/api/items'
-import type { Item } from '@/api/types'
+import { createItem, listItemsGrouped, updateItem } from '@/api/items'
+import type { Item, ItemGroup } from '@/api/types'
 
 // Selecting an item here just picks which Item row a surface points at;
 // category, subcategory and description are edited entirely through this
 // component's dialog too, so they aren't duplicated in SurfaceForm.
 const itemId = defineModel<number | null>({ default: null })
 
-const items = ref<Item[]>([])
+const groups = ref<ItemGroup[]>([])
 const loading = ref(false)
 
-// Items have no name of their own, so label them by creation order (not
-// their database id, which is an implementation detail) plus whatever
-// category is known, e.g. "Item 3 (Knife)".
+const items = computed(() => groups.value.flatMap((group) => group.items))
+
+// Items have no name of their own, so label them by creation order within
+// their category (not their database id, which is an implementation
+// detail), e.g. "Item 3" grouped under its category's optgroup label.
 function describeItem(item: Item): string {
-  const position = items.value.findIndex((candidate) => candidate.id === item.id)
-  const name = `Item ${position + 1}`
-  return item.item_category?.name ? `${name} (${item.item_category.name})` : name
+  const group = groups.value.find((candidate) => candidate.value === (item.item_category_id ?? null))
+  const position = group?.items.findIndex((candidate) => candidate.id === item.id) ?? 0
+  return `Item ${position + 1}`
 }
+
+// optionGroupChildren needs each child to carry its own label field.
+const groupOptions = computed(() =>
+  groups.value.map((group) => ({
+    label: group.label,
+    items: group.items.map((item) => ({ ...item, label: describeItem(item) })),
+  })),
+)
 
 async function load() {
   loading.value = true
   try {
-    items.value = (await listItems()).sort((a, b) => a.id - b.id)
+    groups.value = (await listItemsGrouped()).map((group) => ({
+      ...group,
+      items: [...group.items].sort((a, b) => a.id - b.id),
+    }))
   } finally {
     loading.value = false
   }
@@ -102,13 +115,11 @@ const saveItem = handleSubmit(async (values) => {
       description: values.description,
     }
     if (dialogMode.value === 'edit' && selectedItem.value) {
-      const updated = await updateItem(selectedItem.value.id, payload)
-      items.value = items.value.map((candidate) =>
-        candidate.id === updated.id ? updated : candidate,
-      )
+      await updateItem(selectedItem.value.id, payload)
+      await load()
     } else {
       const created = await createItem(payload)
-      items.value = [...items.value, created]
+      await load()
       itemId.value = created.id
     }
     showDialog.value = false
@@ -126,9 +137,11 @@ const saveItem = handleSubmit(async (values) => {
     <div class="flex gap-2">
       <Select
         v-model="itemId"
-        :options="items"
-        :option-label="describeItem"
+        :options="groupOptions"
+        option-label="label"
         option-value="id"
+        option-group-label="label"
+        option-group-children="items"
         placeholder="Select an item"
         :loading="loading"
         show-clear

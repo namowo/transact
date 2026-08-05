@@ -2,6 +2,7 @@
 import SelectButton from 'primevue/selectbutton'
 import Textarea from 'primevue/textarea'
 import ToggleSwitch from 'primevue/toggleswitch'
+import Button from 'primevue/button'
 import CategorySelect from './CategorySelect.vue'
 import ItemSelect from './ItemSelect.vue'
 import {
@@ -14,7 +15,13 @@ import {
 } from '@/api/categories'
 import type { SurfaceTemplateDraft } from './surfaceTemplateDraft'
 
-const props = defineProps<{ label: string }>()
+// Locked once this surface template has been saved (has an id) and a kind
+// was chosen - switching Individual/Item on a saved record would leave
+// stale data in the other kind's fields. To change the kind, the whole
+// surface template must be deleted and re-created via the delete button.
+const props = defineProps<{ label: string; locked: boolean }>()
+
+const emit = defineEmits<{ delete: [] }>()
 
 const draft = defineModel<SurfaceTemplateDraft>({ required: true })
 
@@ -34,8 +41,14 @@ const kindOptions = [
         option-label="label"
         option-value="value"
         :allow-empty="false"
+        :disabled="props.locked"
       />
     </div>
+
+    <p v-if="props.locked" class="text-sm text-surface-500 dark:text-surface-400">
+      Individual/Item can't be changed after saving. Delete this surface to start over with a
+      different kind.
+    </p>
 
     <p v-if="draft.kind === null" class="text-sm text-surface-500 dark:text-surface-400">
       Choose Individual or Item to continue.
@@ -101,5 +114,16 @@ const kindOptions = [
         <Textarea v-model="draft.furtherDescription" rows="2" fluid />
       </div>
     </template>
+
+    <Button
+      v-if="props.locked"
+      :label="`Delete ${props.label.toLowerCase()}`"
+      icon="pi pi-trash"
+      severity="danger"
+      outlined
+      size="small"
+      class="self-start"
+      @click="emit('delete')"
+    />
   </div>
 </template>

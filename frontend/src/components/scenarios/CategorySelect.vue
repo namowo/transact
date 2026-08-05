@@ -22,6 +22,7 @@ const props = defineProps<{
     }) => Promise<NamedCategory>
   }
   placeholder?: string
+  allowAdd?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -107,7 +108,13 @@ const saveNewOption = handleSubmit(async (values) => {
         fluid
         @update:model-value="emit('update:modelValue', $event)"
       />
-      <Button icon="pi pi-plus" text aria-label="Add new option" @click="openAddDialog" />
+      <Button
+        v-if="allowAdd ?? true"
+        icon="pi pi-plus"
+        text
+        aria-label="Add new option"
+        @click="openAddDialog"
+      />
     </div>
 
     <Dialog

@@ -1,3 +1,5 @@
+from typing import Optional
+
 from sqlalchemy import ForeignKey, Table, Column
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -38,6 +40,15 @@ class Scenario(Base):
     )
     scenario_category: Mapped["ScenarioCategory"] = relationship(
         lazy="selectin", foreign_keys=[scenario_category_id]
+    )
+    # The study this scenario was created for. Only this study may edit it;
+    # other studies may link it to their own planning but see it read-only,
+    # since it's a shared record.
+    owning_study_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("study.id", ondelete="SET NULL")
+    )
+    owning_study: Mapped[Optional["Study"]] = relationship(
+        lazy="selectin", foreign_keys=[owning_study_id]
     )
     studies: Mapped[list["Study"]] = relationship(
         lazy="selectin",

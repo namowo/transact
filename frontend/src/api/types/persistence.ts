@@ -1,7 +1,14 @@
 import type { NamedCategory } from './categories'
+import type { Study } from './study'
 
 export interface Persistence {
   id: number
+  // The study this persistence was created for - only that study may edit
+  // it; other studies may only link it read-only.
+  owning_study_id?: number | null
+  owning_study?: Study | null
+  // Optional label to tell apart multiple persistencies on a scenario.
+  name?: string | null
   interval_of_persistence?: number | null
   temperature?: number | null
   humidity?: number | null
@@ -18,6 +25,9 @@ export interface Persistence {
 }
 
 export interface PersistenceInput {
+  // Only accepted on create - immutable afterwards.
+  owning_study_id?: number | null
+  name?: string | null
   interval_of_persistence?: number | null
   temperature?: number | null
   humidity?: number | null

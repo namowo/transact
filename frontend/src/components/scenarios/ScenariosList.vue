@@ -5,14 +5,17 @@ import DataView from 'primevue/dataview'
 import Tag from 'primevue/tag'
 import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
+import { useConfirm } from 'primevue/useconfirm'
 import ProgressSpinner from 'primevue/progressspinner'
 import EntitySelect from './EntitySelect.vue'
-import { listScenarios, deleteScenario, updateScenario } from '@/api/scenarios'
+import ScenarioViewDialog from './ScenarioViewDialog.vue'
+import { listScenarios, getScenario, deleteScenario, updateScenario } from '@/api/scenarios'
 import type { Scenario } from '@/api/types'
 
 const props = defineProps<{ studyId: number }>()
 
 const router = useRouter()
+const confirm = useConfirm()
 
 const allScenarios = ref<Scenario[]>([])
 const loading = ref(false)
@@ -43,8 +46,46 @@ async function onDelete(scenario: Scenario) {
   allScenarios.value = allScenarios.value.filter((s) => s.id !== scenario.id)
 }
 
+function confirmDelete(scenario: Scenario) {
+  confirm.require({
+    message: 'Delete this scenario permanently? This cannot be undone.',
+    header: 'Delete scenario',
+    icon: 'pi pi-exclamation-triangle',
+    rejectProps: { label: 'Cancel', severity: 'secondary', text: true },
+    acceptProps: { label: 'Delete', severity: 'danger' },
+    accept: () => onDelete(scenario),
+  })
+}
+
 function scenarioLabel(scenario: Scenario): string {
   return `${scenario.scenario_category?.name ?? 'Uncategorized'} — Scenario #${scenario.id}`
+}
+
+// Only the study that originally created a scenario may edit it - other
+// studies can only link/unlink it, since it's a shared record.
+function isScenarioEditable(scenario: Scenario): boolean {
+  return scenario.owning_study_id == null || scenario.owning_study_id === props.studyId
+}
+
+// Deleting removes the scenario everywhere, so only the owning study may do
+// it, and only once no other study still refers to it.
+function isScenarioDeletable(scenario: Scenario): boolean {
+  return isScenarioEditable(scenario) && scenario.studies.length <= 1
+}
+
+const viewDialogVisible = ref(false)
+const viewedScenario = ref<Scenario | null>(null)
+const viewLoading = ref(false)
+
+async function openViewDialog(scenario: Scenario) {
+  viewDialogVisible.value = true
+  viewedScenario.value = null
+  viewLoading.value = true
+  try {
+    viewedScenario.value = await getScenario(scenario.id)
+  } finally {
+    viewLoading.value = false
+  }
 }
 
 const linkDialogVisible = ref(false)
@@ -139,6 +180,7 @@ defineExpose({ load })
             </div>
             <div class="flex flex-row sm:flex-col gap-2 shrink-0">
               <Button
+                v-if="isScenarioEditable(item)"
                 label="Edit"
                 icon="pi pi-pencil"
                 severity="secondary"
@@ -151,6 +193,14 @@ defineExpose({ load })
                 "
               />
               <Button
+                v-else
+                label="View"
+                icon="pi pi-eye"
+                severity="secondary"
+                outlined
+                @click="openViewDialog(item)"
+              />
+              <Button
                 v-if="item.studies.length > 1"
                 label="Remove from this study"
                 icon="pi pi-times"
@@ -159,11 +209,12 @@ defineExpose({ load })
                 @click="unlinkScenario(item)"
               />
               <Button
+                v-if="isScenarioDeletable(item)"
                 label="Delete"
                 icon="pi pi-trash"
                 severity="danger"
                 outlined
-                @click="onDelete(item)"
+                @click="confirmDelete(item)"
               />
             </div>
           </div>
@@ -195,5 +246,11 @@ defineExpose({ load })
         />
       </template>
     </Dialog>
+
+    <ScenarioViewDialog
+      v-model:visible="viewDialogVisible"
+      :scenario="viewedScenario"
+      :loading="viewLoading"
+    />
   </div>
 </template>

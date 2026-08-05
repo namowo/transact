@@ -1,13 +1,14 @@
 from typing import Optional
-from datetime import timedelta
 
 from pydantic import BaseModel, ConfigDict
+
+from app.schemas.common import SecondsTimedelta
 
 
 class ContactTemplateBase(BaseModel):
     donor_surface_template_id: Optional[int] = None
     recipient_surface_template_id: Optional[int] = None
-    duration: Optional[timedelta] = None
+    duration: Optional[SecondsTimedelta] = None
     pressure_estimate_id: Optional[int] = None
     friction_applied_estimate_id: Optional[int] = None
     contact_area: Optional[float] = None

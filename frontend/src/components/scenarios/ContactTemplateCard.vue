@@ -8,10 +8,13 @@ import InputGroupAddon from 'primevue/inputgroupaddon'
 import ToggleSwitch from 'primevue/toggleswitch'
 import Button from 'primevue/button'
 import Divider from 'primevue/divider'
+import { useConfirm } from 'primevue/useconfirm'
 import SurfaceTemplateForm from './SurfaceTemplateForm.vue'
 import CategorySelect from './CategorySelect.vue'
 import DurationValueInput from './DurationValueInput.vue'
 import FieldLabel from './FieldLabel.vue'
+import { deleteSurfaceTemplate } from '@/api/surfaceTemplates'
+import { emptySurfaceTemplateDraft } from './surfaceTemplateDraft'
 import {
   activityCategoryApi,
   pressureEstimateApi,
@@ -30,8 +33,35 @@ const emit = defineEmits<{ remove: [] }>()
 const draft = defineModel<ContactTemplateDraft>({ required: true })
 const collapsed = defineModel<boolean>('collapsed', { default: false })
 
+const confirm = useConfirm()
+
 function errorFor(field: string): string | undefined {
   return props.errors[`contactTemplates[${props.index}].${field}`]
+}
+
+function confirmDeleteSurfaceTemplate(which: 'donor' | 'recipient') {
+  const label = which === 'donor' ? 'donor surface' : 'recipient surface'
+  confirm.require({
+    message: `Delete this ${label}? You'll be able to add a new one with a different kind.`,
+    header: `Delete ${label}`,
+    icon: 'pi pi-exclamation-triangle',
+    rejectProps: { label: 'Cancel', severity: 'secondary', text: true },
+    acceptProps: { label: 'Delete', severity: 'danger' },
+    accept: () => deleteSurfaceTemplateSlot(which),
+  })
+}
+
+async function deleteSurfaceTemplateSlot(which: 'donor' | 'recipient') {
+  const id = which === 'donor' ? draft.value.donorSurfaceTemplateId : draft.value.recipientSurfaceTemplateId
+  if (id) await deleteSurfaceTemplate(id)
+
+  if (which === 'donor') {
+    draft.value.donorSurfaceTemplate = emptySurfaceTemplateDraft()
+    draft.value.donorSurfaceTemplateId = null
+  } else {
+    draft.value.recipientSurfaceTemplate = emptySurfaceTemplateDraft()
+    draft.value.recipientSurfaceTemplateId = null
+  }
 }
 </script>
 
@@ -43,8 +73,18 @@ function errorFor(field: string): string | undefined {
 
     <div class="flex flex-col gap-4">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <SurfaceTemplateForm v-model="draft.donorSurfaceTemplate" label="Donor surface" />
-        <SurfaceTemplateForm v-model="draft.recipientSurfaceTemplate" label="Recipient surface" />
+        <SurfaceTemplateForm
+          v-model="draft.donorSurfaceTemplate"
+          label="Donor surface"
+          :locked="!!draft.donorSurfaceTemplateId && draft.donorSurfaceTemplate.kind !== null"
+          @delete="confirmDeleteSurfaceTemplate('donor')"
+        />
+        <SurfaceTemplateForm
+          v-model="draft.recipientSurfaceTemplate"
+          label="Recipient surface"
+          :locked="!!draft.recipientSurfaceTemplateId && draft.recipientSurfaceTemplate.kind !== null"
+          @delete="confirmDeleteSurfaceTemplate('recipient')"
+        />
       </div>
 
       <Divider />
@@ -62,11 +102,13 @@ function errorFor(field: string): string | undefined {
           v-model="draft.pressureEstimateId"
           label="Pressure estimate (Optional)"
           :api="pressureEstimateApi"
+          :allow-add="false"
         />
         <CategorySelect
           v-model="draft.frictionAppliedEstimateId"
           label="Friction applied estimate (Optional)"
           :api="frictionAppliedEstimateApi"
+          :allow-add="false"
         />
       </div>
 

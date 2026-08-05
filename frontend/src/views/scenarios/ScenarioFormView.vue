@@ -7,7 +7,9 @@ import ToggleSwitch from 'primevue/toggleswitch'
 import Button from 'primevue/button'
 import Message from 'primevue/message'
 import ProgressSpinner from 'primevue/progressspinner'
+import Divider from 'primevue/divider'
 import Select from 'primevue/select'
+import ConfirmDialog from 'primevue/confirmdialog'
 import { useToast } from 'primevue/usetoast'
 import Stepper from 'primevue/stepper'
 import StepList from 'primevue/steplist'
@@ -23,6 +25,7 @@ import { listPersistences } from '@/api/persistences'
 import {
   emptyPersistenceDraft,
   isBlankPersistenceDraft,
+  isPersistenceEditable,
   persistenceDraftFromPersistence,
   persistenceLabel,
   savePersistenceDraft,
@@ -50,6 +53,14 @@ const loading = ref(false)
 const loadError = ref('')
 const submitting = ref(false)
 const submitError = ref('')
+
+// Only the study that originally created a scenario may edit it; other
+// studies can only link/unlink it via ScenariosList, since it's a shared
+// record they don't own.
+const owningStudyId = ref<number | null>(null)
+const isEditable = computed(
+  () => owningStudyId.value === null || owningStudyId.value === studyId.value,
+)
 
 // Which step to open, kept in the URL like the study workflow's stepper so
 // deep links and reloads land on the same step.
@@ -132,7 +143,7 @@ const { defineField, errors, handleSubmit, setValues, values } = useForm<Scenari
   initialValues: {
     realistic: true,
     scenarioCategoryId: null,
-    persistencies: [emptyPersistenceDraft()],
+    persistencies: [],
     contactTemplates: [emptyContactTemplateDraft()],
   },
 })
@@ -152,7 +163,7 @@ const {
   remove: removeContactTemplateField,
 } = useFieldArray<ContactTemplateDraft>('contactTemplates')
 
-const collapsedPersistencies = ref<boolean[]>([false])
+const collapsedPersistencies = ref<boolean[]>([])
 const collapsedContactTemplates = ref<boolean[]>([false])
 
 const existingPersistences = ref<Persistence[]>([])
@@ -175,9 +186,8 @@ onMounted(async () => {
   loading.value = true
   try {
     const scenario = await getScenario(editingId.value)
-    const persistencies = scenario.persistencies.length
-      ? scenario.persistencies.map(persistenceDraftFromPersistence)
-      : [emptyPersistenceDraft()]
+    owningStudyId.value = scenario.owning_study_id ?? null
+    const persistencies = scenario.persistencies.map((p) => persistenceDraftFromPersistence(p))
     const contactTemplates = scenario.contact_templates.length
       ? scenario.contact_templates.map(contactTemplateDraftFromContactTemplate)
       : [emptyContactTemplateDraft()]
@@ -189,7 +199,7 @@ onMounted(async () => {
     })
     // Existing entries start collapsed so the form doesn't open on a wall of
     // fields; freshly-added ones start expanded.
-    collapsedPersistencies.value = persistencies.map(() => scenario.persistencies.length > 0)
+    collapsedPersistencies.value = persistencies.map(() => true)
     collapsedContactTemplates.value = contactTemplates.map(
       () => scenario.contact_templates.length > 0,
     )
@@ -257,6 +267,8 @@ function firstIncompleteStep(): { step: StepName; message: string } | null {
 }
 
 const onSubmit = handleSubmit(async (formValues) => {
+  if (!isEditable.value) return
+
   const incomplete = firstIncompleteStep()
   if (incomplete) {
     activeStep.value = stepToPanel[incomplete.step]
@@ -269,7 +281,7 @@ const onSubmit = handleSubmit(async (formValues) => {
   try {
     const persistenceIds: number[] = []
     for (const persistence of formValues.persistencies) {
-      const persistenceId = await savePersistenceDraft(persistence)
+      const persistenceId = await savePersistenceDraft(persistence, studyId.value)
       if (persistenceId) persistenceIds.push(persistenceId)
     }
 
@@ -278,6 +290,7 @@ const onSubmit = handleSubmit(async (formValues) => {
       scenario_category_id: formValues.scenarioCategoryId,
       study_ids: [studyId.value],
       persistence_ids: Array.from(new Set(persistenceIds)),
+      ...(editingId.value === null ? { owning_study_id: studyId.value } : {}),
     }
 
     const scenario = editingId.value
@@ -290,7 +303,11 @@ const onSubmit = handleSubmit(async (formValues) => {
     }
     await updateScenario(scenario.id, { contact_template_ids: contactTemplateIds })
 
-    router.push({ name: 'scenarios', params: { studyId: studyId.value } })
+    router.push({
+      name: 'studies-edit',
+      params: { id: studyId.value },
+      query: { step: 'planning' },
+    })
   } catch {
     submitError.value = 'Could not save the scenario. Please try again.'
   } finally {
@@ -299,21 +316,42 @@ const onSubmit = handleSubmit(async (formValues) => {
 })
 
 function onCancel() {
-  router.push({ name: 'scenarios', params: { studyId: studyId.value } })
+  router.push({
+    name: 'studies-edit',
+    params: { id: studyId.value },
+    query: { step: 'planning' },
+  })
 }
 </script>
 
 <template>
   <div class="flex flex-col gap-6">
-    <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-0">
-      {{ editingId === null ? 'Add scenario' : 'Edit scenario' }}
-    </h1>
+    <ConfirmDialog />
+
+    <div class="flex flex-col gap-1">
+      <Button
+        label="Back to study"
+        icon="pi pi-arrow-left"
+        text
+        size="small"
+        class="self-start -ml-3!"
+        @click="onCancel"
+      />
+      <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-0">
+        {{ editingId === null ? 'Add scenario' : 'Edit scenario' }}
+      </h1>
+    </div>
 
     <div v-if="loading" class="flex justify-center py-12">
       <ProgressSpinner style="width: 3rem; height: 3rem" />
     </div>
 
     <Message v-else-if="loadError" severity="error" size="small">{{ loadError }}</Message>
+
+    <Message v-else-if="!isEditable" severity="info" size="small">
+      This scenario was created for another study, so it can only be edited there. You can still
+      view it here, or remove it from this study on the scenarios list.
+    </Message>
 
     <form v-else class="flex flex-col gap-4" @submit.prevent="onSubmit">
       <Stepper v-model:value="activeStep" :linear="false">
@@ -355,6 +393,13 @@ function onCancel() {
 
           <StepPanel value="2" class="bg-transparent!">
             <div class="flex flex-col gap-4">
+              <p
+                v-if="persistenceFields.length === 0"
+                class="text-sm text-surface-500 dark:text-surface-400"
+              >
+                No persistence linked yet.
+              </p>
+
               <PersistenceCard
                 v-for="(persistenceField, index) in persistenceFields"
                 :key="persistenceField.key"
@@ -362,32 +407,34 @@ function onCancel() {
                 :errors="errors"
                 :index="index"
                 :collapsed="collapsedPersistencies[index]"
-                :removable="persistenceFields.length > 1"
+                :removable="true"
+                :editable="isPersistenceEditable(persistenceField.value, studyId)"
                 @update:collapsed="collapsedPersistencies[index] = $event"
                 @remove="removePersistence(index)"
               />
 
-              <div class="flex flex-wrap items-end gap-2">
+              <div class="flex flex-col gap-4">
                 <Button
-                  label="Add persistence"
+                  label="Add new persistence"
                   icon="pi pi-plus"
                   outlined
+                  class="self-start"
                   @click="addPersistence"
                 />
 
                 <div class="flex flex-col gap-2">
-                  <label class="font-medium text-sm">Or add an existing persistence</label>
+                  <label class="font-medium text-sm">Link an existing persistence</label>
                   <div class="flex gap-2">
                     <Select
                       v-model="selectedExistingPersistenceId"
                       :options="availableExistingPersistences"
-                      option-label="id"
+                      :option-label="persistenceLabel"
                       option-value="id"
                       :loading="existingPersistencesLoading"
                       placeholder="Select an existing persistence"
                       filter
                       show-clear
-                      style="min-width: 20rem"
+                      fluid
                     >
                       <template #option="{ option }">{{ persistenceLabel(option) }}</template>
                       <template #value="{ value }">
@@ -397,7 +444,7 @@ function onCancel() {
                       </template>
                     </Select>
                     <Button
-                      label="Add"
+                      label="Link"
                       :disabled="!selectedExistingPersistenceId"
                       @click="addExistingPersistence"
                     />
@@ -446,6 +493,8 @@ function onCancel() {
           </StepPanel>
         </StepPanels>
       </Stepper>
+
+      <Divider />
 
       <Message v-if="submitError" severity="error" size="small">{{ submitError }}</Message>
 

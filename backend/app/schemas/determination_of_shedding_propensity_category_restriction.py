@@ -1,12 +1,13 @@
-from datetime import timedelta
 from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
 
+from app.schemas.common import SecondsTimedelta
+
 
 class DeterminationOfSheddingPropensityCategoryRestrictionBase(BaseModel):
     restriction_prior_to_sampling_id: int
-    duration: Optional[timedelta] = None
+    duration: Optional[SecondsTimedelta] = None
 
 
 class DeterminationOfSheddingPropensityCategoryRestrictionCreate(

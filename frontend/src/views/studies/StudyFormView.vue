@@ -46,6 +46,7 @@ const panelToStep: Record<string, StepName> = { '1': 'details', '2': 'planning',
 
 function stepFromQuery(): StepName {
   const step = route.query.step
+  if (step === 'data-entry' && purpose.value !== 'repository') return 'details'
   return (validSteps as readonly string[]).includes(step as string) ? (step as StepName) : 'details'
 }
 
@@ -397,7 +398,9 @@ function confirmDeleteStudy() {
       <StepList class="sticky top-0 z-10 bg-surface-0 dark:bg-surface-900">
         <Step value="1">Study details</Step>
         <Step value="2" :disabled="editingId === null">Planning</Step>
-        <Step value="3" :disabled="editingId === null">Add data</Step>
+        <Step v-if="purpose === 'repository'" value="3" :disabled="editingId === null">
+          Add data
+        </Step>
       </StepList>
       <StepPanels>
         <StepPanel value="1" class="bg-transparent!">
@@ -592,13 +595,24 @@ function confirmDeleteStudy() {
 
             <Message v-if="submitError" severity="error" size="small">{{ submitError }}</Message>
 
-            <div class="flex gap-2 mt-2">
+            <div class="flex justify-between items-center gap-2 mt-2">
+              <div class="flex gap-2">
+                <Button
+                  type="submit"
+                  :label="editingId === null ? 'Add study' : 'Save changes'"
+                  :loading="submitting"
+                />
+                <Button label="Cancel" text type="button" @click="onCancel" />
+              </div>
               <Button
-                type="submit"
-                :label="editingId === null ? 'Add study' : 'Save changes'"
-                :loading="submitting"
+                v-if="editingId !== null"
+                label="Continue"
+                icon="pi pi-arrow-right"
+                icon-pos="right"
+                text
+                type="button"
+                @click="activeStep = '2'"
               />
-              <Button label="Cancel" text type="button" @click="onCancel" />
             </div>
           </form>
 
@@ -657,9 +671,24 @@ function confirmDeleteStudy() {
         </StepPanel>
         <StepPanel value="2" class="bg-transparent!">
           <ScenariosList v-if="editingId !== null" :study-id="editingId" />
+          <div class="flex justify-between mt-4">
+            <Button label="Back" icon="pi pi-arrow-left" text type="button" @click="activeStep = '1'" />
+            <Button
+              v-if="purpose === 'repository'"
+              label="Continue"
+              icon="pi pi-arrow-right"
+              icon-pos="right"
+              text
+              type="button"
+              @click="activeStep = '3'"
+            />
+          </div>
         </StepPanel>
-        <StepPanel value="3" class="bg-transparent!">
+        <StepPanel v-if="purpose === 'repository'" value="3" class="bg-transparent!">
           <DataEntryView v-if="editingId !== null" :study-id="String(editingId)" />
+          <div class="flex justify-start mt-4">
+            <Button label="Back" icon="pi pi-arrow-left" text type="button" @click="activeStep = '2'" />
+          </div>
         </StepPanel>
       </StepPanels>
     </Stepper>

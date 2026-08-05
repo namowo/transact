@@ -40,7 +40,10 @@ class StudyUpdate(StudyBase):
     authors: Optional[List["AuthorCreate"]] = None
 
 
-class StudyRead(StudyBase):
+class StudyReadNested(StudyBase):
+    """Study as embedded in a ScenarioRead - omits `scenarios` to avoid an
+    infinite Study <-> Scenario cycle."""
+
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -49,12 +52,15 @@ class StudyRead(StudyBase):
     quality_checked_by_id: Optional[int] = None
     quality_checked_by: Optional["UserRead"] = None
     quality_checked_at: Optional[datetime] = None
-    scenarios: List["ScenarioRead"] = []
     recoveries: List["RecoveryRead"] = []
+
+
+class StudyRead(StudyReadNested):
+    scenarios: List["ScenarioReadNested"] = []
 
 
 from app.schemas.author import AuthorCreate, AuthorRead
 from app.schemas.laboratory import LaboratoryRead
 from app.schemas.user import UserRead
-from app.schemas.scenario import ScenarioRead
+from app.schemas.scenario import ScenarioReadNested
 from app.schemas.recovery import RecoveryRead

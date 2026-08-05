@@ -35,12 +35,36 @@ export function emptySurfaceTemplateDraft(): SurfaceTemplateDraft {
   }
 }
 
+function inferSurfaceTemplateKind(template: SurfaceTemplate): 'individual' | 'item' | null {
+  // item_id itself may be null even for an "item" template - the actual
+  // item is chosen later, during data entry. Look at whichever category
+  // fields are populated instead, since those are kind-specific.
+  if (
+    template.item_id != null ||
+    template.item_parts_category_id != null ||
+    template.condition_of_item_part_category_id != null
+  ) {
+    return 'item'
+  }
+  if (template.location_of_body_category_id != null || template.body_part_condition_category_id != null) {
+    return 'individual'
+  }
+  // A saved template with only shared fields set (surface material, source
+  // of DNA, etc.) and no kind-specific data - default to individual so the
+  // record's fields stay visible instead of being hidden behind the
+  // "choose a kind" prompt.
+  if (template.surface_material_category_id != null || template.source_of_dna_category_id != null) {
+    return 'individual'
+  }
+  return null
+}
+
 export function surfaceTemplateDraftFromSurfaceTemplate(
   template: SurfaceTemplate | null | undefined,
 ): SurfaceTemplateDraft {
   if (!template) return emptySurfaceTemplateDraft()
   return {
-    kind: template.item_id ? 'item' : 'individual',
+    kind: inferSurfaceTemplateKind(template),
     locationOfBodyCategoryId: template.location_of_body_category_id ?? null,
     bodyPartConditionCategoryId: template.body_part_condition_category_id ?? null,
     itemId: template.item_id ?? null,

@@ -1,7 +1,8 @@
 from typing import Optional
-from datetime import timedelta
 
 from pydantic import BaseModel, ConfigDict
+
+from app.schemas.common import SecondsTimedelta
 
 
 class PCRMethodBase(BaseModel):
@@ -9,16 +10,16 @@ class PCRMethodBase(BaseModel):
     pcr_kit_id: Optional[int] = None
     thermocycler_id: Optional[int] = None
     initial_denaturation_temp: Optional[float] = None
-    initial_denaturation_time: Optional[timedelta] = None
+    initial_denaturation_time: Optional[SecondsTimedelta] = None
     no_of_cycles: Optional[int] = None
     denaturation_temp: Optional[float] = None
-    denaturation_time: Optional[timedelta] = None
+    denaturation_time: Optional[SecondsTimedelta] = None
     annealing_temp: Optional[float] = None
-    annealing_time: Optional[timedelta] = None
+    annealing_time: Optional[SecondsTimedelta] = None
     elongation_temp: Optional[float] = None
-    elongation_time: Optional[timedelta] = None
+    elongation_time: Optional[SecondsTimedelta] = None
     final_elongation_temp: Optional[float] = None
-    final_elongation_time: Optional[timedelta] = None
+    final_elongation_time: Optional[SecondsTimedelta] = None
     ramping: Optional[float] = None
     total_volume_pcr_reaction: Optional[float] = None
 

@@ -1,7 +1,8 @@
 from typing import Optional
-from datetime import timedelta
 
 from pydantic import BaseModel, ConfigDict
+
+from app.schemas.common import SecondsTimedelta
 
 
 class CEMethodBase(BaseModel):
@@ -15,9 +16,9 @@ class CEMethodBase(BaseModel):
     run_voltage: Optional[float] = None
     pre_run_voltage: Optional[float] = None
     injection_voltage: Optional[float] = None
-    run_time: Optional[timedelta] = None
-    pre_run_time: Optional[timedelta] = None
-    injection_time: Optional[timedelta] = None
+    run_time: Optional[SecondsTimedelta] = None
+    pre_run_time: Optional[SecondsTimedelta] = None
+    injection_time: Optional[SecondsTimedelta] = None
     type_of_formamide_id: Optional[int] = None
     volume_formamide: Optional[int] = None
     size_standard_id: Optional[int] = None

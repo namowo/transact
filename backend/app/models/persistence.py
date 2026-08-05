@@ -13,6 +13,18 @@ class Persistence(Base):
     id: Mapped[int] = mapped_column(
         primary_key=True, index=True, unique=True, nullable=False
     )
+    # The study this persistence was created for. Only this study may edit
+    # it; other studies may link it via a scenario but see it read-only,
+    # since it's a shared record.
+    owning_study_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("study.id", ondelete="SET NULL")
+    )
+    owning_study: Mapped[Optional["Study"]] = relationship(
+        lazy="selectin", foreign_keys=[owning_study_id]
+    )
+    # Optional label to tell apart multiple persistencies on the same
+    # scenario, e.g. "Winter" vs "Summer".
+    name: Mapped[Optional[str]]
     interval_of_persistence: Mapped[Optional[float]]
     temperature: Mapped[Optional[float]]
     humidity: Mapped[Optional[float]]
@@ -42,3 +54,4 @@ class Persistence(Base):
 
 from app.models.disturbance_category import DisturbanceCategory
 from app.models.geographic_location_category import GeographicLocationCategory
+from app.models.study import Study

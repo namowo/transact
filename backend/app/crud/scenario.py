@@ -1,3 +1,4 @@
+from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.crud.base import CRUDBase
@@ -29,6 +30,15 @@ class CRUDScenario(CRUDBase[Scenario, ScenarioCreate, ScenarioUpdate]):
         return await self.update_with_associations(
             db, id, obj_in, association_fields=ASSOCIATION_FIELDS
         )
+
+    async def delete(self, db: AsyncSession, id: int) -> None:
+        instance = await self.get(db, id)
+        if len(instance.studies) > 1:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Cannot delete a scenario that is still linked to other studies.",
+            )
+        await super().delete(db, id)
 
 
 crud_scenario = CRUDScenario()
