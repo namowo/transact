@@ -9,19 +9,19 @@ import type { SurfaceTemplateDraft } from './surfaceTemplateDraft'
 import type { ContactTemplate } from '@/api/types'
 
 export interface ContactTemplateDraft {
-  id: number | null
+  id: string | null
   donorSurfaceTemplate: SurfaceTemplateDraft
-  donorSurfaceTemplateId: number | null
+  donorSurfaceTemplateId: string | null
   recipientSurfaceTemplate: SurfaceTemplateDraft
-  recipientSurfaceTemplateId: number | null
+  recipientSurfaceTemplateId: string | null
   // Seconds.
   duration: number | null
-  pressureEstimateId: number | null
-  frictionAppliedEstimateId: number | null
+  pressureEstimateId: string | null
+  frictionAppliedEstimateId: string | null
   contactArea: number | null
   descriptionOfContact: string | null
-  activityCategoryId: number | null
-  conditionDuringContactId: number | null
+  activityCategoryId: string | null
+  conditionDuringContactId: string | null
   temperature: number | null
   humidity: number | null
   uvIrradiation: number | null
@@ -74,6 +74,22 @@ export function contactTemplateDraftFromContactTemplate(
   }
 }
 
+// Used when duplicating a scenario from another study: keeps the field
+// values but drops every id (including the nested surface templates and
+// condition-during-contact), so saving creates independent copies instead of
+// updating the originals.
+export function cloneContactTemplateDraftForDuplication(
+  draft: ContactTemplateDraft,
+): ContactTemplateDraft {
+  return {
+    ...draft,
+    id: null,
+    donorSurfaceTemplateId: null,
+    recipientSurfaceTemplateId: null,
+    conditionDuringContactId: null,
+  }
+}
+
 export function isBlankContactTemplateDraft(draft: ContactTemplateDraft): boolean {
   return draft.donorSurfaceTemplate.kind === null && draft.recipientSurfaceTemplate.kind === null
 }
@@ -91,8 +107,8 @@ function hasConditionData(draft: ContactTemplateDraft): boolean {
 // linking it to the given scenario. Returns the saved ContactTemplate's id.
 export async function saveContactTemplateDraft(
   draft: ContactTemplateDraft,
-  scenarioId: number,
-): Promise<number> {
+  scenarioId: string,
+): Promise<string> {
   const donorSurfaceTemplateId = await saveSurfaceTemplateDraft(
     draft.donorSurfaceTemplate,
     draft.donorSurfaceTemplateId,

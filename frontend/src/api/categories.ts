@@ -6,6 +6,8 @@ import type {
   SkinDiseaseCategoryInput,
   DeterminationOfSheddingPropensityCategory,
   DeterminationOfSheddingPropensityCategoryInput,
+  ItemSubcategory,
+  ItemSubcategoryInput,
   Supplier,
   SupplierInput,
 } from './types'
@@ -29,7 +31,15 @@ export const disturbanceCategoryApi = namedCategoryApi('/disturbance-categories'
 export const geographicLocationCategoryApi = namedCategoryApi('/geographic-location-categories')
 export const itemCategoryApi = namedCategoryApi('/item-categories')
 export const itemPartsCategoryApi = namedCategoryApi('/item-parts-categories')
-export const itemSubcategoryApi = namedCategoryApi('/item-subcategories')
+
+// Not a plain namedCategoryApi: a subcategory belongs to one item category,
+// so callers need item_category_id both when listing (to filter client-side)
+// and when creating (to attach the new subcategory to the right category).
+export const itemSubcategoryApi = {
+  list: () => apiClient.get<ItemSubcategory[]>('/item-subcategories').then((r) => r.data),
+  create: (payload: ItemSubcategoryInput) =>
+    apiClient.post<ItemSubcategory>('/item-subcategories', payload).then((r) => r.data),
+}
 export const locationOfBodyCategoryApi = namedCategoryApi('/location-of-body-categories')
 export const scenarioCategoryApi = namedCategoryApi('/scenario-categories')
 export const sexApi = namedCategoryApi('/sexes')

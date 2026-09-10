@@ -1,4 +1,5 @@
 from typing import List, Optional
+from uuid import UUID
 
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -145,7 +146,7 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         return user
 
     async def set_laboratory(
-        self, db: AsyncSession, user: User, laboratory_id: Optional[int]
+        self, db: AsyncSession, user: User, laboratory_id: Optional[UUID]
     ) -> User:
         user.laboratory_id = laboratory_id
         if laboratory_id is None:
@@ -160,7 +161,7 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         return user
 
     async def list_by_laboratory(
-        self, db: AsyncSession, laboratory_id: int
+        self, db: AsyncSession, laboratory_id: UUID
     ) -> List[User]:
         statement = select(self.model).where(
             self.model.laboratory_id == laboratory_id

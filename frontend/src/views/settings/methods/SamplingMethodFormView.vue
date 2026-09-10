@@ -45,7 +45,7 @@ const router = useRouter()
 const auth = useAuthStore()
 const laboratoryId = computed(() => auth.user?.laboratory_id ?? null)
 
-const editingId = computed(() => (props.id ? Number(props.id) : null))
+const editingId = computed(() => props.id ?? null)
 
 const subMethodKeys = ['swab', 'tape', 'vacuum', 'cutting', 'scraping', 'picking'] as const
 type SubMethodKey = (typeof subMethodKeys)[number]

@@ -1,5 +1,6 @@
 from typing import Optional
 
+from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 
 from app.schemas.common import SecondsTimedelta
@@ -15,14 +16,14 @@ class PersistenceBase(BaseModel):
     change_over_time: Optional[bool] = None
     duration_of_disturbance: Optional[SecondsTimedelta] = None
     description_of_disturbance: Optional[str] = None
-    disturbance_category_id: Optional[int] = None
-    geographic_location_category_id: Optional[int] = None
+    disturbance_category_id: Optional[UUID] = None
+    geographic_location_category_id: Optional[UUID] = None
 
 
 class PersistenceCreate(PersistenceBase):
     # The study this persistence is created for. Only that study may later
     # edit it - it's immutable after creation (not part of PersistenceUpdate).
-    owning_study_id: Optional[int] = None
+    owning_study_id: Optional[UUID] = None
 
 
 class PersistenceUpdate(PersistenceBase):
@@ -35,8 +36,8 @@ class PersistenceReadNested(PersistenceBase):
 
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
-    owning_study_id: Optional[int] = None
+    id: UUID
+    owning_study_id: Optional[UUID] = None
     disturbance_category: Optional["DisturbanceCategoryRead"] = None
     geographic_location_category: Optional["GeographicLocationCategoryRead"] = None
 

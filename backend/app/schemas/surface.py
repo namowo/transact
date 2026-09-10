@@ -1,17 +1,18 @@
 from typing import Optional
 
+from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 
 
 class SurfaceBase(BaseModel):
-    surface_template_id: Optional[int] = None
-    individual_id: Optional[int] = None
-    location_of_body_category_id: Optional[int] = None
-    body_part_condition_category_id: Optional[int] = None
-    item_parts_category_id: Optional[int] = None
-    condition_of_item_part_category_id: Optional[int] = None
-    surface_material_category_id: Optional[int] = None
-    source_of_dna_category_id: Optional[int] = None
+    surface_template_id: Optional[UUID] = None
+    individual_id: Optional[UUID] = None
+    location_of_body_category_id: Optional[UUID] = None
+    body_part_condition_category_id: Optional[UUID] = None
+    item_parts_category_id: Optional[UUID] = None
+    condition_of_item_part_category_id: Optional[UUID] = None
+    surface_material_category_id: Optional[UUID] = None
+    source_of_dna_category_id: Optional[UUID] = None
 
 
 class SurfaceCreate(SurfaceBase):
@@ -25,7 +26,7 @@ class SurfaceUpdate(SurfaceBase):
 class SurfaceRead(SurfaceBase):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    id: UUID
     surface_template: Optional["SurfaceTemplateRead"] = None
     individual: Optional["IndividualRead"] = None
     location_of_body_category: Optional["LocationOfBodyCategoryRead"] = None

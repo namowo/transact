@@ -1,5 +1,6 @@
 from typing import Optional
 
+from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 
 
@@ -19,4 +20,4 @@ class ActivityCategoryUpdate(ActivityCategoryBase):
 class ActivityCategoryRead(ActivityCategoryBase):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    id: UUID

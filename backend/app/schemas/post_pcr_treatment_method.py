@@ -1,10 +1,11 @@
 from typing import Optional
 
+from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 
 
 class PostPCRTreatmentMethodBase(BaseModel):
-    laboratory_id: Optional[int] = None
+    laboratory_id: Optional[UUID] = None
     application_of_post_pcr_purification_step: Optional[bool] = None
     description_of_post_pcr_purification_step: Optional[str] = None
     dilution_of_pcr_product: Optional[bool] = None
@@ -22,7 +23,7 @@ class PostPCRTreatmentMethodUpdate(PostPCRTreatmentMethodBase):
 class PostPCRTreatmentMethodRead(PostPCRTreatmentMethodBase):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    id: UUID
     laboratory: Optional["LaboratoryRead"] = None
 
 

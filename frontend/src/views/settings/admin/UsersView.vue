@@ -39,7 +39,7 @@ const actionError = ref('')
 
 const labDialogVisible = ref(false)
 const labDialogUser = ref<User | null>(null)
-const labDialogValue = ref<number | null>(null)
+const labDialogValue = ref<string | null>(null)
 const labDialogSaving = ref(false)
 
 const booleanOptions = [

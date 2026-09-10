@@ -18,21 +18,31 @@ def _utcnow() -> datetime:
 
 class CRUDWebAuthnChallenge:
     async def store(
-        self, db: AsyncSession, user: User, purpose: str, raw_challenge: str, expires_in: timedelta
+        self,
+        db: AsyncSession,
+        user: Optional[User],
+        purpose: str,
+        raw_challenge: str,
+        expires_in: timedelta,
     ) -> None:
         """Persist a challenge value already generated elsewhere (e.g. by the
-        webauthn library), invalidating any existing challenge for the same
-        purpose."""
-        await db.execute(
-            delete(WebAuthnChallenge).where(
-                WebAuthnChallenge.user_id == user.id,
-                WebAuthnChallenge.purpose == purpose,
+        webauthn library). ``user`` is None for a usernameless login
+        challenge, where the user isn't known until the assertion comes
+        back; since anonymous challenges aren't scoped to one identity, an
+        old one is left to expire on its own TTL rather than invalidated
+        here, so concurrent anonymous logins from different people don't
+        invalidate each other."""
+        if user:
+            await db.execute(
+                delete(WebAuthnChallenge).where(
+                    WebAuthnChallenge.user_id == user.id,
+                    WebAuthnChallenge.purpose == purpose,
+                )
             )
-        )
 
         db.add(
             WebAuthnChallenge(
-                user_id=user.id,
+                user_id=user.id if user else None,
                 challenge=raw_challenge,
                 purpose=purpose,
                 expires_at=_utcnow() + expires_in,
@@ -53,6 +63,23 @@ class CRUDWebAuthnChallenge:
             WebAuthnChallenge.user_id == user.id,
             WebAuthnChallenge.purpose == purpose,
         )
+        return await self._consume(db, statement)
+
+    async def get_valid_anonymous(
+        self, db: AsyncSession, raw_challenge: str, purpose: str
+    ) -> bool:
+        """Fetch and consume a usernameless (no user_id) challenge by its
+        value. Returns whether a matching, unexpired challenge existed."""
+        statement = select(WebAuthnChallenge).where(
+            WebAuthnChallenge.user_id.is_(None),
+            WebAuthnChallenge.purpose == purpose,
+            WebAuthnChallenge.challenge == raw_challenge,
+        )
+        return await self._consume(db, statement) is not None
+
+    async def _consume(
+        self, db: AsyncSession, statement
+    ) -> Optional[str]:
         result = await db.execute(statement)
         challenge = result.scalars().first()
 

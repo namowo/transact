@@ -1,5 +1,6 @@
 from typing import List, Optional
 
+from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 
 
@@ -8,8 +9,8 @@ class DeterminationOfSheddingPropensityCategoryBase(BaseModel):
     doi: Optional[str] = None
     number_of_participants: Optional[int] = None
     replicates: Optional[int] = None
-    classification_criteria_id: Optional[int] = None
-    classification_scheme_id: Optional[int] = None
+    classification_criteria_id: Optional[UUID] = None
+    classification_scheme_id: Optional[UUID] = None
     classification_outcome: Optional[str] = None
 
 
@@ -20,7 +21,7 @@ class DeterminationOfSheddingPropensityCategoryCreate(
     restrictions: List["DeterminationOfSheddingPropensityCategoryRestrictionCreate"] = (
         []
     )
-    monitored_transfer_factor_ids: List[int] = []
+    monitored_transfer_factor_ids: List[UUID] = []
     shedder_tests: List[
         "DeterminationOfSheddingPropensityCategoryShedderTestCreate"
     ] = []
@@ -33,7 +34,7 @@ class DeterminationOfSheddingPropensityCategoryUpdate(
     restrictions: Optional[
         List["DeterminationOfSheddingPropensityCategoryRestrictionCreate"]
     ] = None
-    monitored_transfer_factor_ids: Optional[List[int]] = None
+    monitored_transfer_factor_ids: Optional[List[UUID]] = None
     shedder_tests: Optional[
         List["DeterminationOfSheddingPropensityCategoryShedderTestCreate"]
     ] = None
@@ -44,7 +45,7 @@ class DeterminationOfSheddingPropensityCategoryRead(
 ):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    id: UUID
     authors: List["AuthorRead"] = []
     restrictions: List["DeterminationOfSheddingPropensityCategoryRestrictionRead"] = []
     monitored_transfer_factors: List["MonitoredTransferFactorRead"] = []

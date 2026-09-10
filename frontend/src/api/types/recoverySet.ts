@@ -1,5 +1,5 @@
 export interface RecoverySet {
-  id: number
+  id: string
   name?: string | null
 }
 

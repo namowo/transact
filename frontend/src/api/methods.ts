@@ -42,9 +42,9 @@ export function methodApi<TRead, TInput>(basePath: string) {
   return {
     list: () => apiClient.get<TRead[]>(basePath).then((r) => r.data),
     create: (payload: TInput) => apiClient.post<TRead>(basePath, payload).then((r) => r.data),
-    update: (id: number, payload: TInput) =>
+    update: (id: string, payload: TInput) =>
       apiClient.patch<TRead>(`${basePath}/${id}`, payload).then((r) => r.data),
-    delete: (id: number) => apiClient.delete(`${basePath}/${id}`).then(() => undefined),
+    delete: (id: string) => apiClient.delete(`${basePath}/${id}`).then(() => undefined),
   }
 }
 

@@ -11,7 +11,7 @@ const studies = ref<Study[]>([])
 const loading = ref(false)
 const loadError = ref('')
 const actionError = ref('')
-const actingOnId = ref<number | null>(null)
+const actingOnId = ref<string | null>(null)
 
 const pendingStudies = computed(() => studies.value.filter((s) => !s.quality_check_passed))
 

@@ -1,7 +1,11 @@
+import uuid
 from typing import Optional
 from datetime import timedelta
 from sqlalchemy import ForeignKey
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from sqlalchemy.sql import text
 
 from app.core.db import Base
 
@@ -9,16 +13,19 @@ from app.core.db import Base
 class CEMethod(Base):
     __tablename__ = "ce_method"
 
-    id: Mapped[int] = mapped_column(
-        primary_key=True, index=True, unique=True, nullable=False
+    id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, index=True,
+        server_default=text("gen_random_uuid()")
     )
-    laboratory_id: Mapped[Optional[int]] = mapped_column(
+    laboratory_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        PGUUID(as_uuid=True),
         ForeignKey("laboratory.id", ondelete="SET NULL")
     )
     laboratory: Mapped[Optional["Laboratory"]] = relationship(
         lazy="selectin", foreign_keys=[laboratory_id]
     )
-    ce_device_id: Mapped[Optional[int]] = mapped_column(
+    ce_device_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        PGUUID(as_uuid=True),
         ForeignKey("ce_device.id", ondelete="SET NULL")
     )
     ce_device: Mapped[Optional["CEDevice"]] = relationship(
@@ -26,13 +33,15 @@ class CEMethod(Base):
     )
     application_type: Mapped[Optional[str]]
     capillary_length: Mapped[Optional[int]]
-    polymer_id: Mapped[Optional[int]] = mapped_column(
+    polymer_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        PGUUID(as_uuid=True),
         ForeignKey("polymer.id", ondelete="SET NULL")
     )
     polymer: Mapped[Optional["Polymer"]] = relationship(
         lazy="selectin", foreign_keys=[polymer_id]
     )
-    dye_set_id: Mapped[Optional[int]] = mapped_column(
+    dye_set_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        PGUUID(as_uuid=True),
         ForeignKey("dye_set.id", ondelete="SET NULL")
     )
     dye_set: Mapped[Optional["DyeSet"]] = relationship(
@@ -46,14 +55,16 @@ class CEMethod(Base):
     run_time: Mapped[Optional[timedelta]]
     pre_run_time: Mapped[Optional[timedelta]]
     injection_time: Mapped[Optional[timedelta]]
-    type_of_formamide_id: Mapped[Optional[int]] = mapped_column(
+    type_of_formamide_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        PGUUID(as_uuid=True),
         ForeignKey("type_of_formamide.id", ondelete="SET NULL")
     )
     type_of_formamide: Mapped[Optional["TypeOfFormamide"]] = relationship(
         lazy="selectin", foreign_keys=[type_of_formamide_id]
     )
     volume_formamide: Mapped[Optional[int]]
-    size_standard_id: Mapped[Optional[int]] = mapped_column(
+    size_standard_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        PGUUID(as_uuid=True),
         ForeignKey("size_standard.id", ondelete="SET NULL")
     )
     size_standard: Mapped[Optional["SizeStandard"]] = relationship(

@@ -1,4 +1,5 @@
 from typing import List, Optional
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -116,7 +117,7 @@ async def get_pending_new_labs(db: AsyncSession = Depends(get_async_session)):
 
 @router.post("/{id}/approve", response_model=ReadSchema)
 async def approve(
-    id: int,
+    id: UUID,
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
 ):
@@ -138,7 +139,7 @@ async def approve(
 
 @router.post("/{id}/deny", response_model=ReadSchema)
 async def deny(
-    id: int,
+    id: UUID,
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
 ):

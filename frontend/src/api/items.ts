@@ -13,6 +13,6 @@ export function createItem(payload: ItemInput) {
   return apiClient.post<Item>('/items', payload).then((r) => r.data)
 }
 
-export function updateItem(id: number, payload: ItemInput) {
+export function updateItem(id: string, payload: ItemInput) {
   return apiClient.patch<Item>(`/items/${id}`, payload).then((r) => r.data)
 }

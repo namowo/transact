@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -62,7 +64,7 @@ class CRUDDeterminationOfSheddingPropensityCategory(
         ]
 
     async def _monitored_transfer_factors_from(
-        self, db: AsyncSession, ids: list[int]
+        self, db: AsyncSession, ids: list[UUID]
     ) -> list[MonitoredTransferFactor]:
         if not ids:
             return []
@@ -104,7 +106,7 @@ class CRUDDeterminationOfSheddingPropensityCategory(
     async def update(
         self,
         db: AsyncSession,
-        id: int,
+        id: UUID,
         obj_in: DeterminationOfSheddingPropensityCategoryUpdate,
     ) -> DeterminationOfSheddingPropensityCategory:
         instance = await self.get(db, id)

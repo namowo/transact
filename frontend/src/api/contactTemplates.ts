@@ -5,7 +5,7 @@ export function listContactTemplates() {
   return apiClient.get<ContactTemplate[]>('/contact-templates').then((r) => r.data)
 }
 
-export function getContactTemplate(id: number) {
+export function getContactTemplate(id: string) {
   return apiClient.get<ContactTemplate>(`/contact-templates/${id}`).then((r) => r.data)
 }
 
@@ -13,10 +13,10 @@ export function createContactTemplate(payload: ContactTemplateInput) {
   return apiClient.post<ContactTemplate>('/contact-templates', payload).then((r) => r.data)
 }
 
-export function updateContactTemplate(id: number, payload: ContactTemplateInput) {
+export function updateContactTemplate(id: string, payload: ContactTemplateInput) {
   return apiClient.patch<ContactTemplate>(`/contact-templates/${id}`, payload).then((r) => r.data)
 }
 
-export function deleteContactTemplate(id: number) {
+export function deleteContactTemplate(id: string) {
   return apiClient.delete(`/contact-templates/${id}`)
 }

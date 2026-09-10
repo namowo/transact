@@ -1,17 +1,18 @@
 from typing import Optional
 
+from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 
 
 class PCRBase(BaseModel):
     dna_quantity: Optional[float] = None
-    pcr_method_id: Optional[int] = None
+    pcr_method_id: Optional[UUID] = None
     sample_input_volume_in_pcr: Optional[float] = None
     dna_input_amount_in_pcr: Optional[float] = None
-    post_pcr_treatment_method_id: Optional[int] = None
-    ce_method_id: Optional[int] = None
-    epg_analysis_method_id: Optional[int] = None
-    epg_interpretation_method_id: Optional[int] = None
+    post_pcr_treatment_method_id: Optional[UUID] = None
+    ce_method_id: Optional[UUID] = None
+    epg_analysis_method_id: Optional[UUID] = None
+    epg_interpretation_method_id: Optional[UUID] = None
     no_of_contributors: Optional[int] = None
     mixture_proportion: Optional[float] = None
     total_rfu: Optional[int] = None
@@ -25,7 +26,7 @@ class PCRCreate(PCRBase):
 class PCRRead(PCRBase):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    id: UUID
     pcr_method: Optional["PCRMethodRead"] = None
     post_pcr_treatment_method: Optional["PostPCRTreatmentMethodRead"] = None
     ce_method: Optional["CEMethodRead"] = None

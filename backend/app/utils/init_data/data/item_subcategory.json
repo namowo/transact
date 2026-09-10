@@ -9,18 +9,18 @@
   },
   {
     "name": "hand hammer",
-    "item_category_name": "screwdriver"
+    "item_category_name": "hammer"
   },
   {
     "name": "ball peen hammer",
-    "item_category_name": "screwdriver"
+    "item_category_name": "hammer"
   },
   {
     "name": "sledge hammer",
-    "item_category_name": "screwdriver"
+    "item_category_name": "hammer"
   },
   {
     "name": "flat-head",
-    "item_category_name": null
+    "item_category_name": "screwdriver"
   }
 ]

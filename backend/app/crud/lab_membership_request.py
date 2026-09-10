@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from typing import List, Optional
+from uuid import UUID
 
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -31,7 +32,7 @@ class CRUDLabMembershipRequest(
         super().__init__(LabMembershipRequest)
 
     async def get_pending_for_user(
-        self, db: AsyncSession, user_id: int
+        self, db: AsyncSession, user_id: UUID
     ) -> Optional[LabMembershipRequest]:
         statement = select(self.model).where(
             self.model.user_id == user_id,
@@ -41,7 +42,7 @@ class CRUDLabMembershipRequest(
         return result.scalars().first()
 
     async def list_pending_for_laboratory(
-        self, db: AsyncSession, laboratory_id: int
+        self, db: AsyncSession, laboratory_id: UUID
     ) -> List[LabMembershipRequest]:
         statement = select(self.model).where(
             self.model.laboratory_id == laboratory_id,
@@ -65,7 +66,7 @@ class CRUDLabMembershipRequest(
         return list(result.scalars().all())
 
     async def create_join_request(
-        self, db: AsyncSession, user: User, laboratory_id: int
+        self, db: AsyncSession, user: User, laboratory_id: UUID
     ) -> LabMembershipRequest:
         if await self.get_pending_for_user(db, user.id):
             raise ConflictError(message="You already have a pending request.")

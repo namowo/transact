@@ -1,17 +1,18 @@
 from typing import Optional
 
+from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 
 
 class RecoveryBase(BaseModel):
-    study_id: Optional[int] = None
-    recovery_set_id: Optional[int] = None
-    surface_id: Optional[int] = None
-    sampling_method_id: Optional[int] = None
-    extraction_method_id: Optional[int] = None
+    study_id: Optional[UUID] = None
+    recovery_set_id: Optional[UUID] = None
+    surface_id: Optional[UUID] = None
+    sampling_method_id: Optional[UUID] = None
+    extraction_method_id: Optional[UUID] = None
     elution_volume: Optional[float] = None
     area: Optional[float] = None
-    experience_level_of_sampler_id: Optional[int] = None
+    experience_level_of_sampler_id: Optional[UUID] = None
 
 
 class RecoveryCreate(RecoveryBase):
@@ -25,7 +26,7 @@ class RecoveryUpdate(RecoveryBase):
 class RecoveryRead(RecoveryBase):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    id: UUID
     recovery_set: Optional["RecoverySetRead"] = None
     surface: Optional["SurfaceRead"] = None
     sampling_method: Optional["SamplingMethodRead"] = None

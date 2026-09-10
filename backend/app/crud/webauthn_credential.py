@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from typing import List, Optional
+from uuid import UUID
 
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -76,7 +77,7 @@ class CRUDWebAuthnCredential:
         return credential
 
     async def delete_for_user(
-        self, db: AsyncSession, user: User, credential_id: int
+        self, db: AsyncSession, user: User, credential_id: UUID
     ) -> bool:
         """Delete a credential owned by the given user. Returns False if not found/owned."""
         statement = select(WebAuthnCredential).where(

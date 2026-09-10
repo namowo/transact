@@ -1,8 +1,8 @@
-<script setup lang="ts" generic="T extends { id: number }">
+<script setup lang="ts" generic="T extends { id: string }">
 import Select from 'primevue/select'
 
 defineProps<{
-  modelValue: number | null
+  modelValue: string | null
   label: string
   options: T[]
   optionLabel: (option: T) => string
@@ -11,7 +11,7 @@ defineProps<{
 }>()
 
 const emit = defineEmits<{
-  'update:modelValue': [value: number | null]
+  'update:modelValue': [value: string | null]
 }>()
 </script>
 

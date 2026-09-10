@@ -10,7 +10,7 @@ export function listContacts() {
   return apiClient.get<Contact[]>('/contacts').then((r) => r.data)
 }
 
-export function getContact(id: number) {
+export function getContact(id: string) {
   return apiClient.get<Contact>(`/contacts/${id}`).then((r) => r.data)
 }
 
@@ -18,11 +18,11 @@ export function createContact(payload: ContactInput) {
   return apiClient.post<Contact>('/contacts', payload).then((r) => r.data)
 }
 
-export function updateContact(id: number, payload: ContactInput) {
+export function updateContact(id: string, payload: ContactInput) {
   return apiClient.patch<Contact>(`/contacts/${id}`, payload).then((r) => r.data)
 }
 
-export function deleteContact(id: number) {
+export function deleteContact(id: string) {
   return apiClient.delete(`/contacts/${id}`)
 }
 
@@ -32,7 +32,7 @@ export function createConditionDuringContact(payload: ConditionDuringContactInpu
     .then((r) => r.data)
 }
 
-export function updateConditionDuringContact(id: number, payload: ConditionDuringContactInput) {
+export function updateConditionDuringContact(id: string, payload: ConditionDuringContactInput) {
   return apiClient
     .patch<ConditionDuringContact>(`/conditions-during-contact/${id}`, payload)
     .then((r) => r.data)

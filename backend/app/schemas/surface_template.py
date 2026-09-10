@@ -1,16 +1,17 @@
 from typing import Optional
 
+from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 
 
 class SurfaceTemplateBase(BaseModel):
-    location_of_body_category_id: Optional[int] = None
-    body_part_condition_category_id: Optional[int] = None
-    item_id: Optional[int] = None
-    item_parts_category_id: Optional[int] = None
-    condition_of_item_part_category_id: Optional[int] = None
-    surface_material_category_id: Optional[int] = None
-    source_of_dna_category_id: Optional[int] = None
+    location_of_body_category_id: Optional[UUID] = None
+    body_part_condition_category_id: Optional[UUID] = None
+    item_id: Optional[UUID] = None
+    item_parts_category_id: Optional[UUID] = None
+    condition_of_item_part_category_id: Optional[UUID] = None
+    surface_material_category_id: Optional[UUID] = None
+    source_of_dna_category_id: Optional[UUID] = None
     photo_path: Optional[str] = None
     background_dna: Optional[bool] = None
     prevalence: Optional[bool] = None
@@ -28,7 +29,7 @@ class SurfaceTemplateUpdate(SurfaceTemplateBase):
 class SurfaceTemplateRead(SurfaceTemplateBase):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    id: UUID
     location_of_body_category: Optional["LocationOfBodyCategoryRead"] = None
     body_part_condition_category: Optional["BodyPartConditionCategoryRead"] = None
     item: Optional["ItemRead"] = None

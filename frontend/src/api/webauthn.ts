@@ -14,11 +14,11 @@ export function verifyRegistration(credential: unknown, deviceName?: string) {
     .then((r) => r.data)
 }
 
-export function getLoginOptions(email: string) {
+export function getLoginOptions(email?: string) {
   return apiClient.post('/auth/webauthn/login/options', { email }).then((r) => r.data)
 }
 
-export function verifyLogin(email: string, credential: unknown) {
+export function verifyLogin(email: string | undefined, credential: unknown) {
   return apiClient
     .post<User>('/auth/webauthn/login/verify', { email, credential })
     .then((r) => r.data)
@@ -28,6 +28,6 @@ export function listCredentials() {
   return apiClient.get<WebAuthnCredential[]>('/auth/webauthn/credentials').then((r) => r.data)
 }
 
-export function deleteCredential(id: number) {
+export function deleteCredential(id: string) {
   return apiClient.delete(`/auth/webauthn/credentials/${id}`).then(() => undefined)
 }

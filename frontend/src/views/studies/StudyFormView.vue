@@ -31,7 +31,7 @@ const router = useRouter()
 const auth = useAuthStore()
 const confirm = useConfirm()
 
-const editingId = computed(() => (props.id ? Number(props.id) : null))
+const editingId = computed(() => props.id ?? null)
 const loadingStudy = ref(false)
 const loadError = ref('')
 
@@ -297,12 +297,13 @@ const onSubmit = handleSubmit(async (values) => {
 
     if (editingId.value === null) {
       const payload: StudyCreate = { ...shared, laboratory_id: auth.user!.laboratory_id! }
-      await createStudy(payload)
+      const created = await createStudy(payload)
+      router.push({ name: 'studies-edit', params: { id: created.id }, query: { step: 'planning' } })
     } else {
       const payload: StudyUpdate = shared
       await updateStudy(editingId.value, payload)
+      router.push({ name: 'studies-laboratory' })
     }
-    router.push({ name: 'studies-laboratory' })
   } catch {
     submitError.value = 'Could not save the study. Please try again.'
   } finally {
@@ -385,7 +386,7 @@ function confirmDeleteStudy() {
     <ConfirmDialog />
 
     <h1 v-if="editingId === null" class="text-2xl font-bold text-surface-900 dark:text-surface-0">
-      Add study
+      {{ purposeOptions.find((option) => option.value === purpose)?.label ?? 'Add study' }}
     </h1>
 
     <div v-if="loadingStudy" class="flex justify-center py-12">
@@ -394,7 +395,7 @@ function confirmDeleteStudy() {
 
     <Message v-else-if="loadError" severity="error" size="small">{{ loadError }}</Message>
 
-    <Stepper v-else v-model:value="activeStep" :linear="false">
+    <Stepper v-else v-model:value="activeStep" :linear="false" class="bg-transparent!">
       <StepList class="sticky top-0 z-10 bg-surface-0 dark:bg-surface-900">
         <Step value="1">Study details</Step>
         <Step value="2" :disabled="editingId === null">Planning</Step>
@@ -402,7 +403,7 @@ function confirmDeleteStudy() {
           Add data
         </Step>
       </StepList>
-      <StepPanels>
+      <StepPanels class="bg-transparent!">
         <StepPanel value="1" class="bg-transparent!">
           <form class="flex flex-col gap-4 max-w-2xl" @submit.prevent="onSubmit">
             <div class="flex flex-col gap-2">
@@ -599,7 +600,7 @@ function confirmDeleteStudy() {
               <div class="flex gap-2">
                 <Button
                   type="submit"
-                  :label="editingId === null ? 'Add study' : 'Save changes'"
+                  :label="editingId === null ? 'Add study & continue' : 'Save changes'"
                   :loading="submitting"
                 />
                 <Button label="Cancel" text type="button" @click="onCancel" />

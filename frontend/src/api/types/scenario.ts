@@ -4,10 +4,10 @@ import type { Persistence } from './persistence'
 import type { Study } from './study'
 
 export interface Scenario {
-  id: number
+  id: string
   realistic?: boolean | null
-  scenario_category_id?: number | null
-  owning_study_id?: number | null
+  scenario_category_id?: string | null
+  owning_study_id?: string | null
   scenario_category?: NamedCategory | null
   studies: Study[]
   contact_templates: ContactTemplate[]
@@ -16,9 +16,9 @@ export interface Scenario {
 
 export interface ScenarioInput {
   realistic?: boolean | null
-  scenario_category_id?: number | null
-  owning_study_id?: number | null
-  study_ids?: number[]
-  contact_template_ids?: number[]
-  persistence_ids?: number[]
+  scenario_category_id?: string | null
+  owning_study_id?: string | null
+  study_ids?: string[]
+  contact_template_ids?: string[]
+  persistence_ids?: string[]
 }

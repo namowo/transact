@@ -53,7 +53,7 @@ const requests = ref<LabMembershipRequest[]>([])
 const requestsLoading = ref(false)
 const requestsLoadError = ref('')
 const requestsActionError = ref('')
-const actingOnId = ref<number | null>(null)
+const actingOnId = ref<string | null>(null)
 
 const dialogVisible = ref(false)
 const submitting = ref(false)

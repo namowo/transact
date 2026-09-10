@@ -354,7 +354,7 @@ function handleNavClick() {
       </SidebarAside>
     </Sidebar>
 
-    <SidebarMain class="h-screen! overflow-hidden!">
+    <SidebarMain class="h-screen! overflow-hidden! bg-surface-0! dark:bg-surface-900!">
       <header
         class="h-16 shrink-0 flex items-center justify-between gap-4 px-4 sm:px-6 bg-surface-0 dark:bg-surface-900 border-b border-surface-200 dark:border-surface-700"
       >

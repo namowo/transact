@@ -1,17 +1,18 @@
 from typing import Optional
 
+from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 
 from app.schemas.common import SecondsTimedelta
 
 
 class CEMethodBase(BaseModel):
-    laboratory_id: Optional[int] = None
-    ce_device_id: Optional[int] = None
+    laboratory_id: Optional[UUID] = None
+    ce_device_id: Optional[UUID] = None
     application_type: Optional[str] = None
     capillary_length: Optional[int] = None
-    polymer_id: Optional[int] = None
-    dye_set_id: Optional[int] = None
+    polymer_id: Optional[UUID] = None
+    dye_set_id: Optional[UUID] = None
     oven_temperature: Optional[float] = None
     run_voltage: Optional[float] = None
     pre_run_voltage: Optional[float] = None
@@ -19,9 +20,9 @@ class CEMethodBase(BaseModel):
     run_time: Optional[SecondsTimedelta] = None
     pre_run_time: Optional[SecondsTimedelta] = None
     injection_time: Optional[SecondsTimedelta] = None
-    type_of_formamide_id: Optional[int] = None
+    type_of_formamide_id: Optional[UUID] = None
     volume_formamide: Optional[int] = None
-    size_standard_id: Optional[int] = None
+    size_standard_id: Optional[UUID] = None
     volume_size_standard: Optional[float] = None
     input_volume_pcr_product: Optional[float] = None
     final_volume: Optional[float] = None
@@ -38,7 +39,7 @@ class CEMethodUpdate(CEMethodBase):
 class CEMethodRead(CEMethodBase):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    id: UUID
     laboratory: Optional["LaboratoryRead"] = None
     ce_device: Optional["CEDeviceRead"] = None
     polymer: Optional["PolymerRead"] = None

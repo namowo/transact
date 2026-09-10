@@ -20,7 +20,7 @@ import type { Contact, ContactTemplate, Recovery } from '@/api/types'
 
 const props = defineProps<{ studyId: string }>()
 
-const studyId = computed(() => Number(props.studyId))
+const studyId = computed(() => props.studyId)
 
 const loading = ref(false)
 const loadError = ref('')

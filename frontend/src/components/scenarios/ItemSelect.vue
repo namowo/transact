@@ -5,16 +5,14 @@ import * as yup from 'yup'
 import Select from 'primevue/select'
 import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
-import Textarea from 'primevue/textarea'
-import CategorySelect from './CategorySelect.vue'
-import { itemCategoryApi, itemSubcategoryApi } from '@/api/categories'
+import ItemCategoryFields from './ItemCategoryFields.vue'
 import { createItem, listItemsGrouped, updateItem } from '@/api/items'
 import type { Item, ItemGroup } from '@/api/types'
 
 // Selecting an item here just picks which Item row a surface points at;
 // category, subcategory and description are edited entirely through this
 // component's dialog too, so they aren't duplicated in SurfaceForm.
-const itemId = defineModel<number | null>({ default: null })
+const itemId = defineModel<string | null>({ default: null })
 
 const groups = ref<ItemGroup[]>([])
 const loading = ref(false)
@@ -41,10 +39,7 @@ const groupOptions = computed(() =>
 async function load() {
   loading.value = true
   try {
-    groups.value = (await listItemsGrouped()).map((group) => ({
-      ...group,
-      items: [...group.items].sort((a, b) => a.id - b.id),
-    }))
+    groups.value = await listItemsGrouped()
   } finally {
     loading.value = false
   }
@@ -57,26 +52,26 @@ const selectedItem = computed(
 )
 
 interface FormState {
-  itemCategoryId: number | null
-  itemSubcategoryId: number | null
-  description: string | null
+  itemCategoryId: string | null
+  itemSubcategoryId: string | null
+  description: string
 }
 
 function emptyForm(item: Item | null): FormState {
   return {
     itemCategoryId: item?.item_category_id ?? null,
     itemSubcategoryId: item?.item_subcategory_id ?? null,
-    description: item?.description ?? null,
+    description: item?.description ?? '',
   }
 }
 
 const schema = yup.object({
-  itemCategoryId: yup.number().nullable().defined(),
-  itemSubcategoryId: yup.number().nullable().defined(),
-  description: yup.string().nullable().defined(),
+  itemCategoryId: yup.string().nullable().required('Please select an item category.'),
+  itemSubcategoryId: yup.string().nullable().defined(),
+  description: yup.string().trim().required('Description is required.'),
 })
 
-const { defineField, handleSubmit, resetForm: resetFormValues } = useForm<FormState>({
+const { defineField, errors, handleSubmit, resetForm: resetFormValues } = useForm<FormState>({
   validationSchema: schema,
   initialValues: emptyForm(null),
 })
@@ -112,7 +107,7 @@ const saveItem = handleSubmit(async (values) => {
     const payload = {
       item_category_id: values.itemCategoryId,
       item_subcategory_id: values.itemSubcategoryId,
-      description: values.description,
+      description: values.description.trim(),
     }
     if (dialogMode.value === 'edit' && selectedItem.value) {
       await updateItem(selectedItem.value.id, payload)
@@ -165,16 +160,13 @@ const saveItem = handleSubmit(async (values) => {
       :style="{ width: '28rem' }"
     >
       <div class="flex flex-col gap-4">
-        <CategorySelect v-model="formItemCategoryId" label="Item category" :api="itemCategoryApi" />
-        <CategorySelect
-          v-model="formItemSubcategoryId"
-          label="Item subcategory"
-          :api="itemSubcategoryApi"
+        <ItemCategoryFields
+          v-model:category-id="formItemCategoryId"
+          v-model:subcategory-id="formItemSubcategoryId"
+          v-model:description="formDescription"
+          :category-error="errors.itemCategoryId"
+          :description-error="errors.description"
         />
-        <div class="flex flex-col gap-2">
-          <label class="font-medium text-sm">Description (Optional)</label>
-          <Textarea v-model="formDescription" rows="2" fluid />
-        </div>
         <p v-if="saveError" class="text-sm text-red-500">{{ saveError }}</p>
       </div>
       <template #footer>

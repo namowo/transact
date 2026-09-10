@@ -1,12 +1,13 @@
 from typing import Optional
 
+from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 
 
 class PickingMethodBase(BaseModel):
-    picking_device_id: Optional[int] = None
+    picking_device_id: Optional[UUID] = None
     description: Optional[str] = None
-    supplier_id: Optional[int] = None
+    supplier_id: Optional[UUID] = None
 
 
 class PickingMethodCreate(PickingMethodBase):
@@ -20,7 +21,7 @@ class PickingMethodUpdate(PickingMethodBase):
 class PickingMethodRead(PickingMethodBase):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    id: UUID
     picking_device: Optional["PickingDeviceRead"] = None
     supplier: Optional["SupplierRead"] = None
 

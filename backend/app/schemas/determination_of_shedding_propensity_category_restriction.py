@@ -1,12 +1,13 @@
 from typing import Optional
 
+from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 
 from app.schemas.common import SecondsTimedelta
 
 
 class DeterminationOfSheddingPropensityCategoryRestrictionBase(BaseModel):
-    restriction_prior_to_sampling_id: int
+    restriction_prior_to_sampling_id: UUID
     duration: Optional[SecondsTimedelta] = None
 
 

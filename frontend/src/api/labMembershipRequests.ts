@@ -35,13 +35,13 @@ export function listPendingNewLabs() {
     .then((r) => r.data)
 }
 
-export function approveMembershipRequest(id: number) {
+export function approveMembershipRequest(id: string) {
   return apiClient
     .post<LabMembershipRequest>(`/lab-membership-requests/${id}/approve`)
     .then((r) => r.data)
 }
 
-export function denyMembershipRequest(id: number) {
+export function denyMembershipRequest(id: string) {
   return apiClient
     .post<LabMembershipRequest>(`/lab-membership-requests/${id}/deny`)
     .then((r) => r.data)

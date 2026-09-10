@@ -7,13 +7,13 @@ export interface SurfaceTemplateDraft {
   // decides which fields to show while planning; the individual/item
   // itself is entered later, during data entry, against the actual Surface.
   kind: 'individual' | 'item' | null
-  locationOfBodyCategoryId: number | null
-  bodyPartConditionCategoryId: number | null
-  itemId: number | null
-  itemPartsCategoryId: number | null
-  conditionOfItemPartCategoryId: number | null
-  surfaceMaterialCategoryId: number | null
-  sourceOfDnaCategoryId: number | null
+  locationOfBodyCategoryId: string | null
+  bodyPartConditionCategoryId: string | null
+  itemId: string | null
+  itemPartsCategoryId: string | null
+  conditionOfItemPartCategoryId: string | null
+  surfaceMaterialCategoryId: string | null
+  sourceOfDnaCategoryId: string | null
   backgroundDna: boolean
   prevalence: boolean
   furtherDescription: string | null
@@ -102,8 +102,8 @@ function isBlankDraft(draft: SurfaceTemplateDraft): boolean {
 // donor/recipient slot doesn't produce a stray SurfaceTemplate row.
 export async function saveSurfaceTemplateDraft(
   draft: SurfaceTemplateDraft,
-  existingSurfaceTemplateId: number | null,
-): Promise<number | null> {
+  existingSurfaceTemplateId: string | null,
+): Promise<string | null> {
   if (isBlankDraft(draft)) return existingSurfaceTemplateId
 
   const payload = {

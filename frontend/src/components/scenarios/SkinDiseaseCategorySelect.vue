@@ -12,7 +12,7 @@ import Message from 'primevue/message'
 import { skinDiseaseCategoryApi } from '@/api/categories'
 import type { SkinDiseaseCategory } from '@/api/types'
 
-const modelValue = defineModel<number | null>({ default: null })
+const modelValue = defineModel<string | null>({ default: null })
 
 const options = ref<SkinDiseaseCategory[]>([])
 const loading = ref(false)

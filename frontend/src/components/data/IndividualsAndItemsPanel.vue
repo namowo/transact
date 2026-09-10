@@ -7,13 +7,13 @@ import Column from 'primevue/column'
 import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
 import InputNumber from 'primevue/inputnumber'
-import Textarea from 'primevue/textarea'
 import Message from 'primevue/message'
 import Divider from 'primevue/divider'
 import CategorySelect from '@/components/scenarios/CategorySelect.vue'
 import SkinDiseaseCategorySelect from '@/components/scenarios/SkinDiseaseCategorySelect.vue'
 import DeterminationOfSheddingPropensityCategorySelect from '@/components/scenarios/DeterminationOfSheddingPropensityCategorySelect.vue'
-import { sexApi, dnaSheddingPropensityCategoryApi, itemCategoryApi, itemSubcategoryApi } from '@/api/categories'
+import ItemCategoryFields from '@/components/scenarios/ItemCategoryFields.vue'
+import { sexApi, dnaSheddingPropensityCategoryApi } from '@/api/categories'
 import { createIndividual, listIndividuals, updateIndividual } from '@/api/individuals'
 import { createItem, listItems, updateItem } from '@/api/items'
 import type { Individual, Item } from '@/api/types'
@@ -28,8 +28,8 @@ async function load() {
   loadError.value = ''
   try {
     const [individualResults, itemResults] = await Promise.all([listIndividuals(), listItems()])
-    individuals.value = individualResults.sort((a, b) => a.id - b.id)
-    items.value = itemResults.sort((a, b) => a.id - b.id)
+    individuals.value = individualResults
+    items.value = itemResults
   } catch {
     loadError.value = 'Could not load individuals and items. Please try again.'
   } finally {
@@ -52,11 +52,11 @@ function itemLabel(item: Item): string {
 // -- Individuals dialog --
 
 interface IndividualFormState {
-  sexId: number | null
+  sexId: string | null
   age: number | null
-  dnaSheddingPropensityCategoryId: number | null
-  skinDiseaseCategoryId: number | null
-  determinationCategoryId: number | null
+  dnaSheddingPropensityCategoryId: string | null
+  skinDiseaseCategoryId: string | null
+  determinationCategoryId: string | null
 }
 
 function emptyIndividualForm(individual: Individual | null): IndividualFormState {
@@ -70,11 +70,11 @@ function emptyIndividualForm(individual: Individual | null): IndividualFormState
 }
 
 const individualSchema = yup.object({
-  sexId: yup.number().nullable().defined(),
+  sexId: yup.string().nullable().defined(),
   age: yup.number().nullable().min(0, 'Age must be zero or greater.'),
-  dnaSheddingPropensityCategoryId: yup.number().nullable().defined(),
-  skinDiseaseCategoryId: yup.number().nullable().defined(),
-  determinationCategoryId: yup.number().nullable().defined(),
+  dnaSheddingPropensityCategoryId: yup.string().nullable().defined(),
+  skinDiseaseCategoryId: yup.string().nullable().defined(),
+  determinationCategoryId: yup.string().nullable().defined(),
 })
 
 const {
@@ -96,7 +96,7 @@ const [individualSkinDiseaseCategoryId] = defineIndividualField('skinDiseaseCate
 const [individualDeterminationCategoryId] = defineIndividualField('determinationCategoryId')
 
 const individualDialogVisible = ref(false)
-const editingIndividualId = ref<number | null>(null)
+const editingIndividualId = ref<string | null>(null)
 const savingIndividual = ref(false)
 const individualSaveError = ref('')
 
@@ -145,8 +145,8 @@ const saveIndividualForm = handleIndividualSubmit(async (values) => {
 // -- Items dialog --
 
 interface ItemFormState {
-  itemCategoryId: number | null
-  itemSubcategoryId: number | null
+  itemCategoryId: string | null
+  itemSubcategoryId: string | null
   description: string | null
 }
 
@@ -159,13 +159,14 @@ function emptyItemForm(item: Item | null): ItemFormState {
 }
 
 const itemSchema = yup.object({
-  itemCategoryId: yup.number().nullable().defined(),
-  itemSubcategoryId: yup.number().nullable().defined(),
-  description: yup.string().nullable().defined(),
+  itemCategoryId: yup.string().nullable().required('Please select an item category.'),
+  itemSubcategoryId: yup.string().nullable().defined(),
+  description: yup.string().trim().required('Description is required.'),
 })
 
 const {
   defineField: defineItemField,
+  errors: itemErrors,
   handleSubmit: handleItemSubmit,
   resetForm: resetItemForm,
 } = useForm<ItemFormState>({
@@ -178,7 +179,7 @@ const [itemSubcategoryId] = defineItemField('itemSubcategoryId')
 const [itemDescription] = defineItemField('description')
 
 const itemDialogVisible = ref(false)
-const editingItemId = ref<number | null>(null)
+const editingItemId = ref<string | null>(null)
 const savingItem = ref(false)
 const itemSaveError = ref('')
 
@@ -203,7 +204,7 @@ const saveItemForm = handleItemSubmit(async (values) => {
     const payload = {
       item_category_id: values.itemCategoryId,
       item_subcategory_id: values.itemSubcategoryId,
-      description: values.description,
+      description: values.description?.trim() ?? null,
     }
     if (editingItemId.value === null) {
       const created = await createItem(payload)
@@ -339,16 +340,13 @@ const saveItemForm = handleItemSubmit(async (values) => {
       :style="{ width: '28rem' }"
     >
       <div class="flex flex-col gap-4">
-        <CategorySelect v-model="itemCategoryId" label="Item category" :api="itemCategoryApi" />
-        <CategorySelect
-          v-model="itemSubcategoryId"
-          label="Item subcategory"
-          :api="itemSubcategoryApi"
+        <ItemCategoryFields
+          v-model:category-id="itemCategoryId"
+          v-model:subcategory-id="itemSubcategoryId"
+          v-model:description="itemDescription"
+          :category-error="itemErrors.itemCategoryId"
+          :description-error="itemErrors.description"
         />
-        <div class="flex flex-col gap-2">
-          <label class="font-medium text-sm">Description (Optional)</label>
-          <Textarea v-model="itemDescription" rows="2" fluid />
-        </div>
         <Message v-if="itemSaveError" severity="error" size="small">{{ itemSaveError }}</Message>
       </div>
       <template #footer>

@@ -1,14 +1,15 @@
 from typing import Optional
 
+from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 
 
 class QuantificationMethodBase(BaseModel):
-    laboratory_id: Optional[int] = None
-    principle_of_quant_method_category_id: Optional[int] = None
-    kit_id: Optional[int] = None
-    manufacturer_id: Optional[int] = None
-    platform_id: Optional[int] = None
+    laboratory_id: Optional[UUID] = None
+    principle_of_quant_method_category_id: Optional[UUID] = None
+    kit_id: Optional[UUID] = None
+    manufacturer_id: Optional[UUID] = None
+    platform_id: Optional[UUID] = None
     description_of_protocol: Optional[str] = None
     abbreviations_to_manufacturers_protocol: Optional[str] = None
 
@@ -24,7 +25,7 @@ class QuantificationMethodUpdate(QuantificationMethodBase):
 class QuantificationMethodRead(QuantificationMethodBase):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    id: UUID
     laboratory: Optional["LaboratoryRead"] = None
     principle_of_quant_method_category: Optional["PrincipleOfQuantMethodCategoryRead"] = None
     kit: Optional["QuantificationKitRead"] = None

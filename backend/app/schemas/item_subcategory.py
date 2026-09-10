@@ -1,12 +1,13 @@
 from typing import Optional
 
+from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 
 
 class ItemSubcategoryBase(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
-    item_category_id: Optional[int] = None
+    item_category_id: Optional[UUID] = None
 
 
 class ItemSubcategoryCreate(ItemSubcategoryBase):
@@ -20,7 +21,7 @@ class ItemSubcategoryUpdate(ItemSubcategoryBase):
 class ItemSubcategoryRead(ItemSubcategoryBase):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    id: UUID
     item_category: Optional["ItemCategoryRead"] = None
 
 

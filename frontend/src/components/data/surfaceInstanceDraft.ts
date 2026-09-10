@@ -6,8 +6,8 @@ import type { Surface, SurfaceTemplate } from '@/api/types'
 // Surface rows per slot, even if the same Individual/Item is reused across
 // multiple contacts.
 export interface SurfaceInstanceDraft {
-  individualId: number | null
-  conditionOfItemPartCategoryId: number | null
+  individualId: string | null
+  conditionOfItemPartCategoryId: string | null
 }
 
 export function emptySurfaceInstanceDraft(): SurfaceInstanceDraft {

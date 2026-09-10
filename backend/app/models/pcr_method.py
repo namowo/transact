@@ -1,7 +1,11 @@
+import uuid
 from typing import Optional
 from datetime import timedelta
 from sqlalchemy import ForeignKey
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from sqlalchemy.sql import text
 
 from app.core.db import Base
 
@@ -9,22 +13,26 @@ from app.core.db import Base
 class PCRMethod(Base):
     __tablename__ = "pcr_method"
 
-    id: Mapped[int] = mapped_column(
-        primary_key=True, index=True, unique=True, nullable=False
+    id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, index=True,
+        server_default=text("gen_random_uuid()")
     )
-    laboratory_id: Mapped[Optional[int]] = mapped_column(
+    laboratory_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        PGUUID(as_uuid=True),
         ForeignKey("laboratory.id", ondelete="SET NULL")
     )
     laboratory: Mapped[Optional["Laboratory"]] = relationship(
         lazy="selectin", foreign_keys=[laboratory_id]
     )
-    pcr_kit_id: Mapped[Optional[int]] = mapped_column(
+    pcr_kit_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        PGUUID(as_uuid=True),
         ForeignKey("pcr_kit.id", ondelete="SET NULL")
     )
     pcr_kit: Mapped[Optional["PCRKit"]] = relationship(
         lazy="selectin", foreign_keys=[pcr_kit_id]
     )
-    thermocycler_id: Mapped[Optional[int]] = mapped_column(
+    thermocycler_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        PGUUID(as_uuid=True),
         ForeignKey("thermocycler.id", ondelete="SET NULL")
     )
     thermocycler: Mapped[Optional["Thermocycler"]] = relationship(

@@ -1,4 +1,5 @@
 from typing import AsyncGenerator, Optional
+from uuid import UUID
 
 import jwt
 from fastapi import Cookie, Depends, HTTPException, status
@@ -41,7 +42,10 @@ async def _resolve_user(
         return None
     if user_id is None:
         return None
-    return await db.get(User, int(user_id))
+    try:
+        return await db.get(User, UUID(user_id))
+    except ValueError:
+        return None
 
 
 def _cookie_token(

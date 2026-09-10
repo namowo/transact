@@ -8,7 +8,6 @@ import Button from 'primevue/button'
 import Message from 'primevue/message'
 import ProgressSpinner from 'primevue/progressspinner'
 import Divider from 'primevue/divider'
-import Select from 'primevue/select'
 import ConfirmDialog from 'primevue/confirmdialog'
 import { useToast } from 'primevue/usetoast'
 import Stepper from 'primevue/stepper'
@@ -19,20 +18,21 @@ import StepPanel from 'primevue/steppanel'
 import CategorySelect from '@/components/scenarios/CategorySelect.vue'
 import ContactTemplateCard from '@/components/scenarios/ContactTemplateCard.vue'
 import PersistenceCard from '@/components/scenarios/PersistenceCard.vue'
+import PersistencePickerDialog from '@/components/scenarios/PersistencePickerDialog.vue'
 import { scenarioCategoryApi } from '@/api/categories'
-import { getScenario, createScenario, updateScenario } from '@/api/scenarios'
-import { listPersistences } from '@/api/persistences'
+import { getScenario, listScenarios, createScenario, updateScenario } from '@/api/scenarios'
 import {
+  clonePersistenceDraftForDuplication,
   emptyPersistenceDraft,
   isBlankPersistenceDraft,
   isPersistenceEditable,
   persistenceDraftFromPersistence,
-  persistenceLabel,
   savePersistenceDraft,
 } from '@/components/scenarios/persistenceDraft'
 import type { PersistenceDraft } from '@/components/scenarios/persistenceDraft'
-import type { Persistence } from '@/api/types'
+import type { Persistence, Scenario } from '@/api/types'
 import {
+  cloneContactTemplateDraftForDuplication,
   contactTemplateDraftFromContactTemplate,
   emptyContactTemplateDraft,
   isBlankContactTemplateDraft,
@@ -46,8 +46,18 @@ const route = useRoute()
 const router = useRouter()
 const toast = useToast()
 
-const studyId = computed(() => Number(props.studyId))
-const editingId = computed(() => (props.id ? Number(props.id) : null))
+const studyId = computed(() => props.studyId)
+const editingId = computed(() => props.id ?? null)
+
+// When arriving from "Duplicate scenario from another study", this holds the
+// source scenario's id - only meaningful in create mode. The form is
+// pre-filled from it, but every id is stripped from the drafts first so
+// saving creates independent copies rather than editing the original.
+const duplicateFromId = computed(() => {
+  if (editingId.value !== null) return null
+  const raw = route.query.duplicateFrom
+  return typeof raw === 'string' && raw ? raw : null
+})
 
 const loading = ref(false)
 const loadError = ref('')
@@ -91,7 +101,7 @@ const activeStep = computed<string>({
 
 interface ScenarioFormValues {
   realistic: boolean
-  scenarioCategoryId: number | null
+  scenarioCategoryId: string | null
   persistencies: PersistenceDraft[]
   contactTemplates: ContactTemplateDraft[]
 }
@@ -115,13 +125,13 @@ const persistenceSchema = yup.object({
     .nullable()
     .min(0, 'Duration of disturbance must be zero or greater.'),
   descriptionOfDisturbance: yup.string().nullable().defined(),
-  disturbanceCategoryId: yup.number().nullable().defined(),
-  geographicLocationCategoryId: yup.number().nullable().defined(),
+  disturbanceCategoryId: yup.string().nullable().defined(),
+  geographicLocationCategoryId: yup.string().nullable().defined(),
 })
 
 const schema = yup.object({
   realistic: yup.boolean().defined(),
-  scenarioCategoryId: yup.number().nullable().required('Please select a scenario category.'),
+  scenarioCategoryId: yup.string().nullable().required('Please select a scenario category.'),
   persistencies: yup.array().of(persistenceSchema),
   contactTemplates: yup.array().of(
     yup.object({
@@ -166,30 +176,81 @@ const {
 const collapsedPersistencies = ref<boolean[]>([])
 const collapsedContactTemplates = ref<boolean[]>([false])
 
-const existingPersistences = ref<Persistence[]>([])
-const existingPersistencesLoading = ref(false)
-const selectedExistingPersistenceId = ref<number | null>(null)
+const studyScenarios = ref<Scenario[]>([])
+const studyScenariosLoading = ref(false)
+const persistencePickerVisible = ref(false)
 
-const availableExistingPersistences = computed(() => {
-  const usedIds = new Set(values.persistencies.map((p) => p.id).filter((id): id is number => !!id))
-  return existingPersistences.value.filter((p) => !usedIds.has(p.id))
+// The picker browses this study's scenarios, then the persistencies on
+// whichever one is opened - only those already belonging to this study, and
+// not already used on the current draft, since picking one duplicates it
+// below (so editing the copy never silently changes another scenario's
+// data).
+const pickableScenarios = computed(() => {
+  const usedIds = new Set(values.persistencies.map((p) => p.id).filter((id): id is string => !!id))
+  return studyScenarios.value
+    .filter((scenario) => scenario.id !== editingId.value)
+    .map((scenario) => ({
+      ...scenario,
+      persistencies: scenario.persistencies.filter(
+        (p) => p.owning_study_id === studyId.value && !usedIds.has(p.id),
+      ),
+    }))
 })
 
-onMounted(async () => {
-  existingPersistencesLoading.value = true
-  listPersistences()
-    .then((data) => (existingPersistences.value = data))
-    .finally(() => (existingPersistencesLoading.value = false))
+const hasPickablePersistencies = computed(() =>
+  pickableScenarios.value.some((scenario) => scenario.persistencies.length > 0),
+)
 
-  if (editingId.value === null) return
+onMounted(async () => {
+  studyScenariosLoading.value = true
+  listScenarios()
+    .then((data) => {
+      studyScenarios.value = data.filter((scenario) =>
+        scenario.studies.some((s) => s.id === studyId.value),
+      )
+    })
+    .finally(() => (studyScenariosLoading.value = false))
+
+  if (editingId.value !== null) {
+    loading.value = true
+    try {
+      const scenario = await getScenario(editingId.value)
+      owningStudyId.value = scenario.owning_study_id ?? null
+      const persistencies = scenario.persistencies.map((p) => persistenceDraftFromPersistence(p))
+      const contactTemplates = scenario.contact_templates.length
+        ? scenario.contact_templates.map(contactTemplateDraftFromContactTemplate)
+        : [emptyContactTemplateDraft()]
+      setValues({
+        realistic: !!scenario.realistic,
+        scenarioCategoryId: scenario.scenario_category_id ?? null,
+        persistencies,
+        contactTemplates,
+      })
+      // Existing entries start collapsed so the form doesn't open on a wall of
+      // fields; freshly-added ones start expanded.
+      collapsedPersistencies.value = persistencies.map(() => true)
+      collapsedContactTemplates.value = contactTemplates.map(
+        () => scenario.contact_templates.length > 0,
+      )
+    } catch {
+      loadError.value = 'Could not load this scenario.'
+    } finally {
+      loading.value = false
+    }
+    return
+  }
+
+  if (duplicateFromId.value === null) return
 
   loading.value = true
   try {
-    const scenario = await getScenario(editingId.value)
-    owningStudyId.value = scenario.owning_study_id ?? null
-    const persistencies = scenario.persistencies.map((p) => persistenceDraftFromPersistence(p))
+    const scenario = await getScenario(duplicateFromId.value)
+    const persistencies = scenario.persistencies
+      .map((p) => clonePersistenceDraftForDuplication(persistenceDraftFromPersistence(p)))
     const contactTemplates = scenario.contact_templates.length
-      ? scenario.contact_templates.map(contactTemplateDraftFromContactTemplate)
+      ? scenario.contact_templates.map((template) =>
+          cloneContactTemplateDraftForDuplication(contactTemplateDraftFromContactTemplate(template)),
+        )
       : [emptyContactTemplateDraft()]
     setValues({
       realistic: !!scenario.realistic,
@@ -197,14 +258,12 @@ onMounted(async () => {
       persistencies,
       contactTemplates,
     })
-    // Existing entries start collapsed so the form doesn't open on a wall of
-    // fields; freshly-added ones start expanded.
     collapsedPersistencies.value = persistencies.map(() => true)
     collapsedContactTemplates.value = contactTemplates.map(
       () => scenario.contact_templates.length > 0,
     )
   } catch {
-    loadError.value = 'Could not load this scenario.'
+    loadError.value = 'Could not load the source scenario to duplicate.'
   } finally {
     loading.value = false
   }
@@ -216,16 +275,13 @@ function addPersistence() {
   collapsedPersistencies.value.push(false)
 }
 
-function addExistingPersistence() {
-  const persistence = existingPersistences.value.find(
-    (p) => p.id === selectedExistingPersistenceId.value,
-  )
-  if (!persistence) return
-
+// Duplicated, not linked: this scenario gets its own independent copy, so
+// editing it here can't silently change the persistence on another scenario
+// that also uses it.
+function addExistingPersistence(persistence: Persistence) {
   collapsedPersistencies.value = collapsedPersistencies.value.map(() => true)
-  pushPersistence(persistenceDraftFromPersistence(persistence))
-  collapsedPersistencies.value.push(true)
-  selectedExistingPersistenceId.value = null
+  pushPersistence(clonePersistenceDraftForDuplication(persistenceDraftFromPersistence(persistence)))
+  collapsedPersistencies.value.push(false)
 }
 
 function removePersistence(index: number) {
@@ -279,7 +335,7 @@ const onSubmit = handleSubmit(async (formValues) => {
   submitting.value = true
   submitError.value = ''
   try {
-    const persistenceIds: number[] = []
+    const persistenceIds: string[] = []
     for (const persistence of formValues.persistencies) {
       const persistenceId = await savePersistenceDraft(persistence, studyId.value)
       if (persistenceId) persistenceIds.push(persistenceId)
@@ -297,7 +353,7 @@ const onSubmit = handleSubmit(async (formValues) => {
       ? await updateScenario(editingId.value, payload)
       : await createScenario(payload)
 
-    const contactTemplateIds: number[] = []
+    const contactTemplateIds: string[] = []
     for (const contactTemplate of formValues.contactTemplates) {
       contactTemplateIds.push(await saveContactTemplateDraft(contactTemplate, scenario.id))
     }
@@ -338,9 +394,14 @@ function onCancel() {
         @click="onCancel"
       />
       <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-0">
-        {{ editingId === null ? 'Add scenario' : 'Edit scenario' }}
+        {{ editingId !== null ? 'Edit scenario' : duplicateFromId !== null ? 'Duplicate scenario' : 'Add scenario' }}
       </h1>
     </div>
+
+    <Message v-if="duplicateFromId !== null && !loading && !loadError" severity="info" size="small">
+      Review and adjust the duplicated data below, then save to create it as a new scenario in this
+      study.
+    </Message>
 
     <div v-if="loading" class="flex justify-center py-12">
       <ProgressSpinner style="width: 3rem; height: 3rem" />
@@ -354,13 +415,13 @@ function onCancel() {
     </Message>
 
     <form v-else class="flex flex-col gap-4" @submit.prevent="onSubmit">
-      <Stepper v-model:value="activeStep" :linear="false">
+      <Stepper v-model:value="activeStep" :linear="false" class="bg-transparent!">
         <StepList class="sticky top-0 z-10 bg-surface-0 dark:bg-surface-900">
           <Step value="1">Details</Step>
           <Step value="2">Persistence</Step>
           <Step value="3">Contact templates ({{ contactTemplateFields.length }})</Step>
         </StepList>
-        <StepPanels>
+        <StepPanels class="bg-transparent!">
           <StepPanel value="1" class="bg-transparent!">
             <div class="flex flex-col gap-4 max-w-2xl">
               <div class="flex flex-col gap-2">
@@ -413,44 +474,28 @@ function onCancel() {
                 @remove="removePersistence(index)"
               />
 
-              <div class="flex flex-col gap-4">
+              <div class="flex gap-2">
                 <Button
                   label="Add new persistence"
                   icon="pi pi-plus"
                   outlined
-                  class="self-start"
                   @click="addPersistence"
                 />
-
-                <div class="flex flex-col gap-2">
-                  <label class="font-medium text-sm">Link an existing persistence</label>
-                  <div class="flex gap-2">
-                    <Select
-                      v-model="selectedExistingPersistenceId"
-                      :options="availableExistingPersistences"
-                      :option-label="persistenceLabel"
-                      option-value="id"
-                      :loading="existingPersistencesLoading"
-                      placeholder="Select an existing persistence"
-                      filter
-                      show-clear
-                      fluid
-                    >
-                      <template #option="{ option }">{{ persistenceLabel(option) }}</template>
-                      <template #value="{ value }">
-                        <span v-if="value">
-                          {{ persistenceLabel(existingPersistences.find((p) => p.id === value)!) }}
-                        </span>
-                      </template>
-                    </Select>
-                    <Button
-                      label="Link"
-                      :disabled="!selectedExistingPersistenceId"
-                      @click="addExistingPersistence"
-                    />
-                  </div>
-                </div>
+                <Button
+                  label="Duplicate a persistence from this study"
+                  icon="pi pi-copy"
+                  outlined
+                  :loading="studyScenariosLoading"
+                  :disabled="!hasPickablePersistencies"
+                  @click="persistencePickerVisible = true"
+                />
               </div>
+
+              <PersistencePickerDialog
+                v-model:visible="persistencePickerVisible"
+                :scenarios="pickableScenarios"
+                @select="addExistingPersistence"
+              />
 
               <div class="flex justify-between mt-2">
                 <Button label="Back" icon="pi pi-arrow-left" text @click="activeStep = '1'" />

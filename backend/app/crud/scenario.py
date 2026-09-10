@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -25,13 +27,13 @@ class CRUDScenario(CRUDBase[Scenario, ScenarioCreate, ScenarioUpdate]):
         )
 
     async def update(
-        self, db: AsyncSession, id: int, obj_in: ScenarioUpdate
+        self, db: AsyncSession, id: UUID, obj_in: ScenarioUpdate
     ) -> Scenario:
         return await self.update_with_associations(
             db, id, obj_in, association_fields=ASSOCIATION_FIELDS
         )
 
-    async def delete(self, db: AsyncSession, id: int) -> None:
+    async def delete(self, db: AsyncSession, id: UUID) -> None:
         instance = await self.get(db, id)
         if len(instance.studies) > 1:
             raise HTTPException(

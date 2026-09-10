@@ -2,7 +2,7 @@ import type { Laboratory } from './laboratory'
 import type { User } from './auth'
 
 export interface Author {
-  id: number
+  id: string
   title?: string | null
   first_name: string
   last_name: string
@@ -15,8 +15,8 @@ export interface AuthorInput {
 }
 
 export interface Study {
-  id: number
-  laboratory_id: number | null
+  id: string
+  laboratory_id: string | null
   laboratory?: Laboratory | null
   doi?: string | null
   authors: Author[]
@@ -32,13 +32,13 @@ export interface Study {
   corresponding_author_name?: string | null
   corresponding_author_email?: string | null
   corresponding_author_phone?: string | null
-  quality_checked_by_id?: number | null
+  quality_checked_by_id?: string | null
   quality_checked_by?: User | null
   quality_checked_at?: string | null
 }
 
 export interface StudyCreate {
-  laboratory_id: number
+  laboratory_id: string
   title: string
   authors: AuthorInput[]
   doi?: string | null
@@ -56,7 +56,7 @@ export interface StudyCreate {
 }
 
 export interface StudyUpdate {
-  laboratory_id?: number | null
+  laboratory_id?: string | null
   doi?: string | null
   authors?: AuthorInput[]
   description?: string | null

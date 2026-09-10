@@ -28,7 +28,7 @@ const modeOptions = [
 ]
 
 const joinErrorMessage = ref('')
-const joinLaboratoryId = ref<number | null>(null)
+const joinLaboratoryId = ref<string | null>(null)
 const joinTouched = ref(false)
 const joining = ref(false)
 

@@ -4,13 +4,13 @@ import type { NamedCategory, Supplier } from './categories'
 // Laboratory-scoped methods -------------------------------------------------
 
 export interface ExtractionMethod {
-  id: number
-  laboratory_id?: number | null
+  id: string
+  laboratory_id?: string | null
   laboratory?: Laboratory | null
-  principle_of_extraction_method_category_id?: number | null
+  principle_of_extraction_method_category_id?: string | null
   principle_of_extraction_method_category?: NamedCategory | null
   extraction_protocol?: string | null
-  extraction_platform_id?: number | null
+  extraction_platform_id?: string | null
   extraction_platform?: NamedCategory | null
   additional_lysis_buffer_components?: string | null
   volume_lysis_buffer_components?: number | null
@@ -27,12 +27,12 @@ export type ExtractionMethodInput = Omit<
 >
 
 export interface PCRMethod {
-  id: number
-  laboratory_id?: number | null
+  id: string
+  laboratory_id?: string | null
   laboratory?: Laboratory | null
-  pcr_kit_id?: number | null
+  pcr_kit_id?: string | null
   pcr_kit?: NamedCategory | null
-  thermocycler_id?: number | null
+  thermocycler_id?: string | null
   thermocycler?: NamedCategory | null
   initial_denaturation_temp?: number | null
   initial_denaturation_time?: string | null
@@ -52,16 +52,16 @@ export interface PCRMethod {
 export type PCRMethodInput = Omit<PCRMethod, 'id' | 'laboratory'>
 
 export interface CEMethod {
-  id: number
-  laboratory_id?: number | null
+  id: string
+  laboratory_id?: string | null
   laboratory?: Laboratory | null
-  ce_device_id?: number | null
+  ce_device_id?: string | null
   ce_device?: NamedCategory | null
   application_type?: string | null
   capillary_length?: number | null
-  polymer_id?: number | null
+  polymer_id?: string | null
   polymer?: NamedCategory | null
-  dye_set_id?: number | null
+  dye_set_id?: string | null
   dye_set?: NamedCategory | null
   oven_temperature?: number | null
   run_voltage?: number | null
@@ -70,10 +70,10 @@ export interface CEMethod {
   run_time?: string | null
   pre_run_time?: string | null
   injection_time?: string | null
-  type_of_formamide_id?: number | null
+  type_of_formamide_id?: string | null
   type_of_formamide?: NamedCategory | null
   volume_formamide?: number | null
-  size_standard_id?: number | null
+  size_standard_id?: string | null
   size_standard?: NamedCategory | null
   volume_size_standard?: number | null
   input_volume_pcr_product?: number | null
@@ -83,16 +83,16 @@ export interface CEMethod {
 export type CEMethodInput = Omit<CEMethod, 'id' | 'laboratory'>
 
 export interface QuantificationMethod {
-  id: number
-  laboratory_id?: number | null
+  id: string
+  laboratory_id?: string | null
   laboratory?: Laboratory | null
-  principle_of_quant_method_category_id?: number | null
+  principle_of_quant_method_category_id?: string | null
   principle_of_quant_method_category?: NamedCategory | null
-  kit_id?: number | null
+  kit_id?: string | null
   kit?: NamedCategory | null
-  manufacturer_id?: number | null
+  manufacturer_id?: string | null
   manufacturer?: NamedCategory | null
-  platform_id?: number | null
+  platform_id?: string | null
   platform?: NamedCategory | null
   description_of_protocol?: string | null
   abbreviations_to_manufacturers_protocol?: string | null
@@ -104,10 +104,10 @@ export type QuantificationMethodInput = Omit<
 >
 
 export interface EPGAnalysisMethod {
-  id: number
-  laboratory_id?: number | null
+  id: string
+  laboratory_id?: string | null
   laboratory?: Laboratory | null
-  genotyping_software_id?: number | null
+  genotyping_software_id?: string | null
   genotyping_software?: NamedCategory | null
   analytical_threshold?: number | null
   application_analytical_threshold?: string | null
@@ -117,11 +117,11 @@ export interface EPGAnalysisMethod {
 export type EPGAnalysisMethodInput = Omit<EPGAnalysisMethod, 'id' | 'laboratory'>
 
 export interface EPGInterpretationMethod {
-  id: number
-  laboratory_id?: number | null
+  id: string
+  laboratory_id?: string | null
   laboratory?: Laboratory | null
   determination_of_noc?: string | null
-  statistical_software_id?: number | null
+  statistical_software_id?: string | null
   statistical_software?: NamedCategory | null
   parameters_modelled_by_software?: string | null
   allele_frequency_database?: string | null
@@ -130,8 +130,8 @@ export interface EPGInterpretationMethod {
 export type EPGInterpretationMethodInput = Omit<EPGInterpretationMethod, 'id' | 'laboratory'>
 
 export interface PostPCRTreatmentMethod {
-  id: number
-  laboratory_id?: number | null
+  id: string
+  laboratory_id?: string | null
   laboratory?: Laboratory | null
   application_of_post_pcr_purification_step?: boolean | null
   description_of_post_pcr_purification_step?: string | null
@@ -144,15 +144,15 @@ export type PostPCRTreatmentMethodInput = Omit<PostPCRTreatmentMethod, 'id' | 'l
 // Device/category-scoped sub-methods ----------------------------------------
 
 export interface SwabMethod {
-  id: number
-  wetting_agent_id?: number | null
+  id: string
+  wetting_agent_id?: string | null
   wetting_agent?: NamedCategory | null
   volume_of_wetting_agent?: number | null
   specification?: string | null
   description?: string | null
-  type_of_swab_category_id?: number | null
+  type_of_swab_category_id?: string | null
   type_of_swab_category?: NamedCategory | null
-  swabbing_technique_category_id?: number | null
+  swabbing_technique_category_id?: string | null
   swabbing_technique_category?: NamedCategory | null
 }
 
@@ -162,55 +162,55 @@ export type SwabMethodInput = Omit<
 >
 
 export interface TapeMethod {
-  id: number
-  type_of_tape_id?: number | null
+  id: string
+  type_of_tape_id?: string | null
   type_of_tape?: NamedCategory | null
   description?: string | null
-  supplier_id?: number | null
+  supplier_id?: string | null
   supplier?: Supplier | null
 }
 
 export type TapeMethodInput = Omit<TapeMethod, 'id' | 'type_of_tape'>
 
 export interface VacuumMethod {
-  id: number
-  vacuum_device_id?: number | null
+  id: string
+  vacuum_device_id?: string | null
   vacuum_device?: NamedCategory | null
   description?: string | null
-  supplier_id?: number | null
+  supplier_id?: string | null
   supplier?: Supplier | null
 }
 
 export type VacuumMethodInput = Omit<VacuumMethod, 'id' | 'vacuum_device'>
 
 export interface CuttingMethod {
-  id: number
-  cutting_device_id?: number | null
+  id: string
+  cutting_device_id?: string | null
   cutting_device?: NamedCategory | null
   description?: string | null
-  supplier_id?: number | null
+  supplier_id?: string | null
   supplier?: Supplier | null
 }
 
 export type CuttingMethodInput = Omit<CuttingMethod, 'id' | 'cutting_device'>
 
 export interface ScrapingMethod {
-  id: number
-  scraping_device_id?: number | null
+  id: string
+  scraping_device_id?: string | null
   scraping_device?: NamedCategory | null
   description?: string | null
-  supplier_id?: number | null
+  supplier_id?: string | null
   supplier?: Supplier | null
 }
 
 export type ScrapingMethodInput = Omit<ScrapingMethod, 'id' | 'scraping_device'>
 
 export interface PickingMethod {
-  id: number
-  picking_device_id?: number | null
+  id: string
+  picking_device_id?: string | null
   picking_device?: NamedCategory | null
   description?: string | null
-  supplier_id?: number | null
+  supplier_id?: string | null
   supplier?: Supplier | null
 }
 
@@ -219,20 +219,20 @@ export type PickingMethodInput = Omit<PickingMethod, 'id' | 'picking_device'>
 // Composite sampling method ---------------------------------------------------
 
 export interface SamplingMethod {
-  id: number
-  laboratory_id?: number | null
+  id: string
+  laboratory_id?: string | null
   laboratory?: Laboratory | null
-  swab_method_id?: number | null
+  swab_method_id?: string | null
   swab_method?: SwabMethod | null
-  tape_method_id?: number | null
+  tape_method_id?: string | null
   tape_method?: TapeMethod | null
-  vacuum_method_id?: number | null
+  vacuum_method_id?: string | null
   vacuum_method?: VacuumMethod | null
-  cutting_method_id?: number | null
+  cutting_method_id?: string | null
   cutting_method?: CuttingMethod | null
-  scraping_method_id?: number | null
+  scraping_method_id?: string | null
   scraping_method?: ScrapingMethod | null
-  picking_method_id?: number | null
+  picking_method_id?: string | null
   picking_method?: PickingMethod | null
 }
 

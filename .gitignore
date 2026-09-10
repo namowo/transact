@@ -5,6 +5,7 @@ build/
 dist/
 wheels/
 *.egg-info
+.claude
 
 # Virtual environments
 .venv
@@ -14,6 +15,7 @@ wheels/
 .vscode
 .venv
 *.xcf
+*.xlsx
 frontend/.vscode
 
 # Logs

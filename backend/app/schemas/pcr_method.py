@@ -1,14 +1,15 @@
 from typing import Optional
 
+from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 
 from app.schemas.common import SecondsTimedelta
 
 
 class PCRMethodBase(BaseModel):
-    laboratory_id: Optional[int] = None
-    pcr_kit_id: Optional[int] = None
-    thermocycler_id: Optional[int] = None
+    laboratory_id: Optional[UUID] = None
+    pcr_kit_id: Optional[UUID] = None
+    thermocycler_id: Optional[UUID] = None
     initial_denaturation_temp: Optional[float] = None
     initial_denaturation_time: Optional[SecondsTimedelta] = None
     no_of_cycles: Optional[int] = None
@@ -35,7 +36,7 @@ class PCRMethodUpdate(PCRMethodBase):
 class PCRMethodRead(PCRMethodBase):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    id: UUID
     laboratory: Optional["LaboratoryRead"] = None
     pcr_kit: Optional["PCRKitRead"] = None
     thermocycler: Optional["ThermocyclerRead"] = None

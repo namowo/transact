@@ -2,12 +2,12 @@ import { createPersistence, updatePersistence } from '@/api/persistences'
 import type { Persistence } from '@/api/types'
 
 export interface PersistenceDraft {
-  id: number | null
+  id: string | null
   // The study this persistence was created for. Only that study may edit
   // it - it's a shared m:n record other studies can link via a scenario,
   // but editing it there would silently change it everywhere it's used.
   // Null for a not-yet-saved draft, which is always editable.
-  owningStudyId: number | null
+  owningStudyId: string | null
   // Optional label to tell apart multiple persistencies on a scenario.
   name: string | null
   intervalOfPersistence: number | null
@@ -18,8 +18,8 @@ export interface PersistenceDraft {
   changeOverTime: boolean
   durationOfDisturbance: number | null
   descriptionOfDisturbance: string | null
-  disturbanceCategoryId: number | null
-  geographicLocationCategoryId: number | null
+  disturbanceCategoryId: string | null
+  geographicLocationCategoryId: string | null
 }
 
 export function emptyPersistenceDraft(): PersistenceDraft {
@@ -61,7 +61,14 @@ export function persistenceDraftFromPersistence(
   }
 }
 
-export function isPersistenceEditable(draft: PersistenceDraft, currentStudyId: number): boolean {
+// Used when duplicating a scenario from another study: keeps the field
+// values but drops the id/ownership, so saving creates an independent copy
+// instead of updating or re-linking the original (shared) record.
+export function clonePersistenceDraftForDuplication(draft: PersistenceDraft): PersistenceDraft {
+  return { ...draft, id: null, owningStudyId: null }
+}
+
+export function isPersistenceEditable(draft: PersistenceDraft, currentStudyId: string): boolean {
   return draft.owningStudyId === null || draft.owningStudyId === currentStudyId
 }
 
@@ -112,8 +119,8 @@ export function isBlankPersistenceDraft(draft: PersistenceDraft): boolean {
 
 export async function savePersistenceDraft(
   draft: PersistenceDraft,
-  currentStudyId: number,
-): Promise<number | null> {
+  currentStudyId: string,
+): Promise<string | null> {
   // A persistence owned by another study is linked read-only - never
   // rewritten here, since it's a shared record that study still owns.
   if (!isPersistenceEditable(draft, currentStudyId)) return draft.id

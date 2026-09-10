@@ -120,13 +120,13 @@ function emptyForm(): ResultInput {
 }
 
 const schema = yup.object({
-  recovery_id: yup.number().nullable().required('Please select a recovery.'),
-  quantification_method_id: yup.number().nullable().defined(),
+  recovery_id: yup.string().nullable().required('Please select a recovery.'),
+  quantification_method_id: yup.string().nullable().defined(),
   dna_concentration: yup.number().nullable().min(0, 'DNA concentration must be zero or greater.'),
   degradation: yup.string().nullable().defined(),
   inhibition: yup.boolean().nullable().defined(),
   dna_quantity: yup.number().nullable().min(0, 'DNA quantity must be zero or greater.'),
-  pcr_method_id: yup.number().nullable().defined(),
+  pcr_method_id: yup.string().nullable().defined(),
   sample_input_volume_in_pcr: yup
     .number()
     .nullable()
@@ -135,10 +135,10 @@ const schema = yup.object({
     .number()
     .nullable()
     .min(0, 'DNA input amount must be zero or greater.'),
-  post_pcr_treatment_method_id: yup.number().nullable().defined(),
-  ce_method_id: yup.number().nullable().defined(),
-  epg_analysis_method_id: yup.number().nullable().defined(),
-  epg_interpretation_method_id: yup.number().nullable().defined(),
+  post_pcr_treatment_method_id: yup.string().nullable().defined(),
+  ce_method_id: yup.string().nullable().defined(),
+  epg_analysis_method_id: yup.string().nullable().defined(),
+  epg_interpretation_method_id: yup.string().nullable().defined(),
   no_of_contributors: yup
     .number()
     .nullable()
@@ -181,7 +181,7 @@ const [totalRfu] = defineField('total_rfu')
 const [totalNoOfAlleles] = defineField('total_no_of_alleles')
 
 const dialogVisible = ref(false)
-const editingId = ref<number | null>(null)
+const editingId = ref<string | null>(null)
 const submitting = ref(false)
 const submitError = ref('')
 

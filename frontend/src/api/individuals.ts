@@ -9,6 +9,6 @@ export function createIndividual(payload: IndividualInput) {
   return apiClient.post<Individual>('/individuals', payload).then((r) => r.data)
 }
 
-export function updateIndividual(id: number, payload: IndividualInput) {
+export function updateIndividual(id: string, payload: IndividualInput) {
   return apiClient.patch<Individual>(`/individuals/${id}`, payload).then((r) => r.data)
 }

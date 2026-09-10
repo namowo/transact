@@ -11,7 +11,7 @@ import Message from 'primevue/message'
 import type { NamedCategory } from '@/api/types'
 
 const props = defineProps<{
-  modelValue: number | null
+  modelValue: string | null
   label: string
   description?: string
   api: {
@@ -26,7 +26,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  'update:modelValue': [value: number | null]
+  'update:modelValue': [value: string | null]
 }>()
 
 const options = ref<NamedCategory[]>([])

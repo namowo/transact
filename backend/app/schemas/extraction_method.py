@@ -1,13 +1,14 @@
 from typing import Optional
 
+from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 
 
 class ExtractionMethodBase(BaseModel):
-    laboratory_id: Optional[int] = None
-    principle_of_extraction_method_category_id: Optional[int] = None
+    laboratory_id: Optional[UUID] = None
+    principle_of_extraction_method_category_id: Optional[UUID] = None
     extraction_protocol: Optional[str] = None
-    extraction_platform_id: Optional[int] = None
+    extraction_platform_id: Optional[UUID] = None
     additional_lysis_buffer_components: Optional[str] = None
     volume_lysis_buffer_components: Optional[int] = None
     lysis_incubation_time: Optional[int] = None
@@ -28,7 +29,7 @@ class ExtractionMethodUpdate(ExtractionMethodBase):
 class ExtractionMethodRead(ExtractionMethodBase):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    id: UUID
     laboratory: Optional["LaboratoryRead"] = None
     principle_of_extraction_method_category: Optional["PrincipleOfExtractionMethodCategoryRead"] = None
     extraction_platform: Optional["PlatformRead"] = None

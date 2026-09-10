@@ -1,12 +1,13 @@
 from typing import Optional
 
+from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 
 
 class CuttingMethodBase(BaseModel):
-    cutting_device_id: Optional[int] = None
+    cutting_device_id: Optional[UUID] = None
     description: Optional[str] = None
-    supplier_id: Optional[int] = None
+    supplier_id: Optional[UUID] = None
 
 
 class CuttingMethodCreate(CuttingMethodBase):
@@ -20,7 +21,7 @@ class CuttingMethodUpdate(CuttingMethodBase):
 class CuttingMethodRead(CuttingMethodBase):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    id: UUID
     cutting_device: Optional["CuttingDeviceRead"] = None
     supplier: Optional["SupplierRead"] = None
 

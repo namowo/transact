@@ -1,9 +1,11 @@
 import enum
+import uuid
 from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy import ForeignKey, Index
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import text
 
@@ -27,14 +29,20 @@ class LabMembershipRequest(Base):
         ),
     )
 
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, index=True,
+        server_default=text("gen_random_uuid()")
+    )
 
-    user_id: Mapped[int] = mapped_column(
-        ForeignKey("user.id", ondelete="CASCADE"), nullable=False
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("user.id", ondelete="CASCADE"),
+        nullable=False,
     )
     user: Mapped["User"] = relationship(lazy="selectin", foreign_keys=[user_id])
 
-    laboratory_id: Mapped[int] = mapped_column(
+    laboratory_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True),
         ForeignKey("laboratory.id", ondelete="CASCADE"), nullable=False
     )
     laboratory: Mapped["Laboratory"] = relationship(
@@ -52,8 +60,8 @@ class LabMembershipRequest(Base):
         server_default=text("'pending'"),
     )
 
-    reviewed_by_id: Mapped[Optional[int]] = mapped_column(
-        ForeignKey("user.id", ondelete="SET NULL")
+    reviewed_by_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("user.id", ondelete="SET NULL")
     )
     reviewed_by: Mapped[Optional["User"]] = relationship(
         lazy="selectin", foreign_keys=[reviewed_by_id]

@@ -1,5 +1,6 @@
 from typing import Optional
 
+from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 
 from app.models.laboratory import LaboratoryApprovalStatus
@@ -31,5 +32,5 @@ class LaboratoryUpdate(LaboratoryBase):
 class LaboratoryRead(LaboratoryBase):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    id: UUID
     approval_status: LaboratoryApprovalStatus

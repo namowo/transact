@@ -1,14 +1,15 @@
 from typing import Optional
 
+from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 
 
 class IndividualBase(BaseModel):
-    sex_id: Optional[int] = None
+    sex_id: Optional[UUID] = None
     age: Optional[int] = None
-    dna_shedding_propensity_category_id: Optional[int] = None
-    skin_disease_category_id: Optional[int] = None
-    determination_of_shedding_propensity_category_id: Optional[int] = None
+    dna_shedding_propensity_category_id: Optional[UUID] = None
+    skin_disease_category_id: Optional[UUID] = None
+    determination_of_shedding_propensity_category_id: Optional[UUID] = None
 
 
 class IndividualCreate(IndividualBase):
@@ -22,7 +23,7 @@ class IndividualUpdate(IndividualBase):
 class IndividualRead(IndividualBase):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    id: UUID
     sex: Optional["SexRead"] = None
     dna_shedding_propensity_category: Optional["DNASheddingPropensityCategoryRead"] = None
     skin_disease_category: Optional["SkinDiseaseCategoryRead"] = None

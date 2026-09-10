@@ -1,7 +1,7 @@
 import type { Laboratory } from './laboratory'
 
 export interface User {
-  id: number
+  id: string
   email: string
   first_name: string
   last_name: string
@@ -11,7 +11,7 @@ export interface User {
   can_quality_check: boolean
   can_manage_lab_users: boolean
   passkey_prompt_dismissed: boolean
-  laboratory_id: number | null
+  laboratory_id: string | null
   laboratory?: Laboratory | null
   created_at: string
 }
@@ -35,7 +35,7 @@ export interface SuperuserSetupPayload {
 }
 
 export interface WebAuthnCredential {
-  id: number
+  id: string
   device_name: string | null
   created_at: string
   last_used_at: string | null

@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.crud.base import CRUDBase
@@ -22,7 +24,7 @@ class CRUDContactTemplate(
         )
 
     async def update(
-        self, db: AsyncSession, id: int, obj_in: ContactTemplateUpdate
+        self, db: AsyncSession, id: UUID, obj_in: ContactTemplateUpdate
     ) -> ContactTemplate:
         return await self.update_with_associations(
             db, id, obj_in, association_fields=ASSOCIATION_FIELDS

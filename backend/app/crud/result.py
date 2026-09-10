@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -33,7 +35,7 @@ class CRUDResult(CRUDBase[Result, ResultCreate, ResultUpdate]):
 
         return new_result
 
-    async def update(self, db: AsyncSession, id: int, obj_in: ResultUpdate) -> Result:
+    async def update(self, db: AsyncSession, id: UUID, obj_in: ResultUpdate) -> Result:
         result = await self.get(db, id)
         update_data = obj_in.model_dump(
             exclude={"pcrs"}, exclude_none=True, exclude_unset=True

@@ -1,7 +1,11 @@
+import uuid
 from typing import Optional
 
 from sqlalchemy import ForeignKey, Table, Column
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from sqlalchemy.sql import text
 
 from app.core.db import Base
 
@@ -31,11 +35,13 @@ scenario_persistence = Table(
 class Scenario(Base):
     __tablename__ = "scenario"
 
-    id: Mapped[int] = mapped_column(
-        primary_key=True, index=True, unique=True, nullable=False
+    id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, index=True,
+        server_default=text("gen_random_uuid()")
     )
     realistic: Mapped[bool]
-    scenario_category_id: Mapped[int] = mapped_column(
+    scenario_category_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True),
         ForeignKey("scenario_category.id", ondelete="SET NULL")
     )
     scenario_category: Mapped["ScenarioCategory"] = relationship(
@@ -44,7 +50,8 @@ class Scenario(Base):
     # The study this scenario was created for. Only this study may edit it;
     # other studies may link it to their own planning but see it read-only,
     # since it's a shared record.
-    owning_study_id: Mapped[Optional[int]] = mapped_column(
+    owning_study_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        PGUUID(as_uuid=True),
         ForeignKey("study.id", ondelete="SET NULL")
     )
     owning_study: Mapped[Optional["Study"]] = relationship(

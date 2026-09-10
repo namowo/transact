@@ -17,7 +17,7 @@ import type { Individual } from '@/api/types'
 // Selecting an individual here just picks which Individual row a surface
 // points at; all of that person's editable fields (sex, age, ...) live in
 // this component's dialog too, so they aren't duplicated in SurfaceForm.
-const individualId = defineModel<number | null>({ default: null })
+const individualId = defineModel<string | null>({ default: null })
 
 const individuals = ref<Individual[]>([])
 const loading = ref(false)
@@ -38,7 +38,7 @@ function describeIndividual(individual: Individual): string {
 async function load() {
   loading.value = true
   try {
-    individuals.value = (await listIndividuals()).sort((a, b) => a.id - b.id)
+    individuals.value = await listIndividuals()
   } finally {
     loading.value = false
   }
@@ -51,11 +51,11 @@ const selectedIndividual = computed(
 )
 
 interface FormState {
-  sexId: number | null
+  sexId: string | null
   age: number | null
-  dnaSheddingPropensityCategoryId: number | null
-  skinDiseaseCategoryId: number | null
-  determinationCategoryId: number | null
+  dnaSheddingPropensityCategoryId: string | null
+  skinDiseaseCategoryId: string | null
+  determinationCategoryId: string | null
 }
 
 function emptyForm(individual: Individual | null): FormState {
@@ -69,11 +69,11 @@ function emptyForm(individual: Individual | null): FormState {
 }
 
 const schema = yup.object({
-  sexId: yup.number().nullable().defined(),
+  sexId: yup.string().nullable().defined(),
   age: yup.number().nullable().min(0, 'Age must be zero or greater.'),
-  dnaSheddingPropensityCategoryId: yup.number().nullable().defined(),
-  skinDiseaseCategoryId: yup.number().nullable().defined(),
-  determinationCategoryId: yup.number().nullable().defined(),
+  dnaSheddingPropensityCategoryId: yup.string().nullable().defined(),
+  skinDiseaseCategoryId: yup.string().nullable().defined(),
+  determinationCategoryId: yup.string().nullable().defined(),
 })
 
 const { defineField, errors, handleSubmit, resetForm: resetFormValues } = useForm<FormState>({

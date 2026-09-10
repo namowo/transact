@@ -5,7 +5,7 @@ export function listScenarios() {
   return apiClient.get<Scenario[]>('/scenarios').then((r) => r.data)
 }
 
-export function getScenario(id: number) {
+export function getScenario(id: string) {
   return apiClient.get<Scenario>(`/scenarios/${id}`).then((r) => r.data)
 }
 
@@ -13,10 +13,10 @@ export function createScenario(payload: ScenarioInput) {
   return apiClient.post<Scenario>('/scenarios', payload).then((r) => r.data)
 }
 
-export function updateScenario(id: number, payload: ScenarioInput) {
+export function updateScenario(id: string, payload: ScenarioInput) {
   return apiClient.patch<Scenario>(`/scenarios/${id}`, payload).then((r) => r.data)
 }
 
-export function deleteScenario(id: number) {
+export function deleteScenario(id: string) {
   return apiClient.delete(`/scenarios/${id}`)
 }

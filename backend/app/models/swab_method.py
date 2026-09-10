@@ -1,7 +1,11 @@
+import uuid
 from typing import Optional
 
 from sqlalchemy import ForeignKey
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from sqlalchemy.sql import text
 
 from app.core.db import Base
 
@@ -9,10 +13,12 @@ from app.core.db import Base
 class SwabMethod(Base):
     __tablename__ = "swab_method"
 
-    id: Mapped[int] = mapped_column(
-        primary_key=True, index=True, unique=True, nullable=False
+    id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, index=True,
+        server_default=text("gen_random_uuid()")
     )
-    wetting_agent_id: Mapped[Optional[int]] = mapped_column(
+    wetting_agent_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        PGUUID(as_uuid=True),
         ForeignKey("wetting_agent.id", ondelete="SET NULL")
     )
     wetting_agent: Mapped[Optional["WettingAgent"]] = relationship(
@@ -21,13 +27,15 @@ class SwabMethod(Base):
     volume_of_wetting_agent: Mapped[Optional[float]]
     specification: Mapped[Optional[str]]
     description: Mapped[Optional[str]]
-    type_of_swab_category_id: Mapped[Optional[int]] = mapped_column(
+    type_of_swab_category_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        PGUUID(as_uuid=True),
         ForeignKey("type_of_swab_category.id", ondelete="SET NULL")
     )
     type_of_swab_category: Mapped[Optional["TypeOfSwabCategory"]] = relationship(
         lazy="selectin", foreign_keys=[type_of_swab_category_id]
     )
-    swabbing_technique_category_id: Mapped[Optional[int]] = mapped_column(
+    swabbing_technique_category_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        PGUUID(as_uuid=True),
         ForeignKey("swabbing_technique_category.id", ondelete="SET NULL")
     )
     swabbing_technique_category: Mapped[Optional["SwabbingTechniqueCategory"]] = (

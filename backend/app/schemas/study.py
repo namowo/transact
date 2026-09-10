@@ -1,11 +1,12 @@
 from datetime import datetime
 from typing import List, Optional
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
 
 class StudyBase(BaseModel):
-    laboratory_id: Optional[int] = None
+    laboratory_id: Optional[UUID] = None
     doi: Optional[str] = None
     description: Optional[str] = None
     year: Optional[str] = None
@@ -22,7 +23,7 @@ class StudyBase(BaseModel):
 
 
 class StudyCreate(StudyBase):
-    laboratory_id: int
+    laboratory_id: UUID
     title: str
     authors: List["AuthorCreate"] = []
 
@@ -46,10 +47,10 @@ class StudyReadNested(StudyBase):
 
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    id: UUID
     laboratory: Optional["LaboratoryRead"] = None
     authors: List["AuthorRead"] = []
-    quality_checked_by_id: Optional[int] = None
+    quality_checked_by_id: Optional[UUID] = None
     quality_checked_by: Optional["UserRead"] = None
     quality_checked_at: Optional[datetime] = None
     recoveries: List["RecoveryRead"] = []

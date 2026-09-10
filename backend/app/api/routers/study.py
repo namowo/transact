@@ -1,5 +1,7 @@
 from typing import List, Optional
 
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -48,7 +50,7 @@ async def get_all(
 
 @router.get("/{id}", response_model=ReadSchema)
 async def get_by_id(
-    id: int,
+    id: UUID,
     db: AsyncSession = Depends(get_async_session),
     user: Optional[User] = Depends(current_optional_user),
 ):
@@ -80,7 +82,7 @@ async def create(
     response_model=ReadSchema,
 )
 async def update(
-    id: int,
+    id: UUID,
     obj_in: UpdateSchema,
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
@@ -95,7 +97,7 @@ async def update(
     status_code=status.HTTP_204_NO_CONTENT,
 )
 async def delete(
-    id: int,
+    id: UUID,
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
 ):
@@ -106,7 +108,7 @@ async def delete(
 
 @router.post("/{id}/quality-check", response_model=ReadSchema)
 async def pass_quality_check(
-    id: int,
+    id: UUID,
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_quality_checker),
 ):

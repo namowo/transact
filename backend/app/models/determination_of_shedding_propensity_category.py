@@ -1,7 +1,11 @@
+import uuid
 from typing import Optional
 
 from sqlalchemy import Column, ForeignKey, Table
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from sqlalchemy.sql import text
 
 from app.core.db import Base
 
@@ -39,8 +43,9 @@ determination_of_shedding_propensity_category_monitored_transfer_factor = Table(
 class DeterminationOfSheddingPropensityCategory(Base):
     __tablename__ = "determination_of_shedding_propensity_category"
 
-    id: Mapped[int] = mapped_column(
-        primary_key=True, index=True, unique=True, nullable=False
+    id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, index=True,
+        server_default=text("gen_random_uuid()")
     )
     title: Mapped[Optional[str]]
     doi: Mapped[Optional[str]]
@@ -60,13 +65,15 @@ class DeterminationOfSheddingPropensityCategory(Base):
     shedder_tests: Mapped[list["DeterminationOfSheddingPropensityCategoryShedderTest"]] = (
         relationship(lazy="selectin", cascade="all, delete-orphan")
     )
-    classification_criteria_id: Mapped[Optional[int]] = mapped_column(
+    classification_criteria_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        PGUUID(as_uuid=True),
         ForeignKey("classification_criteria.id", ondelete="SET NULL")
     )
     classification_criteria: Mapped[Optional["ClassificationCriteria"]] = relationship(
         lazy="selectin", foreign_keys=[classification_criteria_id]
     )
-    classification_scheme_id: Mapped[Optional[int]] = mapped_column(
+    classification_scheme_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        PGUUID(as_uuid=True),
         ForeignKey("classification_scheme.id", ondelete="SET NULL")
     )
     classification_scheme: Mapped[Optional["ClassificationScheme"]] = relationship(

@@ -1,12 +1,13 @@
 from typing import Optional
 
+from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 
 from app.schemas.common import SecondsTimedelta
 
 
 class DeterminationOfSheddingPropensityCategoryShedderTestBase(BaseModel):
-    shedder_test_id: int
+    shedder_test_id: UUID
     duration: Optional[SecondsTimedelta] = None
 
 

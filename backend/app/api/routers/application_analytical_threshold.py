@@ -1,5 +1,7 @@
 from typing import List
 
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,7 +24,7 @@ async def get_all(db: AsyncSession = Depends(get_async_session)):
 
 
 @router.get("/{id}", response_model=ReadSchema)
-async def get_by_id(id: int, db: AsyncSession = Depends(get_async_session)):
+async def get_by_id(id: UUID, db: AsyncSession = Depends(get_async_session)):
     return await crud.get(db, id)
 
 
@@ -42,7 +44,7 @@ async def create(obj_in: CreateSchema, db: AsyncSession = Depends(get_async_sess
     dependencies=[Depends(current_superuser)],
 )
 async def update(
-    id: int, obj_in: UpdateSchema, db: AsyncSession = Depends(get_async_session)
+    id: UUID, obj_in: UpdateSchema, db: AsyncSession = Depends(get_async_session)
 ):
     return await crud.update(db, id, obj_in)
 
@@ -52,5 +54,5 @@ async def update(
     status_code=status.HTTP_204_NO_CONTENT,
     dependencies=[Depends(current_superuser)],
 )
-async def delete(id: int, db: AsyncSession = Depends(get_async_session)):
+async def delete(id: UUID, db: AsyncSession = Depends(get_async_session)):
     await crud.delete(db, id)

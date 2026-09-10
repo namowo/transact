@@ -1,7 +1,9 @@
+import uuid
 from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import ForeignKey
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import text
 
@@ -11,7 +13,9 @@ from app.core.db import Base
 class User(Base):
     __tablename__ = "user"
 
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, index=True, server_default=text("gen_random_uuid()")
+    )
     email: Mapped[str] = mapped_column(unique=True, index=True, nullable=False)
     hashed_password: Mapped[str]
     first_name: Mapped[str]
@@ -33,8 +37,8 @@ class User(Base):
         nullable=False, server_default=text("false")
     )
 
-    laboratory_id: Mapped[Optional[int]] = mapped_column(
-        ForeignKey("laboratory.id", ondelete="RESTRICT")
+    laboratory_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("laboratory.id", ondelete="RESTRICT")
     )
     laboratory: Mapped[Optional["Laboratory"]] = relationship(
         lazy="selectin", foreign_keys=[laboratory_id]

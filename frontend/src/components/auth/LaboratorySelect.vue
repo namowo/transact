@@ -5,7 +5,7 @@ import Message from 'primevue/message'
 import { listLaboratories } from '@/api/laboratories'
 import type { Laboratory } from '@/api/types'
 
-const modelValue = defineModel<number | null>({ default: null })
+const modelValue = defineModel<string | null>({ default: null })
 
 const laboratories = ref<Laboratory[]>([])
 const loading = ref(false)

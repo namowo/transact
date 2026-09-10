@@ -31,7 +31,6 @@ const router = createRouter({
           redirect: { name: 'studies-laboratory' },
           meta: { breadcrumb: 'Studies' },
           children: [
-            { path: '', redirect: { name: 'studies-laboratory' } },
             {
               path: 'laboratory',
               name: 'studies-laboratory',

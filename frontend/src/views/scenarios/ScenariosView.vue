@@ -7,7 +7,7 @@ import type { Study } from '@/api/types'
 
 const props = defineProps<{ studyId: string }>()
 
-const studyId = computed(() => Number(props.studyId))
+const studyId = computed(() => props.studyId)
 const study = ref<Study | null>(null)
 
 onMounted(async () => {

@@ -7,7 +7,7 @@ import type { SurfaceInstanceDraft } from './surfaceInstanceDraft'
 import type { Contact, ContactTemplate } from '@/api/types'
 
 export interface ContactInstanceDraft {
-  contactTemplateId: number | null
+  contactTemplateId: string | null
   donorSurface: SurfaceInstanceDraft
   recipientSurface: SurfaceInstanceDraft
 }

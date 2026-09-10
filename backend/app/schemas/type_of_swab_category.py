@@ -1,5 +1,6 @@
 from typing import Optional
 
+from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 
 
@@ -8,7 +9,7 @@ class TypeOfSwabCategoryBase(BaseModel):
     description: Optional[str] = None
     catalogue_number_of_supplier: Optional[str] = None
     full_name_as_by_supplier: Optional[str] = None
-    supplier_id: Optional[int] = None
+    supplier_id: Optional[UUID] = None
 
 
 class TypeOfSwabCategoryCreate(TypeOfSwabCategoryBase):
@@ -22,7 +23,7 @@ class TypeOfSwabCategoryUpdate(TypeOfSwabCategoryBase):
 class TypeOfSwabCategoryRead(TypeOfSwabCategoryBase):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    id: UUID
     supplier: Optional["SupplierRead"] = None
 
 

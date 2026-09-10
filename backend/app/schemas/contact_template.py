@@ -1,34 +1,35 @@
 from typing import Optional
 
+from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 
 from app.schemas.common import SecondsTimedelta
 
 
 class ContactTemplateBase(BaseModel):
-    donor_surface_template_id: Optional[int] = None
-    recipient_surface_template_id: Optional[int] = None
+    donor_surface_template_id: Optional[UUID] = None
+    recipient_surface_template_id: Optional[UUID] = None
     duration: Optional[SecondsTimedelta] = None
-    pressure_estimate_id: Optional[int] = None
-    friction_applied_estimate_id: Optional[int] = None
+    pressure_estimate_id: Optional[UUID] = None
+    friction_applied_estimate_id: Optional[UUID] = None
     contact_area: Optional[float] = None
     description_of_contact: Optional[str] = None
-    activity_category_id: Optional[int] = None
-    condition_during_contact_id: Optional[int] = None
+    activity_category_id: Optional[UUID] = None
+    condition_during_contact_id: Optional[UUID] = None
 
 
 class ContactTemplateCreate(ContactTemplateBase):
-    scenario_ids: list[int] = []
+    scenario_ids: list[UUID] = []
 
 
 class ContactTemplateUpdate(ContactTemplateBase):
-    scenario_ids: Optional[list[int]] = None
+    scenario_ids: Optional[list[UUID]] = None
 
 
 class ContactTemplateRead(ContactTemplateBase):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    id: UUID
     donor_surface_template: Optional["SurfaceTemplateRead"] = None
     recipient_surface_template: Optional["SurfaceTemplateRead"] = None
     pressure_estimate: Optional["PressureEstimateRead"] = None

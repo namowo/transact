@@ -1,5 +1,6 @@
 from typing import Optional
 
+from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 
 
@@ -18,4 +19,4 @@ class ExperienceLevelUpdate(ExperienceLevelBase):
 class ExperienceLevelRead(ExperienceLevelBase):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    id: UUID

@@ -1,13 +1,18 @@
 import json
 from datetime import timedelta
-from typing import List
+from typing import List, Optional
+from uuid import UUID
 
 import webauthn
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from webauthn.helpers import base64url_to_bytes, bytes_to_base64url
+from webauthn.helpers import base64url_to_bytes, bytes_to_base64url, parse_client_data_json
 from webauthn.helpers.exceptions import WebAuthnException
-from webauthn.helpers.structs import PublicKeyCredentialDescriptor
+from webauthn.helpers.structs import (
+    AuthenticatorSelectionCriteria,
+    PublicKeyCredentialDescriptor,
+    ResidentKeyRequirement,
+)
 
 from app.api.routers.auth import set_session_cookie
 from app.core.config import settings
@@ -32,6 +37,19 @@ LOGIN_PURPOSE = "login"
 CHALLENGE_TTL = timedelta(seconds=settings.WEBAUTHN_CHALLENGE_TTL_SECONDS)
 
 
+def _client_data_challenge(credential: dict) -> Optional[str]:
+    """Extract the base64url challenge the authenticator signed over, from
+    the credential's clientDataJSON."""
+    client_data_json = credential.get("response", {}).get("clientDataJSON")
+    if not client_data_json:
+        return None
+    try:
+        client_data = parse_client_data_json(base64url_to_bytes(client_data_json))
+    except Exception:
+        return None
+    return bytes_to_base64url(client_data.challenge)
+
+
 @router.post("/register/options")
 async def register_options(
     user: User = Depends(current_active_user),
@@ -44,6 +62,10 @@ async def register_options(
         user_id=str(user.id).encode("utf-8"),
         user_name=user.email,
         user_display_name=f"{user.first_name} {user.last_name}",
+        authenticator_selection=AuthenticatorSelectionCriteria(
+            resident_key=ResidentKeyRequirement.REQUIRED,
+            require_resident_key=True,
+        ),
         exclude_credentials=[
             PublicKeyCredentialDescriptor(id=base64url_to_bytes(credential.credential_id))
             for credential in existing
@@ -103,20 +125,25 @@ async def login_options(
     obj_in: WebAuthnLoginOptionsRequest,
     db: AsyncSession = Depends(get_async_session),
 ):
-    user = await crud_user.get_by_email(db, obj_in.email)
-    credentials = await crud_webauthn_credential.list_for_user(db, user) if user else []
-    if user is None or not credentials:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No passkey is registered for this account.",
-        )
+    user: Optional[User] = None
+    allow_credentials: Optional[List[PublicKeyCredentialDescriptor]] = None
+
+    if obj_in.email:
+        user = await crud_user.get_by_email(db, obj_in.email)
+        credentials = await crud_webauthn_credential.list_for_user(db, user) if user else []
+        if user is None or not credentials:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No passkey is registered for this account.",
+            )
+        allow_credentials = [
+            PublicKeyCredentialDescriptor(id=base64url_to_bytes(credential.credential_id))
+            for credential in credentials
+        ]
 
     options = webauthn.generate_authentication_options(
         rp_id=settings.WEBAUTHN_RP_ID,
-        allow_credentials=[
-            PublicKeyCredentialDescriptor(id=base64url_to_bytes(credential.credential_id))
-            for credential in credentials
-        ],
+        allow_credentials=allow_credentials,
     )
 
     await crud_webauthn_challenge.store(
@@ -136,31 +163,50 @@ async def login_verify(
     response: Response,
     db: AsyncSession = Depends(get_async_session),
 ):
-    user = await crud_user.get_by_email(db, obj_in.email)
-    if user is None or not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not verify this passkey.",
-        )
-
-    challenge = await crud_webauthn_challenge.get_valid(db, user, LOGIN_PURPOSE)
-    if challenge is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="This login request has expired. Please try again.",
-        )
-
     credential_id = obj_in.credential.get("id")
     credential = (
         await crud_webauthn_credential.get_by_credential_id(db, credential_id)
         if credential_id
         else None
     )
-    if credential is None or credential.user_id != user.id:
+    if credential is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not verify this passkey.",
         )
+
+    if obj_in.email:
+        user = await crud_user.get_by_email(db, obj_in.email)
+        if user is None or not user.is_active or credential.user_id != user.id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not verify this passkey.",
+            )
+        challenge = await crud_webauthn_challenge.get_valid(db, user, LOGIN_PURPOSE)
+        if challenge is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="This login request has expired. Please try again.",
+            )
+    else:
+        # Usernameless flow: the user isn't known until we resolve it from
+        # the discoverable credential, so the challenge is matched by value
+        # rather than by user.
+        raw_challenge = _client_data_challenge(obj_in.credential)
+        if raw_challenge is None or not await crud_webauthn_challenge.get_valid_anonymous(
+            db, raw_challenge, LOGIN_PURPOSE
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="This login request has expired. Please try again.",
+            )
+        challenge = raw_challenge
+        user = await crud_user.get(db, credential.user_id)
+        if user is None or not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not verify this passkey.",
+            )
 
     try:
         verification = webauthn.verify_authentication_response(
@@ -195,7 +241,7 @@ async def list_credentials(
 
 @router.delete("/credentials/{credential_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_credential(
-    credential_id: int,
+    credential_id: UUID,
     user: User = Depends(current_active_user),
     db: AsyncSession = Depends(get_async_session),
 ):

@@ -1,12 +1,13 @@
 from typing import Optional
 
+from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 
 
 class TapeMethodBase(BaseModel):
-    type_of_tape_id: Optional[int] = None
+    type_of_tape_id: Optional[UUID] = None
     description: Optional[str] = None
-    supplier_id: Optional[int] = None
+    supplier_id: Optional[UUID] = None
 
 
 class TapeMethodCreate(TapeMethodBase):
@@ -20,7 +21,7 @@ class TapeMethodUpdate(TapeMethodBase):
 class TapeMethodRead(TapeMethodBase):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    id: UUID
     type_of_tape: Optional["TypeOfTapeRead"] = None
     supplier: Optional["SupplierRead"] = None
 

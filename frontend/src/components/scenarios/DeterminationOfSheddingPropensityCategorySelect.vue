@@ -11,7 +11,7 @@ import Message from 'primevue/message'
 import { determinationOfSheddingPropensityCategoryApi } from '@/api/categories'
 import type { DeterminationOfSheddingPropensityCategory } from '@/api/types'
 
-const modelValue = defineModel<number | null>({ default: null })
+const modelValue = defineModel<string | null>({ default: null })
 
 const options = ref<DeterminationOfSheddingPropensityCategory[]>([])
 const loading = ref(false)

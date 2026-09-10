@@ -1,4 +1,5 @@
 from typing import List
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -97,7 +98,7 @@ async def dismiss_passkey_prompt(
     response_model=UserRead,
     dependencies=[Depends(current_superuser)],
 )
-async def grant_quality_check(id: int, db: AsyncSession = Depends(get_async_session)):
+async def grant_quality_check(id: UUID, db: AsyncSession = Depends(get_async_session)):
     target = await crud_user.get(db, id)
     return await crud_user.set_can_quality_check(db, target, True)
 
@@ -107,7 +108,7 @@ async def grant_quality_check(id: int, db: AsyncSession = Depends(get_async_sess
     response_model=UserRead,
     dependencies=[Depends(current_superuser)],
 )
-async def revoke_quality_check(id: int, db: AsyncSession = Depends(get_async_session)):
+async def revoke_quality_check(id: UUID, db: AsyncSession = Depends(get_async_session)):
     target = await crud_user.get(db, id)
     return await crud_user.set_can_quality_check(db, target, False)
 
@@ -117,7 +118,7 @@ async def revoke_quality_check(id: int, db: AsyncSession = Depends(get_async_ses
     response_model=UserRead,
     dependencies=[Depends(current_superuser)],
 )
-async def grant_superuser(id: int, db: AsyncSession = Depends(get_async_session)):
+async def grant_superuser(id: UUID, db: AsyncSession = Depends(get_async_session)):
     target = await crud_user.get(db, id)
     return await crud_user.set_is_superuser(db, target, True)
 
@@ -127,14 +128,14 @@ async def grant_superuser(id: int, db: AsyncSession = Depends(get_async_session)
     response_model=UserRead,
     dependencies=[Depends(current_superuser)],
 )
-async def revoke_superuser(id: int, db: AsyncSession = Depends(get_async_session)):
+async def revoke_superuser(id: UUID, db: AsyncSession = Depends(get_async_session)):
     target = await crud_user.get(db, id)
     return await crud_user.set_is_superuser(db, target, False)
 
 
 @router.post("/{id}/grant-lab-admin", response_model=UserRead)
 async def grant_lab_admin(
-    id: int,
+    id: UUID,
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_lab_admin),
 ):
@@ -145,7 +146,7 @@ async def grant_lab_admin(
 
 @router.post("/{id}/revoke-lab-admin", response_model=UserRead)
 async def revoke_lab_admin(
-    id: int,
+    id: UUID,
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_lab_admin),
 ):
@@ -156,7 +157,7 @@ async def revoke_lab_admin(
 
 @router.post("/{id}/remove-from-laboratory", response_model=UserRead)
 async def remove_from_laboratory(
-    id: int,
+    id: UUID,
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_lab_admin),
 ):
@@ -176,7 +177,7 @@ async def remove_from_laboratory(
     dependencies=[Depends(current_superuser)],
 )
 async def set_laboratory(
-    id: int,
+    id: UUID,
     obj_in: LaboratoryAssignment,
     db: AsyncSession = Depends(get_async_session),
 ):
@@ -186,7 +187,7 @@ async def set_laboratory(
 
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_user(
-    id: int,
+    id: UUID,
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_superuser),
 ):

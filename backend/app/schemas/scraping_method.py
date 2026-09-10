@@ -1,12 +1,13 @@
 from typing import Optional
 
+from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 
 
 class ScrapingMethodBase(BaseModel):
-    scraping_device_id: Optional[int] = None
+    scraping_device_id: Optional[UUID] = None
     description: Optional[str] = None
-    supplier_id: Optional[int] = None
+    supplier_id: Optional[UUID] = None
 
 
 class ScrapingMethodCreate(ScrapingMethodBase):
@@ -20,7 +21,7 @@ class ScrapingMethodUpdate(ScrapingMethodBase):
 class ScrapingMethodRead(ScrapingMethodBase):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    id: UUID
     scraping_device: Optional["ScrapingDeviceRead"] = None
     supplier: Optional["SupplierRead"] = None
 

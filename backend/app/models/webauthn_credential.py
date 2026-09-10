@@ -1,7 +1,9 @@
+import uuid
 from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import ForeignKey, LargeBinary
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import text
 
@@ -13,9 +15,15 @@ class WebAuthnCredential(Base):
 
     __tablename__ = "webauthn_credential"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(
-        ForeignKey("user.id", ondelete="CASCADE"), nullable=False, index=True
+    id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, index=True,
+        server_default=text("gen_random_uuid()")
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("user.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     credential_id: Mapped[str] = mapped_column(unique=True, index=True, nullable=False)
     public_key: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)

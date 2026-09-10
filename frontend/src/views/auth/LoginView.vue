@@ -8,6 +8,7 @@ import InputText from 'primevue/inputtext'
 import Password from 'primevue/password'
 import Button from 'primevue/button'
 import Message from 'primevue/message'
+import Divider from 'primevue/divider'
 import { useAuthStore } from '@/stores/auth'
 import { getErrorMessage } from '@/api/errors'
 import * as webauthnApi from '@/api/webauthn'
@@ -76,14 +77,15 @@ async function onSubmitStep() {
   await onSubmit()
 }
 
-async function onUsePasskey() {
+async function onUsePasskey(useEmail: boolean) {
   errorMessage.value = ''
   loginFailed.value = false
   passkeyLoading.value = true
   try {
-    const options = await webauthnApi.getLoginOptions(email.value.trim())
+    const trimmedEmail = email.value.trim() || undefined
+    const options = await webauthnApi.getLoginOptions(useEmail ? trimmedEmail : undefined)
     const credential = await startAuthentication({ optionsJSON: options })
-    await webauthnApi.verifyLogin(email.value.trim(), credential)
+    await webauthnApi.verifyLogin(useEmail ? trimmedEmail : undefined, credential)
     await auth.fetchCurrentUser()
     const redirect = (route.query.redirect as string) || { name: 'dashboard' }
     router.push(redirect)
@@ -152,7 +154,7 @@ async function onUsePasskey() {
         type="button"
         class="self-start flex items-center gap-1 text-sm text-primary bg-transparent border-0 cursor-pointer p-0 disabled:opacity-50"
         :disabled="passkeyLoading"
-        @click="onUsePasskey"
+        @click="onUsePasskey(true)"
       >
         <i class="pi pi-key text-xs" />
         {{ passkeyLoading ? 'Waiting for passkey…' : 'Use a passkey instead' }}
@@ -181,6 +183,21 @@ async function onUsePasskey() {
     </p>
 
     <Button type="submit" :label="step === 'email' ? 'Continue' : 'Log in'" :loading="loading" fluid />
+
+    <template v-if="step === 'email'">
+      <Divider align="center" class="my-0!">
+        <span class="text-xs text-surface-500 dark:text-surface-400">or</span>
+      </Divider>
+      <Button
+        type="button"
+        label="Log in with passkey"
+        icon="pi pi-key"
+        severity="secondary"
+        :loading="passkeyLoading"
+        fluid
+        @click="onUsePasskey(false)"
+      />
+    </template>
 
     <p class="text-center text-sm text-surface-600 dark:text-surface-300 mt-2">
       Don't have an account?

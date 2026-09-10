@@ -19,7 +19,7 @@ const config = computed(() => getLabMethodConfig(props.methodKey))
 const auth = useAuthStore()
 const laboratoryId = computed(() => auth.user?.laboratory_id ?? null)
 
-type MethodRow = Record<string, unknown> & { id: number; laboratory_id?: number | null }
+type MethodRow = Record<string, unknown> & { id: string; laboratory_id?: string | null }
 
 const items = ref<MethodRow[]>([])
 const loading = ref(false)

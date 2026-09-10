@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from uuid import UUID
 
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -42,7 +43,7 @@ class CRUDStudy(CRUDBase[Study, StudyCreate, StudyUpdate]):
 
         return new_study
 
-    async def update(self, db: AsyncSession, id: int, obj_in: StudyUpdate) -> Study:
+    async def update(self, db: AsyncSession, id: UUID, obj_in: StudyUpdate) -> Study:
         study = await self.get(db, id)
         update_data = obj_in.model_dump(
             exclude={"authors"}, exclude_none=True, exclude_unset=True

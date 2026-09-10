@@ -23,7 +23,7 @@ import type {
   Surface,
 } from '@/api/types'
 
-const props = defineProps<{ studyId: number; contacts: Contact[] }>()
+const props = defineProps<{ studyId: string; contacts: Contact[] }>()
 
 const emit = defineEmits<{
   'update:recoveries': [recoveries: Recovery[]]
@@ -126,14 +126,14 @@ function emptyForm(): RecoveryInput {
 }
 
 const schema = yup.object({
-  study_id: yup.number().nullable().defined(),
-  recovery_set_id: yup.number().nullable().defined(),
-  surface_id: yup.number().nullable().required('Please select a surface.'),
-  sampling_method_id: yup.number().nullable().defined(),
-  extraction_method_id: yup.number().nullable().defined(),
+  study_id: yup.string().nullable().defined(),
+  recovery_set_id: yup.string().nullable().defined(),
+  surface_id: yup.string().nullable().required('Please select a surface.'),
+  sampling_method_id: yup.string().nullable().defined(),
+  extraction_method_id: yup.string().nullable().defined(),
   elution_volume: yup.number().nullable().min(0, 'Elution volume must be zero or greater.'),
   area: yup.number().nullable().min(0, 'Area must be zero or greater.'),
-  experience_level_of_sampler_id: yup.number().nullable().defined(),
+  experience_level_of_sampler_id: yup.string().nullable().defined(),
 })
 
 const { defineField, errors, handleSubmit, resetForm } = useForm<RecoveryInput>({
@@ -150,7 +150,7 @@ const [area] = defineField('area')
 const [experienceLevelOfSamplerId] = defineField('experience_level_of_sampler_id')
 
 const dialogVisible = ref(false)
-const editingId = ref<number | null>(null)
+const editingId = ref<string | null>(null)
 const submitting = ref(false)
 const submitError = ref('')
 

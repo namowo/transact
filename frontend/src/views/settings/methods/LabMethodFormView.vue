@@ -41,7 +41,7 @@ const auth = useAuthStore()
 const laboratoryId = computed(() => auth.user?.laboratory_id ?? null)
 
 const config = computed(() => getLabMethodConfig(props.methodKey))
-const editingId = computed(() => (props.id ? Number(props.id) : null))
+const editingId = computed(() => props.id ?? null)
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- form values are dynamic per method config
 function emptyForm(fields: MethodFieldConfig[]): Record<string, any> {

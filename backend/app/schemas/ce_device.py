@@ -1,5 +1,6 @@
 from typing import Optional
 
+from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 
 
@@ -18,4 +19,4 @@ class CEDeviceUpdate(CEDeviceBase):
 class CEDeviceRead(CEDeviceBase):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    id: UUID

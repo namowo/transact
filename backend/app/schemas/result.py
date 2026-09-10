@@ -1,14 +1,15 @@
 from typing import List, Optional
 
+from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 
 
 class ResultBase(BaseModel):
-    quantification_method_id: Optional[int] = None
-    recovery_id: Optional[int] = None
+    quantification_method_id: Optional[UUID] = None
+    recovery_id: Optional[UUID] = None
     dna_concentration: Optional[float] = None
-    degradation_category_id: Optional[int] = None
-    inhibition_category_id: Optional[int] = None
+    degradation_category_id: Optional[UUID] = None
+    inhibition_category_id: Optional[UUID] = None
 
 
 class ResultCreate(ResultBase):
@@ -22,7 +23,7 @@ class ResultUpdate(ResultBase):
 class ResultRead(ResultBase):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    id: UUID
     quantification_method: Optional["QuantificationMethodRead"] = None
     recovery: Optional["RecoveryRead"] = None
     degradation_category: Optional["DegradationCategoryRead"] = None
