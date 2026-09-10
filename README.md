@@ -1,9 +1,8 @@
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/transact_logo_dark.png">
+<div align="center">
   <img alt="TransAct logo" src="docs/assets/transact_logo_light.png" width="160">
-</picture>
 
-# TransAct
+  # TransAct
+</div>
 
 TransAct is an open data platform for forensic nucleic acid transfer research (DNA/RNA transfer). It is aimed at forensic molecular biology laboratories and research institutions that want to record, standardize, and share raw data from transfer experiments in a structured, internationally accessible way.
 
