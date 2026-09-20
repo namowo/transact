@@ -2,16 +2,7 @@
 import { onMounted, ref } from 'vue'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
-import Checkbox from 'primevue/checkbox'
-import Message from 'primevue/message'
-import Button from 'primevue/button'
-import Dialog from 'primevue/dialog'
-import IconField from 'primevue/iconfield'
-import InputIcon from 'primevue/inputicon'
-import InputText from 'primevue/inputtext'
-import Select from 'primevue/select'
-import ConfirmDialog from 'primevue/confirmdialog'
-import { useConfirm } from 'primevue/useconfirm'
+import { useConfirm } from '@/composables/useConfirm'
 import { FilterMatchMode } from '@primevue/core/api'
 import LaboratorySelect from '@/components/auth/LaboratorySelect.vue'
 import {
@@ -103,9 +94,9 @@ function toggleSuperuser(user: User) {
   confirm.require({
     message: `${verb} superuser access for ${user.first_name} ${user.last_name}?`,
     header: `${verb} superuser`,
-    icon: 'pi pi-exclamation-triangle',
-    rejectProps: { label: 'Cancel', severity: 'secondary', text: true },
-    acceptProps: { label: verb, severity: user.is_superuser ? 'danger' : 'primary' },
+    rejectLabel: 'Cancel',
+    acceptLabel: verb,
+    acceptColor: user.is_superuser ? 'error' : undefined,
     accept: () => applySuperuser(user),
   })
 }
@@ -127,9 +118,9 @@ function toggleQualityCheck(user: User) {
   confirm.require({
     message: `${verb} quality check access for ${user.first_name} ${user.last_name}?`,
     header: `${verb} quality check`,
-    icon: 'pi pi-exclamation-triangle',
-    rejectProps: { label: 'Cancel', severity: 'secondary', text: true },
-    acceptProps: { label: verb, severity: user.can_quality_check ? 'danger' : 'primary' },
+    rejectLabel: 'Cancel',
+    acceptLabel: verb,
+    acceptColor: user.can_quality_check ? 'error' : undefined,
     accept: () => applyQualityCheck(user),
   })
 }
@@ -151,9 +142,9 @@ function toggleLabAdmin(user: User) {
   confirm.require({
     message: `${verb} lab admin access for ${user.first_name} ${user.last_name}?`,
     header: `${verb} lab admin`,
-    icon: 'pi pi-exclamation-triangle',
-    rejectProps: { label: 'Cancel', severity: 'secondary', text: true },
-    acceptProps: { label: verb, severity: user.can_manage_lab_users ? 'danger' : 'primary' },
+    rejectLabel: 'Cancel',
+    acceptLabel: verb,
+    acceptColor: user.can_manage_lab_users ? 'error' : undefined,
     accept: () => applyLabAdmin(user),
   })
 }
@@ -189,9 +180,9 @@ async function saveLabDialog() {
     confirm.require({
       message: `Remove ${user.first_name} ${user.last_name} from ${user.laboratory?.laboratory_name ?? 'their laboratory'}?`,
       header: 'Reset laboratory',
-      icon: 'pi pi-exclamation-triangle',
-      rejectProps: { label: 'Cancel', severity: 'secondary', text: true },
-      acceptProps: { label: 'Remove', severity: 'danger' },
+      rejectLabel: 'Cancel',
+      acceptLabel: 'Remove',
+      acceptColor: 'error',
       accept: perform,
     })
     return
@@ -200,9 +191,8 @@ async function saveLabDialog() {
   confirm.require({
     message: `Change ${user.first_name} ${user.last_name}'s laboratory?`,
     header: 'Change laboratory',
-    icon: 'pi pi-exclamation-triangle',
-    rejectProps: { label: 'Cancel', severity: 'secondary', text: true },
-    acceptProps: { label: 'Change', severity: 'primary' },
+    rejectLabel: 'Cancel',
+    acceptLabel: 'Change',
     accept: perform,
   })
 }
@@ -211,9 +201,9 @@ function confirmDeleteUser(user: User) {
   confirm.require({
     message: `Permanently delete ${user.first_name} ${user.last_name} (${user.email})? This cannot be undone.`,
     header: 'Delete account',
-    icon: 'pi pi-exclamation-triangle',
-    rejectProps: { label: 'Cancel', severity: 'secondary', text: true },
-    acceptProps: { label: 'Delete', severity: 'danger' },
+    rejectLabel: 'Cancel',
+    acceptLabel: 'Delete',
+    acceptColor: 'error',
     accept: () => deleteUserConfirmed(user),
   })
 }
@@ -231,23 +221,22 @@ async function deleteUserConfirmed(user: User) {
 
 <template>
   <div class="flex flex-col gap-6">
-    <ConfirmDialog />
-
     <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-0">Manage Users</h1>
 
-    <Message v-if="loadError" severity="error" size="small">{{ loadError }}</Message>
-    <Message v-if="actionError" severity="error" size="small">{{ actionError }}</Message>
+    <UAlert v-if="loadError" color="error" variant="outline" :description="loadError" />
+    <UAlert v-if="actionError" color="error" variant="outline" :description="actionError" />
 
     <div class="overflow-x-auto">
       <div class="mb-3 flex items-center justify-between gap-3">
-        <Button type="button" variant="outlined" size="small" @click="clearFilters()">
-          <i class="pi pi-filter-slash" />
+        <UButton type="button" icon="i-lucide-filter-x" variant="outline" size="sm" @click="clearFilters()">
           Clear Filters
-        </Button>
-        <IconField iconPosition="left">
-          <InputIcon class="pi pi-search" />
-          <InputText v-model="filters['global'].value" type="text" placeholder="Keyword Search" />
-        </IconField>
+        </UButton>
+        <UInput
+          v-model="filters['global'].value"
+          type="text"
+          icon="i-lucide-search"
+          placeholder="Keyword Search"
+        />
       </div>
 
       <DataTable
@@ -277,7 +266,7 @@ async function deleteUserConfirmed(user: User) {
           :showAddButton="false"
         >
           <template #filter="{ filterModel }">
-            <InputText v-model="filterModel.value" type="text" placeholder="Search by first name" />
+            <UInput v-model="filterModel.value" type="text" placeholder="Search by first name" />
           </template>
         </Column>
 
@@ -289,7 +278,7 @@ async function deleteUserConfirmed(user: User) {
           :showAddButton="false"
         >
           <template #filter="{ filterModel }">
-            <InputText v-model="filterModel.value" type="text" placeholder="Search by last name" />
+            <UInput v-model="filterModel.value" type="text" placeholder="Search by last name" />
           </template>
         </Column>
 
@@ -301,7 +290,7 @@ async function deleteUserConfirmed(user: User) {
           :showAddButton="false"
         >
           <template #filter="{ filterModel }">
-            <InputText v-model="filterModel.value" type="text" placeholder="Search by email" />
+            <UInput v-model="filterModel.value" type="text" placeholder="Search by email" />
           </template>
         </Column>
 
@@ -315,22 +304,21 @@ async function deleteUserConfirmed(user: User) {
           :showAddButton="false"
         >
           <template #body="{ data }">
-            <Button
+            <UButton
               :label="data.laboratory?.laboratory_name ?? 'Assign laboratory'"
-              text
-              size="small"
+              variant="ghost"
+              size="sm"
               @click="openLabDialog(data)"
             />
           </template>
           <template #filter="{ filterModel }">
-            <Select
+            <USelectMenu
               v-model="filterModel.value"
-              :options="laboratories"
-              optionLabel="laboratory_name"
-              optionValue="laboratory_name"
+              :items="laboratories"
+              label-key="laboratory_name"
+              value-key="laboratory_name"
               placeholder="Any laboratory"
-              filter
-              showClear
+              clear
               class="w-full"
             />
           </template>
@@ -346,21 +334,18 @@ async function deleteUserConfirmed(user: User) {
           :showAddButton="false"
         >
           <template #body="{ data }">
-            <Checkbox
+            <USwitch
               :model-value="data.is_superuser"
-              :binary="true"
               :disabled="data.id === auth.user?.id"
               @update:model-value="toggleSuperuser(data)"
             />
           </template>
           <template #filter="{ filterModel }">
-            <Select
+            <USelectMenu
               v-model="filterModel.value"
-              :options="booleanOptions"
-              optionLabel="label"
-              optionValue="value"
+              :items="booleanOptions"
               placeholder="Any"
-              showClear
+              clear
               class="w-full"
             />
           </template>
@@ -376,20 +361,17 @@ async function deleteUserConfirmed(user: User) {
           :showAddButton="false"
         >
           <template #body="{ data }">
-            <Checkbox
+            <USwitch
               :model-value="data.can_quality_check"
-              :binary="true"
               @update:model-value="toggleQualityCheck(data)"
             />
           </template>
           <template #filter="{ filterModel }">
-            <Select
+            <USelectMenu
               v-model="filterModel.value"
-              :options="booleanOptions"
-              optionLabel="label"
-              optionValue="value"
+              :items="booleanOptions"
               placeholder="Any"
-              showClear
+              clear
               class="w-full"
             />
           </template>
@@ -405,20 +387,17 @@ async function deleteUserConfirmed(user: User) {
           :showAddButton="false"
         >
           <template #body="{ data }">
-            <Checkbox
+            <USwitch
               :model-value="data.can_manage_lab_users"
-              :binary="true"
               @update:model-value="toggleLabAdmin(data)"
             />
           </template>
           <template #filter="{ filterModel }">
-            <Select
+            <USelectMenu
               v-model="filterModel.value"
-              :options="booleanOptions"
-              optionLabel="label"
-              optionValue="value"
+              :items="booleanOptions"
               placeholder="Any"
-              showClear
+              clear
               class="w-full"
             />
           </template>
@@ -427,12 +406,12 @@ async function deleteUserConfirmed(user: User) {
         <Column header="" style="width: 6rem">
           <template #body="{ data }">
             <div class="flex gap-1 justify-end">
-              <Button
+              <UButton
                 v-if="data.id !== auth.user?.id"
-                icon="pi pi-trash"
-                text
-                rounded
-                severity="danger"
+                icon="i-lucide-trash-2"
+                variant="ghost"
+                square
+                color="error"
                 aria-label="Delete account"
                 @click="confirmDeleteUser(data)"
               />
@@ -442,22 +421,23 @@ async function deleteUserConfirmed(user: User) {
       </DataTable>
     </div>
 
-    <Dialog
-      v-model:visible="labDialogVisible"
-      header="Change laboratory"
-      modal
-      :style="{ width: '28rem' }"
+    <UModal
+      v-model:open="labDialogVisible"
+      title="Change laboratory"
+      :ui="{ content: 'max-w-md' }"
     >
+      <template #body>
       <div v-if="labDialogUser" class="flex flex-col gap-4">
         <p class="text-sm text-surface-600 dark:text-surface-300">
           {{ labDialogUser.first_name }} {{ labDialogUser.last_name }} ({{ labDialogUser.email }})
         </p>
         <LaboratorySelect v-model="labDialogValue" />
       </div>
-      <template #footer>
-        <Button label="Cancel" text @click="labDialogVisible = false" />
-        <Button label="Save" :loading="labDialogSaving" @click="saveLabDialog" />
       </template>
-    </Dialog>
+      <template #footer>
+        <UButton label="Cancel" variant="ghost" @click="labDialogVisible = false" />
+        <UButton label="Save" :loading="labDialogSaving" @click="saveLabDialog" />
+      </template>
+    </UModal>
   </div>
 </template>

@@ -3,13 +3,6 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useForm } from 'vee-validate'
 import * as yup from 'yup'
-import Button from 'primevue/button'
-import Message from 'primevue/message'
-import ProgressSpinner from 'primevue/progressspinner'
-import InputText from 'primevue/inputtext'
-import InputNumber from 'primevue/inputnumber'
-import Textarea from 'primevue/textarea'
-import ToggleSwitch from 'primevue/toggleswitch'
 import CategorySelect from '@/components/scenarios/CategorySelect.vue'
 import { getLabMethodConfig, type MethodFieldConfig } from '@/data/labMethods'
 import { useAuthStore } from '@/stores/auth'
@@ -124,10 +117,10 @@ function onCancel() {
     </h1>
 
     <div v-if="loading" class="flex justify-center py-12">
-      <ProgressSpinner style="width: 3rem; height: 3rem" />
+      <UProgress class="w-12" />
     </div>
 
-    <Message v-else-if="loadError" severity="error" size="small">{{ loadError }}</Message>
+    <UAlert v-else-if="loadError" color="error" variant="outline" :description="loadError" />
 
     <form v-else class="flex flex-col gap-4" @submit.prevent="submitForm">
       <div v-for="field in config.fields" :key="field.key" class="flex flex-col gap-2">
@@ -141,47 +134,47 @@ function onCancel() {
           @update:model-value="setFieldValue(field.key, $event)"
         />
 
-        <InputNumber
+        <UInputNumber
           v-else-if="field.type === 'number'"
           :model-value="values[field.key]"
-          :invalid="!!errors[field.key]"
-          fluid
+          :color="errors[field.key] ? 'error' : undefined"
+          class="w-full"
           @update:model-value="setFieldValue(field.key, $event)"
         />
 
         <div v-else-if="field.type === 'boolean'" class="flex items-center gap-2">
-          <ToggleSwitch
+          <USwitch
             :model-value="values[field.key]"
-            :input-id="field.key"
+            :id="field.key"
             @update:model-value="setFieldValue(field.key, $event)"
           />
         </div>
 
-        <Textarea
+        <UTextarea
           v-else-if="field.type === 'textarea'"
           :model-value="values[field.key]"
-          rows="2"
-          fluid
+          :rows="2"
+          class="w-full"
           @update:model-value="setFieldValue(field.key, $event)"
         />
 
-        <InputText
+        <UInput
           v-else
           :model-value="values[field.key]"
-          fluid
+          class="w-full"
           @update:model-value="setFieldValue(field.key, $event)"
         />
       </div>
 
-      <Message v-if="submitError" severity="error" size="small">{{ submitError }}</Message>
+      <UAlert v-if="submitError" color="error" variant="outline" :description="submitError" />
 
       <div class="flex gap-2 mt-2">
-        <Button
+        <UButton
           type="submit"
           :label="editingId === null ? `Add ${config.label.toLowerCase()} entry` : 'Save changes'"
           :loading="submitting"
         />
-        <Button label="Cancel" text type="button" @click="onCancel" />
+        <UButton label="Cancel" variant="ghost" type="button" @click="onCancel" />
       </div>
     </form>
   </div>

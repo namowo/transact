@@ -3,18 +3,6 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useForm } from 'vee-validate'
 import * as yup from 'yup'
-import Button from 'primevue/button'
-import Message from 'primevue/message'
-import ProgressSpinner from 'primevue/progressspinner'
-import InputText from 'primevue/inputtext'
-import InputNumber from 'primevue/inputnumber'
-import Textarea from 'primevue/textarea'
-import ToggleSwitch from 'primevue/toggleswitch'
-import Tabs from 'primevue/tabs'
-import TabList from 'primevue/tablist'
-import Tab from 'primevue/tab'
-import TabPanels from 'primevue/tabpanels'
-import TabPanel from 'primevue/tabpanel'
 import CategorySelect from '@/components/scenarios/CategorySelect.vue'
 import { getLabMethodConfig, type MethodFieldConfig } from '@/data/labMethods'
 import { samplingMethodApi } from '@/api/methods'
@@ -207,10 +195,10 @@ function onCancel() {
     </h1>
 
     <div v-if="loading" class="flex justify-center py-12">
-      <ProgressSpinner style="width: 3rem; height: 3rem" />
+      <UProgress class="w-12" />
     </div>
 
-    <Message v-else-if="loadError" severity="error" size="small">{{ loadError }}</Message>
+    <UAlert v-else-if="loadError" color="error" variant="outline" :description="loadError" />
 
     <form v-else class="flex flex-col gap-4" @submit.prevent="onSubmit">
       <p class="text-sm text-surface-500 dark:text-surface-400">
@@ -218,90 +206,81 @@ function onCancel() {
         skipped.
       </p>
 
-      <Tabs value="swab">
-        <TabList>
-          <Tab v-for="config in subMethodConfigs" :key="config.key" :value="config.key">
-            {{ config.label }}
-          </Tab>
-        </TabList>
-        <TabPanels>
-          <TabPanel v-for="config in subMethodConfigs" :key="config.key" :value="config.key">
-            <div class="flex flex-col gap-4">
-              <div v-for="field in config.fields" :key="field.key" class="flex flex-col gap-2">
-                <label v-if="field.type !== 'category'" class="font-medium text-sm">{{ field.label }}</label>
+      <UTabs default-value="swab" :items="subMethodConfigs" value-key="key" class="w-full">
+        <template #content="{ item: config }">
+          <div class="flex flex-col gap-4">
+            <div v-for="field in config.fields" :key="field.key" class="flex flex-col gap-2">
+              <label v-if="field.type !== 'category'" class="font-medium text-sm">{{ field.label }}</label>
 
-                <CategorySelect
-                  v-if="field.type === 'category'"
+              <CategorySelect
+                v-if="field.type === 'category'"
+                :model-value="fieldValue(config.key as typeof subMethodKeys[number], field.key)"
+                :label="field.label"
+                :api="field.categoryApi!"
+                @update:model-value="
+                  setFieldValue(config.key as typeof subMethodKeys[number], field.key, $event)
+                "
+              />
+
+              <UInputNumber
+                v-else-if="field.type === 'number'"
+                :model-value="fieldValue(config.key as typeof subMethodKeys[number], field.key)"
+                :color="fieldError(config.key as typeof subMethodKeys[number], field.key) ? 'error' : undefined"
+                class="w-full"
+                @update:model-value="
+                  setFieldValue(config.key as typeof subMethodKeys[number], field.key, $event)
+                "
+              />
+
+              <div v-else-if="field.type === 'boolean'" class="flex items-center gap-2">
+                <USwitch
                   :model-value="fieldValue(config.key as typeof subMethodKeys[number], field.key)"
-                  :label="field.label"
-                  :api="field.categoryApi!"
+                  :id="`${config.key}-${field.key}`"
                   @update:model-value="
                     setFieldValue(config.key as typeof subMethodKeys[number], field.key, $event)
                   "
                 />
-
-                <InputNumber
-                  v-else-if="field.type === 'number'"
-                  :model-value="fieldValue(config.key as typeof subMethodKeys[number], field.key)"
-                  :invalid="!!fieldError(config.key as typeof subMethodKeys[number], field.key)"
-                  fluid
-                  @update:model-value="
-                    setFieldValue(config.key as typeof subMethodKeys[number], field.key, $event)
-                  "
-                />
-
-                <div v-else-if="field.type === 'boolean'" class="flex items-center gap-2">
-                  <ToggleSwitch
-                    :model-value="fieldValue(config.key as typeof subMethodKeys[number], field.key)"
-                    :input-id="`${config.key}-${field.key}`"
-                    @update:model-value="
-                      setFieldValue(config.key as typeof subMethodKeys[number], field.key, $event)
-                    "
-                  />
-                </div>
-
-                <Textarea
-                  v-else-if="field.type === 'textarea'"
-                  :model-value="fieldValue(config.key as typeof subMethodKeys[number], field.key)"
-                  rows="2"
-                  fluid
-                  @update:model-value="
-                    setFieldValue(config.key as typeof subMethodKeys[number], field.key, $event)
-                  "
-                />
-
-                <InputText
-                  v-else
-                  :model-value="fieldValue(config.key as typeof subMethodKeys[number], field.key)"
-                  fluid
-                  @update:model-value="
-                    setFieldValue(config.key as typeof subMethodKeys[number], field.key, $event)
-                  "
-                />
-
-                <Message
-                  v-if="fieldError(config.key as typeof subMethodKeys[number], field.key)"
-                  severity="error"
-                  size="small"
-                  variant="simple"
-                >
-                  {{ fieldError(config.key as typeof subMethodKeys[number], field.key) }}
-                </Message>
               </div>
-            </div>
-          </TabPanel>
-        </TabPanels>
-      </Tabs>
 
-      <Message v-if="submitError" severity="error" size="small">{{ submitError }}</Message>
+              <UTextarea
+                v-else-if="field.type === 'textarea'"
+                :model-value="fieldValue(config.key as typeof subMethodKeys[number], field.key)"
+                :rows="2"
+                class="w-full"
+                @update:model-value="
+                  setFieldValue(config.key as typeof subMethodKeys[number], field.key, $event)
+                "
+              />
+
+              <UInput
+                v-else
+                :model-value="fieldValue(config.key as typeof subMethodKeys[number], field.key)"
+                class="w-full"
+                @update:model-value="
+                  setFieldValue(config.key as typeof subMethodKeys[number], field.key, $event)
+                "
+              />
+
+              <UAlert
+                v-if="fieldError(config.key as typeof subMethodKeys[number], field.key)"
+                color="error"
+                variant="subtle"
+                :description="fieldError(config.key as typeof subMethodKeys[number], field.key)"
+              />
+            </div>
+          </div>
+        </template>
+      </UTabs>
+
+      <UAlert v-if="submitError" color="error" variant="outline" :description="submitError" />
 
       <div class="flex gap-2 mt-2">
-        <Button
+        <UButton
           type="submit"
           :label="editingId === null ? 'Add sampling method' : 'Save changes'"
           :loading="submitting"
         />
-        <Button label="Cancel" text type="button" @click="onCancel" />
+        <UButton label="Cancel" variant="ghost" type="button" @click="onCancel" />
       </div>
     </form>
   </div>

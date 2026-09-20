@@ -1,8 +1,4 @@
 <script setup lang="ts">
-import Tag from 'primevue/tag'
-import ProgressSpinner from 'primevue/progressspinner'
-import Message from 'primevue/message'
-import Divider from 'primevue/divider'
 import { persistenceLabel } from './persistenceDraft'
 import type { Scenario } from '@/api/types'
 
@@ -33,19 +29,19 @@ function formatDuration(seconds: number | null | undefined): string | null {
 
 <template>
   <div v-if="loading" class="flex justify-center py-12">
-    <ProgressSpinner style="width: 3rem; height: 3rem" />
+    <UProgress class="w-12" />
   </div>
 
   <div v-else-if="scenario" class="flex flex-col gap-6 text-sm">
     <div class="flex flex-wrap items-center gap-2">
-      <Tag
-        :value="scenario.realistic ? 'Realistic' : 'Not realistic'"
-        :severity="scenario.realistic ? 'success' : 'warn'"
+      <UBadge
+        :label="scenario.realistic ? 'Realistic' : 'Not realistic'"
+        :color="scenario.realistic ? 'success' : 'warning'"
       />
-      <Tag
+      <UBadge
         v-if="scenario.studies.length > 1"
-        :value="`Shared across ${scenario.studies.length} studies`"
-        severity="info"
+        :label="`Shared across ${scenario.studies.length} studies`"
+        color="info"
       />
     </div>
 
@@ -100,7 +96,7 @@ function formatDuration(seconds: number | null | undefined): string | null {
       </div>
     </div>
 
-    <Divider class="m-0" />
+    <USeparator class="m-0" />
 
     <div>
       <h4 class="font-medium mb-2">
@@ -153,5 +149,5 @@ function formatDuration(seconds: number | null | undefined): string | null {
     </div>
   </div>
 
-  <Message v-else severity="error" size="small">Could not load this scenario.</Message>
+  <UAlert v-else color="error" variant="outline" description="Could not load this scenario." />
 </template>

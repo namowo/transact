@@ -3,9 +3,7 @@ import { ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useForm } from 'vee-validate'
 import * as yup from 'yup'
-import Password from 'primevue/password'
-import Button from 'primevue/button'
-import Message from 'primevue/message'
+import PasswordField from '@/components/auth/PasswordField.vue'
 import { resetPassword } from '@/api/auth'
 import { getErrorMessage } from '@/api/errors'
 
@@ -61,7 +59,7 @@ const onSubmit = handleSubmit(async (values) => {
     <p class="text-surface-700 dark:text-surface-200">
       Your password has been updated. You can now log in.
     </p>
-    <Button label="Go to login" @click="router.push({ name: 'login' })" />
+    <UButton label="Go to login" @click="router.push({ name: 'login' })" />
   </div>
 
   <form v-else class="flex flex-col gap-6" @submit.prevent="onSubmit">
@@ -73,20 +71,21 @@ const onSubmit = handleSubmit(async (values) => {
     </div>
     <div class="flex flex-col gap-2">
       <label for="new-password" class="font-medium text-sm">New password</label>
-      <Password
-        input-id="new-password"
+      <PasswordField
+        id="new-password"
         v-model="newPassword"
-        toggle-mask
-        fluid
         :invalid="!!errors.newPassword"
         :disabled="!token"
       />
-      <Message v-if="errors.newPassword" severity="error" size="small" variant="simple">
-        {{ errors.newPassword }}
-      </Message>
+      <UAlert
+        v-if="errors.newPassword"
+        color="error"
+        variant="subtle"
+        :description="errors.newPassword"
+      />
     </div>
-    <Message v-if="errorMessage" severity="error" size="small">{{ errorMessage }}</Message>
-    <Button type="submit" label="Reset password" :loading="loading" :disabled="!token" fluid />
+    <UAlert v-if="errorMessage" color="error" variant="outline" :description="errorMessage" />
+    <UButton type="submit" label="Reset password" :loading="loading" :disabled="!token" block />
     <p class="text-center text-sm">
       <RouterLink :to="{ name: 'login' }" class="text-primary no-underline hover:underline">
         Back to login

@@ -4,11 +4,6 @@ import { useForm } from 'vee-validate'
 import * as yup from 'yup'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
-import Button from 'primevue/button'
-import Dialog from 'primevue/dialog'
-import InputNumber from 'primevue/inputnumber'
-import Message from 'primevue/message'
-import Divider from 'primevue/divider'
 import CategorySelect from '@/components/scenarios/CategorySelect.vue'
 import SkinDiseaseCategorySelect from '@/components/scenarios/SkinDiseaseCategorySelect.vue'
 import DeterminationOfSheddingPropensityCategorySelect from '@/components/scenarios/DeterminationOfSheddingPropensityCategorySelect.vue'
@@ -224,15 +219,15 @@ const saveItemForm = handleItemSubmit(async (values) => {
 
 <template>
   <div class="flex flex-col gap-8">
-    <Message v-if="loadError" severity="error" size="small">{{ loadError }}</Message>
+    <UAlert v-if="loadError" color="error" variant="outline" :description="loadError" />
 
     <div class="flex flex-col gap-4">
       <div class="flex items-center justify-between">
         <h4 class="font-medium">Individuals</h4>
-        <Button
+        <UButton
           label="Add individual"
-          icon="pi pi-plus"
-          outlined
+          icon="i-lucide-plus"
+          variant="outline"
           @click="openCreateIndividualDialog"
         />
       </div>
@@ -250,10 +245,10 @@ const saveItemForm = handleItemSubmit(async (values) => {
           </Column>
           <Column header="" style="width: 4rem">
             <template #body="{ data }">
-              <Button
-                icon="pi pi-pencil"
-                text
-                rounded
+              <UButton
+                icon="i-lucide-pencil"
+                variant="ghost"
+                square
                 aria-label="Edit individual"
                 @click="openEditIndividualDialog(data)"
               />
@@ -263,12 +258,12 @@ const saveItemForm = handleItemSubmit(async (values) => {
       </div>
     </div>
 
-    <Divider />
+    <USeparator />
 
     <div class="flex flex-col gap-4">
       <div class="flex items-center justify-between">
         <h4 class="font-medium">Items</h4>
-        <Button label="Add item" icon="pi pi-plus" outlined @click="openCreateItemDialog" />
+        <UButton label="Add item" icon="i-lucide-plus" variant="outline" @click="openCreateItemDialog" />
       </div>
       <div class="overflow-x-auto">
         <DataTable :value="items" :loading="loading" data-key="id">
@@ -284,10 +279,10 @@ const saveItemForm = handleItemSubmit(async (values) => {
           <Column field="description" header="Description" />
           <Column header="" style="width: 4rem">
             <template #body="{ data }">
-              <Button
-                icon="pi pi-pencil"
-                text
-                rounded
+              <UButton
+                icon="i-lucide-pencil"
+                variant="ghost"
+                square
                 aria-label="Edit item"
                 @click="openEditItemDialog(data)"
               />
@@ -297,62 +292,74 @@ const saveItemForm = handleItemSubmit(async (values) => {
       </div>
     </div>
 
-    <Dialog
-      v-model:visible="individualDialogVisible"
-      :header="editingIndividualId === null ? 'Add individual' : 'Edit individual'"
-      modal
-      :style="{ width: '28rem' }"
+    <UModal
+      v-model:open="individualDialogVisible"
+      :title="editingIndividualId === null ? 'Add individual' : 'Edit individual'"
+      :ui="{ content: 'max-w-md' }"
     >
-      <div class="flex flex-col gap-4">
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <CategorySelect v-model="individualSexId" label="Sex (Optional)" :api="sexApi" />
-          <div class="flex flex-col gap-2">
-            <label class="font-medium text-sm">Age (Optional)</label>
-            <InputNumber v-model="individualAge" :invalid="!!individualErrors.age" fluid />
-            <Message v-if="individualErrors.age" severity="error" size="small" variant="simple">
-              {{ individualErrors.age }}
-            </Message>
+      <template #body>
+        <div class="flex flex-col gap-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <CategorySelect v-model="individualSexId" label="Sex (Optional)" :api="sexApi" />
+            <div class="flex flex-col gap-2">
+              <label class="font-medium text-sm">Age (Optional)</label>
+              <UInputNumber
+                v-model="individualAge"
+                :color="individualErrors.age ? 'error' : undefined"
+                class="w-full"
+              />
+              <UAlert
+                v-if="individualErrors.age"
+                color="error"
+                variant="subtle"
+                :description="individualErrors.age"
+              />
+            </div>
           </div>
+          <CategorySelect
+            v-model="individualDnaSheddingPropensityCategoryId"
+            label="DNA shedding propensity (Optional)"
+            :api="dnaSheddingPropensityCategoryApi"
+          />
+          <SkinDiseaseCategorySelect v-model="individualSkinDiseaseCategoryId" />
+          <DeterminationOfSheddingPropensityCategorySelect
+            v-model="individualDeterminationCategoryId"
+          />
+          <UAlert
+            v-if="individualSaveError"
+            color="error"
+            variant="outline"
+            :description="individualSaveError"
+          />
         </div>
-        <CategorySelect
-          v-model="individualDnaSheddingPropensityCategoryId"
-          label="DNA shedding propensity (Optional)"
-          :api="dnaSheddingPropensityCategoryApi"
-        />
-        <SkinDiseaseCategorySelect v-model="individualSkinDiseaseCategoryId" />
-        <DeterminationOfSheddingPropensityCategorySelect
-          v-model="individualDeterminationCategoryId"
-        />
-        <Message v-if="individualSaveError" severity="error" size="small">
-          {{ individualSaveError }}
-        </Message>
-      </div>
-      <template #footer>
-        <Button label="Cancel" text @click="individualDialogVisible = false" />
-        <Button label="Save" :loading="savingIndividual" @click="saveIndividualForm" />
       </template>
-    </Dialog>
+      <template #footer>
+        <UButton label="Cancel" variant="ghost" @click="individualDialogVisible = false" />
+        <UButton label="Save" :loading="savingIndividual" @click="saveIndividualForm" />
+      </template>
+    </UModal>
 
-    <Dialog
-      v-model:visible="itemDialogVisible"
-      :header="editingItemId === null ? 'Add item' : 'Edit item'"
-      modal
-      :style="{ width: '28rem' }"
+    <UModal
+      v-model:open="itemDialogVisible"
+      :title="editingItemId === null ? 'Add item' : 'Edit item'"
+      :ui="{ content: 'max-w-md' }"
     >
-      <div class="flex flex-col gap-4">
-        <ItemCategoryFields
-          v-model:category-id="itemCategoryId"
-          v-model:subcategory-id="itemSubcategoryId"
-          v-model:description="itemDescription"
-          :category-error="itemErrors.itemCategoryId"
-          :description-error="itemErrors.description"
-        />
-        <Message v-if="itemSaveError" severity="error" size="small">{{ itemSaveError }}</Message>
-      </div>
-      <template #footer>
-        <Button label="Cancel" text @click="itemDialogVisible = false" />
-        <Button label="Save" :loading="savingItem" @click="saveItemForm" />
+      <template #body>
+        <div class="flex flex-col gap-4">
+          <ItemCategoryFields
+            v-model:category-id="itemCategoryId"
+            v-model:subcategory-id="itemSubcategoryId"
+            v-model:description="itemDescription"
+            :category-error="itemErrors.itemCategoryId"
+            :description-error="itemErrors.description"
+          />
+          <UAlert v-if="itemSaveError" color="error" variant="outline" :description="itemSaveError" />
+        </div>
       </template>
-    </Dialog>
+      <template #footer>
+        <UButton label="Cancel" variant="ghost" @click="itemDialogVisible = false" />
+        <UButton label="Save" :loading="savingItem" @click="saveItemForm" />
+      </template>
+    </UModal>
   </div>
 </template>

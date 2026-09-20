@@ -4,11 +4,6 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useForm } from 'vee-validate'
 import * as yup from 'yup'
 import { startAuthentication } from '@simplewebauthn/browser'
-import InputText from 'primevue/inputtext'
-import Password from 'primevue/password'
-import Button from 'primevue/button'
-import Message from 'primevue/message'
-import Divider from 'primevue/divider'
 import { useAuthStore } from '@/stores/auth'
 import { getErrorMessage } from '@/api/errors'
 import * as webauthnApi from '@/api/webauthn'
@@ -22,6 +17,7 @@ const passkeyLoading = ref(false)
 const errorMessage = ref('')
 const loginFailed = ref(false)
 const step = ref<'email' | 'password'>('email')
+const showPassword = ref(false)
 
 const schema = yup.object({
   email: yup.string().trim().email('Please enter a valid email address.').required(),
@@ -113,17 +109,15 @@ async function onUsePasskey(useEmail: boolean) {
 
     <div v-if="step === 'email'" class="flex flex-col gap-2">
       <label for="email" class="font-medium text-sm">Email</label>
-      <InputText
+      <UInput
         id="email"
         v-model="email"
         type="email"
-        :invalid="!!errors.email"
+        :color="errors.email ? 'error' : undefined"
         autofocus
-        fluid
+        class="w-full"
       />
-      <Message v-if="errors.email" severity="error" size="small" variant="simple">
-        {{ errors.email }}
-      </Message>
+      <UAlert v-if="errors.email" color="error" variant="subtle" :description="errors.email" />
     </div>
 
     <div v-else class="flex flex-col gap-3">
@@ -137,18 +131,28 @@ async function onUsePasskey(useEmail: boolean) {
             Forgot password?
           </RouterLink>
         </div>
-        <Password
-          input-id="password"
+        <UInput
+          id="password"
           v-model="password"
-          :feedback="false"
-          :invalid="!!errors.password"
-          toggle-mask
+          :type="showPassword ? 'text' : 'password'"
+          :color="errors.password ? 'error' : undefined"
           autofocus
-          fluid
-        />
-        <Message v-if="errors.password" severity="error" size="small" variant="simple">
-          {{ errors.password }}
-        </Message>
+          class="w-full"
+          :ui="{ trailing: 'pe-1' }"
+        >
+          <template #trailing>
+            <UButton
+              color="neutral"
+              variant="link"
+              size="sm"
+              :icon="showPassword ? 'i-lucide-eye-off' : 'i-lucide-eye'"
+              :aria-label="showPassword ? 'Hide password' : 'Show password'"
+              :aria-pressed="showPassword"
+              @click="showPassword = !showPassword"
+            />
+          </template>
+        </UInput>
+        <UAlert v-if="errors.password" color="error" variant="subtle" :description="errors.password" />
       </div>
       <button
         type="button"
@@ -169,7 +173,7 @@ async function onUsePasskey(useEmail: boolean) {
       </button>
     </div>
 
-    <Message v-if="errorMessage" severity="error" size="small">{{ errorMessage }}</Message>
+    <UAlert v-if="errorMessage" color="error" variant="outline" :description="errorMessage" />
 
     <p v-if="loginFailed" class="text-sm text-surface-600 dark:text-surface-300 -mt-2">
       New here?
@@ -182,19 +186,17 @@ async function onUsePasskey(useEmail: boolean) {
       instead.
     </p>
 
-    <Button type="submit" :label="step === 'email' ? 'Continue' : 'Log in'" :loading="loading" fluid />
+    <UButton type="submit" :label="step === 'email' ? 'Continue' : 'Log in'" :loading="loading" block />
 
     <template v-if="step === 'email'">
-      <Divider align="center" class="my-0!">
-        <span class="text-xs text-surface-500 dark:text-surface-400">or</span>
-      </Divider>
-      <Button
+      <USeparator label="or" class="my-0!" />
+      <UButton
         type="button"
         label="Log in with passkey"
-        icon="pi pi-key"
-        severity="secondary"
+        icon="i-lucide-key"
+        color="neutral"
         :loading="passkeyLoading"
-        fluid
+        block
         @click="onUsePasskey(false)"
       />
     </template>

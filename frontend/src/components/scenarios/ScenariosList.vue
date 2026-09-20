@@ -4,15 +4,7 @@ import { useRouter } from 'vue-router'
 import DataView from 'primevue/dataview'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
-import Tag from 'primevue/tag'
-import Button from 'primevue/button'
-import Dialog from 'primevue/dialog'
-import IconField from 'primevue/iconfield'
-import InputIcon from 'primevue/inputicon'
-import InputText from 'primevue/inputtext'
-import Breadcrumb from 'primevue/breadcrumb'
-import { useConfirm } from 'primevue/useconfirm'
-import ProgressSpinner from 'primevue/progressspinner'
+import { useConfirm } from '@/composables/useConfirm'
 import ScenarioViewDialog from './ScenarioViewDialog.vue'
 import ScenarioDetails from './ScenarioDetails.vue'
 import { listScenarios, getScenario, deleteScenario, updateScenario } from '@/api/scenarios'
@@ -51,9 +43,9 @@ function confirmDelete(scenario: Scenario) {
   confirm.require({
     message: 'Delete this scenario permanently? This cannot be undone.',
     header: 'Delete scenario',
-    icon: 'pi pi-exclamation-triangle',
-    rejectProps: { label: 'Cancel', severity: 'secondary', text: true },
-    acceptProps: { label: 'Delete', severity: 'danger' },
+    rejectLabel: 'Cancel',
+    acceptLabel: 'Delete',
+    acceptColor: 'error',
     accept: () => onDelete(scenario),
   })
 }
@@ -139,6 +131,7 @@ const browsedStudyScenarios = computed(() =>
 )
 
 const browseBreadcrumbItems = computed(() => [
+  { label: 'Studies', icon: 'i-lucide-folder', onClick: goToStudiesRoot },
   ...(browsedStudy.value ? [{ label: citeStudy(browsedStudy.value) }] : []),
 ])
 
@@ -208,21 +201,21 @@ defineExpose({ load })
 <template>
   <div class="flex flex-col gap-6">
     <div class="flex items-center justify-end gap-2">
-      <Button
+      <UButton
         label="Duplicate scenario from another study"
-        icon="pi pi-copy"
-        outlined
+        icon="i-lucide-copy"
+        variant="outline"
         @click="openDuplicateFlow"
       />
-      <Button
+      <UButton
         label="Add scenario"
-        icon="pi pi-plus"
+        icon="i-lucide-plus"
         @click="router.push({ name: 'scenarios-new', params: { studyId: props.studyId } })"
       />
     </div>
 
     <div v-if="loading" class="flex justify-center py-12">
-      <ProgressSpinner style="width: 3rem; height: 3rem" />
+      <UProgress class="w-12" />
     </div>
 
     <DataView v-else :value="scenarios" data-key="id">
@@ -240,18 +233,18 @@ defineExpose({ load })
           >
             <div class="flex-1 flex flex-col gap-2">
               <div class="flex flex-wrap items-center gap-2">
-                <Tag
-                  :value="item.scenario_category?.name ?? 'Uncategorized'"
-                  severity="secondary"
+                <UBadge
+                  :label="item.scenario_category?.name ?? 'Uncategorized'"
+                  color="neutral"
                 />
-                <Tag
-                  :value="item.realistic ? 'Realistic' : 'Not realistic'"
-                  :severity="item.realistic ? 'success' : 'warn'"
+                <UBadge
+                  :label="item.realistic ? 'Realistic' : 'Not realistic'"
+                  :color="item.realistic ? 'success' : 'warning'"
                 />
-                <Tag
+                <UBadge
                   v-if="item.studies.length > 1"
-                  :value="`Shared across ${item.studies.length} studies`"
-                  severity="info"
+                  :label="`Shared across ${item.studies.length} studies`"
+                  color="info"
                 />
               </div>
               <div class="text-sm text-surface-500 dark:text-surface-400">
@@ -261,12 +254,12 @@ defineExpose({ load })
               </div>
             </div>
             <div class="flex flex-row sm:flex-col gap-2 shrink-0">
-              <Button
+              <UButton
                 v-if="isScenarioEditable(item)"
                 label="Edit"
-                icon="pi pi-pencil"
-                severity="secondary"
-                outlined
+                icon="i-lucide-pencil"
+                color="neutral"
+                variant="outline"
                 @click="
                   router.push({
                     name: 'scenarios-edit',
@@ -274,28 +267,28 @@ defineExpose({ load })
                   })
                 "
               />
-              <Button
+              <UButton
                 v-else
                 label="View"
-                icon="pi pi-eye"
-                severity="secondary"
-                outlined
+                icon="i-lucide-eye"
+                color="neutral"
+                variant="outline"
                 @click="openViewDialog(item)"
               />
-              <Button
+              <UButton
                 v-if="item.studies.length > 1"
                 label="Remove from this study"
-                icon="pi pi-times"
-                severity="warn"
-                outlined
+                icon="i-lucide-x"
+                color="warning"
+                variant="outline"
                 @click="unlinkScenario(item)"
               />
-              <Button
+              <UButton
                 v-if="isScenarioDeletable(item)"
                 label="Delete"
-                icon="pi pi-trash"
-                severity="danger"
-                outlined
+                icon="i-lucide-trash-2"
+                color="error"
+                variant="outline"
                 @click="confirmDelete(item)"
               />
             </div>
@@ -305,32 +298,26 @@ defineExpose({ load })
     </DataView>
 
     <ScenarioViewDialog
-      v-model:visible="viewDialogVisible"
+      v-model:open="viewDialogVisible"
       :scenario="viewedScenario"
       :loading="viewLoading"
     />
 
-    <Dialog
-      v-model:visible="browseDialogVisible"
-      header="Duplicate scenario from another study"
-      modal
-      position="top"
-      :style="{ width: '64rem' }"
+    <UModal
+      v-model:open="browseDialogVisible"
+      title="Duplicate scenario from another study"
+      :ui="{ content: 'max-w-5xl' }"
     >
+      <template #body>
       <div class="flex flex-col gap-3">
-        <Breadcrumb
-          :home="{ label: 'Studies', icon: 'pi pi-folder', command: goToStudiesRoot }"
-          :model="browseBreadcrumbItems"
+        <UBreadcrumb :items="browseBreadcrumbItems" />
+        <UInput
+          v-model="browseFilter"
+          type="text"
+          icon="i-lucide-search"
+          :placeholder="browseLevel === 'studies' ? 'Search studies' : 'Search scenarios'"
+          class="w-full"
         />
-        <IconField iconPosition="left">
-          <InputIcon class="pi pi-search" />
-          <InputText
-            v-model="browseFilter"
-            type="text"
-            :placeholder="browseLevel === 'studies' ? 'Search studies' : 'Search scenarios'"
-            fluid
-          />
-        </IconField>
 
         <div style="height: 28rem">
           <DataTable
@@ -395,16 +382,16 @@ defineExpose({ load })
           </div>
         </div>
       </div>
+      </template>
       <template #footer>
-        <Button label="Close" text @click="browseDialogVisible = false" />
-        <Button
+        <UButton label="Close" variant="ghost" @click="browseDialogVisible = false" />
+        <UButton
           label="Continue with this scenario"
-          icon="pi pi-arrow-right"
-          icon-pos="right"
+          trailing-icon="i-lucide-arrow-right"
           :disabled="!previewedScenario"
           @click="confirmDuplicate"
         />
       </template>
-    </Dialog>
+    </UModal>
   </div>
 </template>

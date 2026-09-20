@@ -2,10 +2,6 @@
 import { onMounted, ref } from 'vue'
 import { useForm } from 'vee-validate'
 import * as yup from 'yup'
-import Button from 'primevue/button'
-import Message from 'primevue/message'
-import InputText from 'primevue/inputtext'
-import Select from 'primevue/select'
 import SelectButton from 'primevue/selectbutton'
 import LaboratorySelect from '@/components/auth/LaboratorySelect.vue'
 import {
@@ -163,118 +159,136 @@ onMounted(async () => {
         <div class="flex flex-col gap-2">
           <label class="font-medium text-sm">Laboratory</label>
           <LaboratorySelect v-model="joinLaboratoryId" />
-          <Message
+          <UAlert
             v-if="joinTouched && !joinLaboratoryId"
-            severity="error"
-            size="small"
-            variant="simple"
-          >
-            Please select your laboratory.
-          </Message>
+            color="error"
+            variant="subtle"
+            description="Please select your laboratory."
+          />
         </div>
 
-        <Message v-if="joinErrorMessage" severity="error" size="small">
-          {{ joinErrorMessage }}
-        </Message>
+        <UAlert
+          v-if="joinErrorMessage"
+          color="error"
+          variant="outline"
+          :description="joinErrorMessage"
+        />
 
-        <Button type="submit" label="Request to join" :loading="joining" fluid />
+        <UButton type="submit" label="Request to join" :loading="joining" block />
       </form>
 
       <form v-else class="flex flex-col gap-4" @submit.prevent="submitNewLab">
         <div class="flex flex-col gap-2">
           <label for="lab-name" class="font-medium text-sm">Laboratory name *</label>
-          <InputText
+          <UInput
             id="lab-name"
             v-model="laboratoryName"
-            :invalid="!!newLabErrors.laboratory_name"
-            fluid
+            :color="newLabErrors.laboratory_name ? 'error' : undefined"
+            class="w-full"
           />
-          <Message v-if="newLabErrors.laboratory_name" severity="error" size="small" variant="simple">
-            {{ newLabErrors.laboratory_name }}
-          </Message>
+          <UAlert
+            v-if="newLabErrors.laboratory_name"
+            color="error"
+            variant="subtle"
+            :description="newLabErrors.laboratory_name"
+          />
         </div>
         <div class="flex flex-col gap-2">
           <label for="lab-affiliation" class="font-medium text-sm">
             Institutional affiliation *
           </label>
-          <InputText
+          <UInput
             id="lab-affiliation"
             v-model="institutionalAffiliation"
-            :invalid="!!newLabErrors.institutional_affiliation"
-            fluid
+            :color="newLabErrors.institutional_affiliation ? 'error' : undefined"
+            class="w-full"
           />
-          <Message
+          <UAlert
             v-if="newLabErrors.institutional_affiliation"
-            severity="error"
-            size="small"
-            variant="simple"
-          >
-            {{ newLabErrors.institutional_affiliation }}
-          </Message>
+            color="error"
+            variant="subtle"
+            :description="newLabErrors.institutional_affiliation"
+          />
         </div>
         <div class="flex flex-col gap-2">
           <label for="lab-director" class="font-medium text-sm">
             Director / Head of laboratory
           </label>
-          <InputText id="lab-director" v-model="directorHeadOfLaboratory" fluid />
+          <UInput id="lab-director" v-model="directorHeadOfLaboratory" class="w-full" />
         </div>
         <div class="flex flex-col gap-2">
           <label for="lab-email" class="font-medium text-sm">Email</label>
-          <InputText
+          <UInput
             id="lab-email"
             v-model="email"
             type="email"
-            :invalid="!!newLabErrors.email"
-            fluid
+            :color="newLabErrors.email ? 'error' : undefined"
+            class="w-full"
           />
-          <Message v-if="newLabErrors.email" severity="error" size="small" variant="simple">
-            {{ newLabErrors.email }}
-          </Message>
+          <UAlert
+            v-if="newLabErrors.email"
+            color="error"
+            variant="subtle"
+            :description="newLabErrors.email"
+          />
         </div>
         <div class="flex flex-col gap-2">
           <label for="lab-street" class="font-medium text-sm">Street address</label>
-          <InputText id="lab-street" v-model="streetAddress" fluid />
+          <UInput id="lab-street" v-model="streetAddress" class="w-full" />
         </div>
         <div class="flex flex-col sm:flex-row gap-4">
           <div class="flex flex-col gap-2 flex-1">
             <label for="lab-city" class="font-medium text-sm">City *</label>
-            <InputText id="lab-city" v-model="city" :invalid="!!newLabErrors.city" fluid />
-            <Message v-if="newLabErrors.city" severity="error" size="small" variant="simple">
-              {{ newLabErrors.city }}
-            </Message>
+            <UInput
+              id="lab-city"
+              v-model="city"
+              :color="newLabErrors.city ? 'error' : undefined"
+              class="w-full"
+            />
+            <UAlert
+              v-if="newLabErrors.city"
+              color="error"
+              variant="subtle"
+              :description="newLabErrors.city"
+            />
           </div>
           <div class="flex flex-col gap-2 flex-1">
             <label for="lab-postal-code" class="font-medium text-sm">Postal code</label>
-            <InputText id="lab-postal-code" v-model="postalCode" fluid />
+            <UInput id="lab-postal-code" v-model="postalCode" class="w-full" />
           </div>
         </div>
         <div class="flex flex-col sm:flex-row gap-4">
           <div class="flex flex-col gap-2 flex-1">
             <label for="lab-state" class="font-medium text-sm">State</label>
-            <InputText id="lab-state" v-model="state" fluid />
+            <UInput id="lab-state" v-model="state" class="w-full" />
           </div>
           <div class="flex flex-col gap-2 flex-1">
             <label for="lab-country" class="font-medium text-sm">Country *</label>
-            <Select
+            <USelectMenu
               id="lab-country"
               v-model="country"
-              :options="COUNTRIES"
-              filter
+              :items="COUNTRIES"
               placeholder="Select country"
-              :invalid="!!newLabErrors.country"
-              fluid
+              :color="newLabErrors.country ? 'error' : undefined"
+              class="w-full"
             />
-            <Message v-if="newLabErrors.country" severity="error" size="small" variant="simple">
-              {{ newLabErrors.country }}
-            </Message>
+            <UAlert
+              v-if="newLabErrors.country"
+              color="error"
+              variant="subtle"
+              :description="newLabErrors.country"
+            />
           </div>
         </div>
 
-        <Message v-if="newLabErrorMessage" severity="error" size="small">
-          {{ newLabErrorMessage }}
-        </Message>
+        <UAlert
+          v-if="newLabErrorMessage"
+          color="error"
+          variant="outline"
+          :description="newLabErrorMessage"
+        />
 
-        <Button type="submit" label="Request new laboratory" :loading="submittingNewLab" fluid />
+        <UButton type="submit" label="Request new laboratory" :loading="submittingNewLab" block />
       </form>
     </template>
   </div>

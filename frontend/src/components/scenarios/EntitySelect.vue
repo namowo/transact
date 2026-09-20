@@ -1,7 +1,7 @@
 <script setup lang="ts" generic="T extends { id: string }">
-import Select from 'primevue/select'
+import { computed } from 'vue'
 
-defineProps<{
+const props = defineProps<{
   modelValue: string | null
   label: string
   options: T[]
@@ -13,21 +13,23 @@ defineProps<{
 const emit = defineEmits<{
   'update:modelValue': [value: string | null]
 }>()
+
+// USelect's label-key only supports a plain field lookup, not a callback
+// like PrimeVue's option-label, so precompute the display label per item.
+const items = computed(() => props.options.map((option) => ({ ...option, label: props.optionLabel(option) })))
 </script>
 
 <template>
   <div class="flex flex-col gap-2">
     <label class="font-medium text-sm">{{ label }}</label>
-    <Select
+    <USelectMenu
       :model-value="modelValue"
-      :options="options"
-      :option-label="optionLabel"
-      option-value="id"
+      :items="items"
+      value-key="id"
       :placeholder="placeholder ?? 'Select an option'"
       :loading="loading"
-      show-clear
-      filter
-      fluid
+      clear
+      class="w-full"
       @update:model-value="emit('update:modelValue', $event)"
     />
   </div>

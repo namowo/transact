@@ -2,9 +2,6 @@
 import { computed, onMounted, ref } from 'vue'
 import { useForm } from 'vee-validate'
 import * as yup from 'yup'
-import Select from 'primevue/select'
-import Button from 'primevue/button'
-import Dialog from 'primevue/dialog'
 import ItemCategoryFields from './ItemCategoryFields.vue'
 import { createItem, listItemsGrouped, updateItem } from '@/api/items'
 import type { Item, ItemGroup } from '@/api/types'
@@ -28,12 +25,13 @@ function describeItem(item: Item): string {
   return `Item ${position + 1}`
 }
 
-// optionGroupChildren needs each child to carry its own label field.
+// USelect groups items via a nested array (T[][]), with a leading
+// `{ type: 'label' }` entry as each group's heading.
 const groupOptions = computed(() =>
-  groups.value.map((group) => ({
-    label: group.label,
-    items: group.items.map((item) => ({ ...item, label: describeItem(item) })),
-  })),
+  groups.value.map((group) => [
+    { type: 'label' as const, label: group.label },
+    ...group.items.map((item) => ({ ...item, label: describeItem(item) })),
+  ]),
 )
 
 async function load() {
@@ -130,49 +128,46 @@ const saveItem = handleSubmit(async (values) => {
   <div class="flex flex-col gap-2">
     <label class="font-medium text-sm">Item</label>
     <div class="flex gap-2">
-      <Select
+      <USelectMenu
         v-model="itemId"
-        :options="groupOptions"
-        option-label="label"
-        option-value="id"
-        option-group-label="label"
-        option-group-children="items"
+        :items="groupOptions"
+        value-key="id"
         placeholder="Select an item"
         :loading="loading"
-        show-clear
-        filter
-        fluid
+        clear
+        class="w-full"
       />
-      <Button
+      <UButton
         v-if="selectedItem"
-        icon="pi pi-pencil"
-        text
+        icon="i-lucide-pencil"
+        variant="ghost"
         aria-label="Edit item"
         @click="openEditDialog"
       />
-      <Button icon="pi pi-plus" text aria-label="Add new item" @click="openCreateDialog" />
+      <UButton icon="i-lucide-plus" variant="ghost" aria-label="Add new item" @click="openCreateDialog" />
     </div>
 
-    <Dialog
-      v-model:visible="showDialog"
-      :header="dialogMode === 'edit' ? 'Edit item' : 'Add item'"
-      modal
-      :style="{ width: '28rem' }"
+    <UModal
+      v-model:open="showDialog"
+      :title="dialogMode === 'edit' ? 'Edit item' : 'Add item'"
+      :ui="{ content: 'max-w-md' }"
     >
-      <div class="flex flex-col gap-4">
-        <ItemCategoryFields
-          v-model:category-id="formItemCategoryId"
-          v-model:subcategory-id="formItemSubcategoryId"
-          v-model:description="formDescription"
-          :category-error="errors.itemCategoryId"
-          :description-error="errors.description"
-        />
-        <p v-if="saveError" class="text-sm text-red-500">{{ saveError }}</p>
-      </div>
-      <template #footer>
-        <Button label="Cancel" text @click="showDialog = false" />
-        <Button label="Save" :loading="saving" @click="saveItem" />
+      <template #body>
+        <div class="flex flex-col gap-4">
+          <ItemCategoryFields
+            v-model:category-id="formItemCategoryId"
+            v-model:subcategory-id="formItemSubcategoryId"
+            v-model:description="formDescription"
+            :category-error="errors.itemCategoryId"
+            :description-error="errors.description"
+          />
+          <p v-if="saveError" class="text-sm text-red-500">{{ saveError }}</p>
+        </div>
       </template>
-    </Dialog>
+      <template #footer>
+        <UButton label="Cancel" variant="ghost" @click="showDialog = false" />
+        <UButton label="Save" :loading="saving" @click="saveItem" />
+      </template>
+    </UModal>
   </div>
 </template>

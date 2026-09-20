@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
-import Button from 'primevue/button'
-import ProgressSpinner from 'primevue/progressspinner'
 import { verifyEmail } from '@/api/auth'
 import { useAuthStore } from '@/stores/auth'
 import { getErrorMessage } from '@/api/errors'
@@ -39,7 +37,7 @@ onMounted(async () => {
 
 <template>
   <div class="flex flex-col items-center gap-4 text-center">
-    <ProgressSpinner v-if="status === 'loading'" style="width: 3rem; height: 3rem" />
+    <UProgress v-if="status === 'loading'" class="w-12" />
 
     <template v-else-if="status === 'success'">
       <i class="pi pi-check-circle text-4xl text-primary" />
@@ -47,12 +45,12 @@ onMounted(async () => {
         Your email address has been confirmed.
         {{ auth.isAuthenticated ? '' : 'You can now log in.' }}
       </p>
-      <Button
+      <UButton
         v-if="auth.isAuthenticated"
         label="Continue"
         @click="router.push({ name: 'dashboard' })"
       />
-      <Button v-else label="Go to login" @click="router.push({ name: 'login' })" />
+      <UButton v-else label="Go to login" @click="router.push({ name: 'login' })" />
     </template>
 
     <template v-else>

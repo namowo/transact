@@ -4,12 +4,6 @@ import { useForm } from 'vee-validate'
 import * as yup from 'yup'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
-import Button from 'primevue/button'
-import Dialog from 'primevue/dialog'
-import InputText from 'primevue/inputtext'
-import InputNumber from 'primevue/inputnumber'
-import ToggleSwitch from 'primevue/toggleswitch'
-import Message from 'primevue/message'
 import EntitySelect from '@/components/scenarios/EntitySelect.vue'
 import {
   resultApi,
@@ -265,19 +259,22 @@ async function deleteRow(row: Result) {
       <p class="text-sm text-surface-500 dark:text-surface-400">
         Lab results derived from this scenario's recoveries.
       </p>
-      <Button
+      <UButton
         label="Add result"
-        icon="pi pi-plus"
+        icon="i-lucide-plus"
         :disabled="!recoveries.length"
         @click="openCreateDialog"
       />
     </div>
 
-    <Message v-if="!recoveries.length" severity="info" size="small">
-      Add a recovery before recording results.
-    </Message>
+    <UAlert
+      v-if="!recoveries.length"
+      color="info"
+      variant="outline"
+      description="Add a recovery before recording results."
+    />
 
-    <Message v-if="loadError" severity="error" size="small">{{ loadError }}</Message>
+    <UAlert v-if="loadError" color="error" variant="outline" :description="loadError" />
 
     <div class="overflow-x-auto">
       <DataTable :value="results" :loading="loading" data-key="id">
@@ -290,12 +287,12 @@ async function deleteRow(row: Result) {
         <Column header="" style="width: 6rem">
           <template #body="{ data }">
             <div class="flex gap-1 justify-end">
-              <Button icon="pi pi-pencil" text rounded aria-label="Edit" @click="openEditDialog(data)" />
-              <Button
-                icon="pi pi-trash"
-                text
-                rounded
-                severity="danger"
+              <UButton icon="i-lucide-pencil" variant="ghost" square aria-label="Edit" @click="openEditDialog(data)" />
+              <UButton
+                icon="i-lucide-trash-2"
+                variant="ghost"
+                square
+                color="error"
                 aria-label="Delete"
                 @click="deleteRow(data)"
               />
@@ -305,12 +302,12 @@ async function deleteRow(row: Result) {
       </DataTable>
     </div>
 
-    <Dialog
-      v-model:visible="dialogVisible"
-      :header="editingId === null ? 'Add result' : 'Edit result'"
-      modal
-      :style="{ width: '36rem' }"
+    <UModal
+      v-model:open="dialogVisible"
+      :title="editingId === null ? 'Add result' : 'Edit result'"
+      :ui="{ content: 'max-w-xl' }"
     >
+      <template #body>
       <div class="flex flex-col gap-4">
         <div class="flex flex-col gap-2">
           <EntitySelect
@@ -319,9 +316,12 @@ async function deleteRow(row: Result) {
             :options="recoveries"
             :option-label="recoveryLabel"
           />
-          <Message v-if="errors.recovery_id" severity="error" size="small" variant="simple">
-            {{ errors.recovery_id }}
-          </Message>
+          <UAlert
+            v-if="errors.recovery_id"
+            color="error"
+            variant="subtle"
+            :description="errors.recovery_id"
+          />
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -366,103 +366,113 @@ async function deleteRow(row: Result) {
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div class="flex flex-col gap-2">
             <label class="font-medium text-sm">DNA concentration</label>
-            <InputNumber v-model="dnaConcentration" :invalid="!!errors.dna_concentration" fluid />
-            <Message v-if="errors.dna_concentration" severity="error" size="small" variant="simple">
-              {{ errors.dna_concentration }}
-            </Message>
+            <UInputNumber v-model="dnaConcentration" :color="errors.dna_concentration ? 'error' : undefined" class="w-full" />
+            <UAlert
+              v-if="errors.dna_concentration"
+              color="error"
+              variant="subtle"
+              :description="errors.dna_concentration"
+            />
           </div>
           <div class="flex flex-col gap-2">
             <label class="font-medium text-sm">DNA quantity</label>
-            <InputNumber v-model="dnaQuantity" :invalid="!!errors.dna_quantity" fluid />
-            <Message v-if="errors.dna_quantity" severity="error" size="small" variant="simple">
-              {{ errors.dna_quantity }}
-            </Message>
+            <UInputNumber v-model="dnaQuantity" :color="errors.dna_quantity ? 'error' : undefined" class="w-full" />
+            <UAlert
+              v-if="errors.dna_quantity"
+              color="error"
+              variant="subtle"
+              :description="errors.dna_quantity"
+            />
           </div>
           <div class="flex flex-col gap-2">
             <label class="font-medium text-sm">Degradation</label>
-            <InputText v-model="degradation" fluid />
+            <UInput v-model="degradation" class="w-full" />
           </div>
           <div class="flex items-center gap-2 pt-6">
-            <ToggleSwitch v-model="inhibitionToggle" input-id="inhibition" />
+            <USwitch v-model="inhibitionToggle" id="inhibition" />
             <label for="inhibition" class="text-sm">Inhibition</label>
           </div>
           <div class="flex flex-col gap-2">
             <label class="font-medium text-sm">Sample input volume in PCR</label>
-            <InputNumber
+            <UInputNumber
               v-model="sampleInputVolumeInPcr"
-              :invalid="!!errors.sample_input_volume_in_pcr"
-              fluid
+              :color="errors.sample_input_volume_in_pcr ? 'error' : undefined"
+              class="w-full"
             />
-            <Message
+            <UAlert
               v-if="errors.sample_input_volume_in_pcr"
-              severity="error"
-              size="small"
-              variant="simple"
-            >
-              {{ errors.sample_input_volume_in_pcr }}
-            </Message>
+              color="error"
+              variant="subtle"
+              :description="errors.sample_input_volume_in_pcr"
+            />
           </div>
           <div class="flex flex-col gap-2">
             <label class="font-medium text-sm">DNA input amount in PCR</label>
-            <InputNumber
+            <UInputNumber
               v-model="dnaInputAmountInPcr"
-              :invalid="!!errors.dna_input_amount_in_pcr"
-              fluid
+              :color="errors.dna_input_amount_in_pcr ? 'error' : undefined"
+              class="w-full"
             />
-            <Message
+            <UAlert
               v-if="errors.dna_input_amount_in_pcr"
-              severity="error"
-              size="small"
-              variant="simple"
-            >
-              {{ errors.dna_input_amount_in_pcr }}
-            </Message>
+              color="error"
+              variant="subtle"
+              :description="errors.dna_input_amount_in_pcr"
+            />
           </div>
           <div class="flex flex-col gap-2">
             <label class="font-medium text-sm">No. of contributors</label>
-            <InputNumber v-model="noOfContributors" :invalid="!!errors.no_of_contributors" fluid />
-            <Message v-if="errors.no_of_contributors" severity="error" size="small" variant="simple">
-              {{ errors.no_of_contributors }}
-            </Message>
+            <UInputNumber v-model="noOfContributors" :color="errors.no_of_contributors ? 'error' : undefined" class="w-full" />
+            <UAlert
+              v-if="errors.no_of_contributors"
+              color="error"
+              variant="subtle"
+              :description="errors.no_of_contributors"
+            />
           </div>
           <div class="flex flex-col gap-2">
             <label class="font-medium text-sm">Mixture proportion</label>
-            <InputNumber v-model="mixtureProportion" :invalid="!!errors.mixture_proportion" fluid />
-            <Message v-if="errors.mixture_proportion" severity="error" size="small" variant="simple">
-              {{ errors.mixture_proportion }}
-            </Message>
+            <UInputNumber v-model="mixtureProportion" :color="errors.mixture_proportion ? 'error' : undefined" class="w-full" />
+            <UAlert
+              v-if="errors.mixture_proportion"
+              color="error"
+              variant="subtle"
+              :description="errors.mixture_proportion"
+            />
           </div>
           <div class="flex flex-col gap-2">
             <label class="font-medium text-sm">Total RFU</label>
-            <InputNumber v-model="totalRfu" :invalid="!!errors.total_rfu" fluid />
-            <Message v-if="errors.total_rfu" severity="error" size="small" variant="simple">
-              {{ errors.total_rfu }}
-            </Message>
+            <UInputNumber v-model="totalRfu" :color="errors.total_rfu ? 'error' : undefined" class="w-full" />
+            <UAlert
+              v-if="errors.total_rfu"
+              color="error"
+              variant="subtle"
+              :description="errors.total_rfu"
+            />
           </div>
           <div class="flex flex-col gap-2">
             <label class="font-medium text-sm">Total no. of alleles</label>
-            <InputNumber
+            <UInputNumber
               v-model="totalNoOfAlleles"
-              :invalid="!!errors.total_no_of_alleles"
-              fluid
+              :color="errors.total_no_of_alleles ? 'error' : undefined"
+              class="w-full"
             />
-            <Message
+            <UAlert
               v-if="errors.total_no_of_alleles"
-              severity="error"
-              size="small"
-              variant="simple"
-            >
-              {{ errors.total_no_of_alleles }}
-            </Message>
+              color="error"
+              variant="subtle"
+              :description="errors.total_no_of_alleles"
+            />
           </div>
         </div>
 
-        <Message v-if="submitError" severity="error" size="small">{{ submitError }}</Message>
+        <UAlert v-if="submitError" color="error" variant="outline" :description="submitError" />
       </div>
-      <template #footer>
-        <Button label="Cancel" text @click="dialogVisible = false" />
-        <Button label="Save" :loading="submitting" @click="submitForm" />
       </template>
-    </Dialog>
+      <template #footer>
+        <UButton label="Cancel" variant="ghost" @click="dialogVisible = false" />
+        <UButton label="Save" :loading="submitting" @click="submitForm" />
+      </template>
+    </UModal>
   </div>
 </template>

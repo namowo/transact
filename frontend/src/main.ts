@@ -4,11 +4,9 @@ import './assets/main.css'
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import PrimeVue from 'primevue/config'
-import ToastService from 'primevue/toastservice'
-import ConfirmationService from 'primevue/confirmationservice'
-import Tooltip from 'primevue/tooltip'
 import { definePreset } from '@primeuix/themes'
 import Aura from '@primeuix/themes/aura'
+import ui from '@nuxt/ui/vue-plugin'
 
 import App from './App.vue'
 import router from './router'
@@ -17,17 +15,17 @@ import { useAuthStore } from './stores/auth'
 const AppTheme = definePreset(Aura, {
   semantic: {
     primary: {
-      50: '{blue.50}',
-      100: '{blue.100}',
-      200: '{blue.200}',
-      300: '{blue.300}',
-      400: '{blue.400}',
-      500: '{blue.500}',
-      600: '{blue.600}',
-      700: '{blue.700}',
-      800: '{blue.800}',
-      900: '{blue.900}',
-      950: '{blue.950}',
+      50: '{teal.50}',
+      100: '{teal.100}',
+      200: '{teal.200}',
+      300: '{teal.300}',
+      400: '{teal.400}',
+      500: '{teal.500}',
+      600: '{teal.600}',
+      700: '{teal.700}',
+      800: '{teal.800}',
+      900: '{teal.900}',
+      950: '{teal.950}',
     },
   },
 })
@@ -45,13 +43,11 @@ app.use(PrimeVue, {
   theme: {
     preset: AppTheme,
     options: {
-      darkModeSelector: '.app-dark',
+      darkModeSelector: '.dark',
     },
   },
 })
-app.use(ToastService)
-app.use(ConfirmationService)
-app.directive('tooltip', Tooltip)
+app.use(ui)
 
 // Hydrate the current user from a persisted token, if any, before the
 // first render so guarded routes/components don't flash empty state.

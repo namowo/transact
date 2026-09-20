@@ -4,13 +4,6 @@ import { useForm } from 'vee-validate'
 import * as yup from 'yup'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
-import Button from 'primevue/button'
-import Dialog from 'primevue/dialog'
-import IconField from 'primevue/iconfield'
-import InputIcon from 'primevue/inputicon'
-import InputText from 'primevue/inputtext'
-import Select from 'primevue/select'
-import Message from 'primevue/message'
 import { FilterMatchMode } from '@primevue/core/api'
 import { createLaboratory, listLaboratories } from '@/api/laboratories'
 import {
@@ -189,10 +182,10 @@ const submitNewLaboratory = handleSubmit(async (values) => {
   <div class="flex flex-col gap-6">
     <div class="flex items-center justify-between">
       <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-0">Laboratories</h1>
-      <Button
+      <UButton
         v-if="auth.isSuperuser"
         label="Add laboratory"
-        icon="pi pi-plus"
+        icon="i-lucide-plus"
         @click="openDialog"
       />
     </div>
@@ -202,12 +195,18 @@ const submitNewLaboratory = handleSubmit(async (values) => {
         Pending approvals
       </h2>
 
-      <Message v-if="requestsLoadError" severity="error" size="small">
-        {{ requestsLoadError }}
-      </Message>
-      <Message v-if="requestsActionError" severity="error" size="small">
-        {{ requestsActionError }}
-      </Message>
+      <UAlert
+        v-if="requestsLoadError"
+        color="error"
+        variant="outline"
+        :description="requestsLoadError"
+      />
+      <UAlert
+        v-if="requestsActionError"
+        color="error"
+        variant="outline"
+        :description="requestsActionError"
+      />
 
       <div class="overflow-x-auto">
         <DataTable :value="requests" :loading="requestsLoading" data-key="id">
@@ -236,17 +235,17 @@ const submitNewLaboratory = handleSubmit(async (values) => {
           <Column header="" style="width: 14rem">
             <template #body="{ data }">
               <div class="flex gap-1 justify-end">
-                <Button
+                <UButton
                   label="Approve"
-                  size="small"
+                  size="sm"
                   :loading="actingOnId === data.id"
                   @click="approve(data)"
                 />
-                <Button
+                <UButton
                   label="Deny"
-                  severity="danger"
-                  text
-                  size="small"
+                  color="error"
+                  variant="ghost"
+                  size="sm"
                   :loading="actingOnId === data.id"
                   @click="deny(data)"
                 />
@@ -259,14 +258,15 @@ const submitNewLaboratory = handleSubmit(async (values) => {
 
     <div class="overflow-x-auto">
       <div class="mb-3 flex items-center justify-between gap-3">
-        <Button type="button" variant="outlined" size="small" @click="clearFilters()">
-          <i class="pi pi-filter-slash" />
+        <UButton type="button" icon="i-lucide-filter-x" variant="outline" size="sm" @click="clearFilters()">
           Clear Filters
-        </Button>
-        <IconField iconPosition="left">
-          <InputIcon class="pi pi-search" />
-          <InputText v-model="filters['global'].value" type="text" placeholder="Keyword Search" />
-        </IconField>
+        </UButton>
+        <UInput
+          v-model="filters['global'].value"
+          type="text"
+          icon="i-lucide-search"
+          placeholder="Keyword Search"
+        />
       </div>
 
       <DataTable
@@ -296,7 +296,7 @@ const submitNewLaboratory = handleSubmit(async (values) => {
           :showAddButton="false"
         >
           <template #filter="{ filterModel }">
-            <InputText v-model="filterModel.value" type="text" placeholder="Search by name" />
+            <UInput v-model="filterModel.value" type="text" placeholder="Search by name" />
           </template>
         </Column>
 
@@ -308,13 +308,13 @@ const submitNewLaboratory = handleSubmit(async (values) => {
           :showAddButton="false"
         >
           <template #filter="{ filterModel }">
-            <InputText v-model="filterModel.value" type="text" placeholder="Search by affiliation" />
+            <UInput v-model="filterModel.value" type="text" placeholder="Search by affiliation" />
           </template>
         </Column>
 
         <Column field="city" header="City" sortable :showFilterOperator="false" :showAddButton="false">
           <template #filter="{ filterModel }">
-            <InputText v-model="filterModel.value" type="text" placeholder="Search by city" />
+            <UInput v-model="filterModel.value" type="text" placeholder="Search by city" />
           </template>
         </Column>
 
@@ -326,7 +326,7 @@ const submitNewLaboratory = handleSubmit(async (values) => {
           :showAddButton="false"
         >
           <template #filter="{ filterModel }">
-            <InputText v-model="filterModel.value" type="text" placeholder="Search by country" />
+            <UInput v-model="filterModel.value" type="text" placeholder="Search by country" />
           </template>
         </Column>
 
@@ -340,13 +340,11 @@ const submitNewLaboratory = handleSubmit(async (values) => {
           :showAddButton="false"
         >
           <template #filter="{ filterModel }">
-            <Select
+            <USelectMenu
               v-model="filterModel.value"
-              :options="approvalStatusOptions"
-              optionLabel="label"
-              optionValue="value"
+              :items="approvalStatusOptions"
               placeholder="Any status"
-              showClear
+              clear
               class="w-full"
             />
           </template>
@@ -354,96 +352,107 @@ const submitNewLaboratory = handleSubmit(async (values) => {
       </DataTable>
     </div>
 
-    <Dialog
-      v-model:visible="dialogVisible"
-      header="Add laboratory"
-      modal
-      :style="{ width: '32rem' }"
+    <UModal
+      v-model:open="dialogVisible"
+      title="Add laboratory"
+      :ui="{ content: 'max-w-lg' }"
     >
+      <template #body>
       <div class="flex flex-col gap-4">
         <div class="flex flex-col gap-2">
           <label for="name" class="font-medium text-sm">Laboratory name *</label>
-          <InputText
+          <UInput
             id="name"
             v-model="laboratoryName"
-            :invalid="!!errors.laboratory_name"
-            fluid
+            :color="errors.laboratory_name ? 'error' : undefined"
+            class="w-full"
             autofocus
           />
-          <Message v-if="errors.laboratory_name" severity="error" size="small" variant="simple">
-            {{ errors.laboratory_name }}
-          </Message>
+          <UAlert
+            v-if="errors.laboratory_name"
+            color="error"
+            variant="subtle"
+            :description="errors.laboratory_name"
+          />
         </div>
         <div class="flex flex-col gap-2">
           <label for="affiliation" class="font-medium text-sm">Institutional affiliation *</label>
-          <InputText
+          <UInput
             id="affiliation"
             v-model="institutionalAffiliation"
-            :invalid="!!errors.institutional_affiliation"
-            fluid
+            :color="errors.institutional_affiliation ? 'error' : undefined"
+            class="w-full"
           />
-          <Message
+          <UAlert
             v-if="errors.institutional_affiliation"
-            severity="error"
-            size="small"
-            variant="simple"
-          >
-            {{ errors.institutional_affiliation }}
-          </Message>
+            color="error"
+            variant="subtle"
+            :description="errors.institutional_affiliation"
+          />
         </div>
         <div class="flex flex-col gap-2">
           <label for="director" class="font-medium text-sm">Director / head of laboratory</label>
-          <InputText id="director" v-model="directorHeadOfLaboratory" fluid />
+          <UInput id="director" v-model="directorHeadOfLaboratory" class="w-full" />
         </div>
         <div class="flex flex-col gap-2">
           <label for="street" class="font-medium text-sm">Street address</label>
-          <InputText id="street" v-model="streetAddress" fluid />
+          <UInput id="street" v-model="streetAddress" class="w-full" />
         </div>
         <div class="grid grid-cols-2 gap-4">
           <div class="flex flex-col gap-2">
             <label for="postal" class="font-medium text-sm">Postal code</label>
-            <InputText id="postal" v-model="postalCode" fluid />
+            <UInput id="postal" v-model="postalCode" class="w-full" />
           </div>
           <div class="flex flex-col gap-2">
             <label for="city" class="font-medium text-sm">City *</label>
-            <InputText id="city" v-model="city" :invalid="!!errors.city" fluid />
-            <Message v-if="errors.city" severity="error" size="small" variant="simple">
-              {{ errors.city }}
-            </Message>
+            <UInput
+              id="city"
+              v-model="city"
+              :color="errors.city ? 'error' : undefined"
+              class="w-full"
+            />
+            <UAlert v-if="errors.city" color="error" variant="subtle" :description="errors.city" />
           </div>
           <div class="flex flex-col gap-2">
             <label for="state" class="font-medium text-sm">State</label>
-            <InputText id="state" v-model="state" fluid />
+            <UInput id="state" v-model="state" class="w-full" />
           </div>
           <div class="flex flex-col gap-2">
             <label for="country" class="font-medium text-sm">Country *</label>
-            <Select
+            <USelect
               id="country"
               v-model="country"
-              :options="COUNTRIES"
-              filter
+              :items="COUNTRIES"
               placeholder="Select country"
-              :invalid="!!errors.country"
-              fluid
+              :color="errors.country ? 'error' : undefined"
+              class="w-full"
             />
-            <Message v-if="errors.country" severity="error" size="small" variant="simple">
-              {{ errors.country }}
-            </Message>
+            <UAlert
+              v-if="errors.country"
+              color="error"
+              variant="subtle"
+              :description="errors.country"
+            />
           </div>
         </div>
         <div class="flex flex-col gap-2">
           <label for="lab-email" class="font-medium text-sm">Contact email</label>
-          <InputText id="lab-email" v-model="email" type="email" :invalid="!!errors.email" fluid />
-          <Message v-if="errors.email" severity="error" size="small" variant="simple">
-            {{ errors.email }}
-          </Message>
+          <UInput
+            id="lab-email"
+            v-model="email"
+            type="email"
+            :color="errors.email ? 'error' : undefined"
+            class="w-full"
+          />
+          <UAlert v-if="errors.email" color="error" variant="subtle" :description="errors.email" />
         </div>
-        <Message v-if="submitError" severity="error" size="small">{{ submitError }}</Message>
+        <UAlert v-if="submitError" color="error" variant="outline" :description="submitError" />
       </div>
-      <template #footer>
-        <Button label="Cancel" text @click="dialogVisible = false" />
-        <Button label="Add laboratory" :loading="submitting" @click="submitNewLaboratory" />
       </template>
-    </Dialog>
+      <template #footer>
+        <UButton label="Cancel" variant="ghost" @click="dialogVisible = false" />
+        <UButton label="Add laboratory" :loading="submitting" @click="submitNewLaboratory" />
+      </template>
+    </UModal>
   </div>
 </template>

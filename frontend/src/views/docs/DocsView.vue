@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import Card from 'primevue/card'
 import { defaultDocSlug, docPages, fallbackDocPage } from '@/data/docs'
 
 const route = useRoute()
@@ -13,10 +12,8 @@ const page = computed(() => {
 </script>
 
 <template>
-  <Card>
-    <template #title>{{ page.title }}</template>
-    <template #content>
-      <p class="text-surface-700 dark:text-surface-200">{{ page.body }}</p>
-    </template>
-  </Card>
+  <UCard>
+    <template #header>{{ page.title }}</template>
+    <p class="text-surface-700 dark:text-surface-200">{{ page.body }}</p>
+  </UCard>
 </template>

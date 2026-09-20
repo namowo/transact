@@ -2,13 +2,6 @@
 import { onMounted, ref } from 'vue'
 import { useForm } from 'vee-validate'
 import * as yup from 'yup'
-import Select from 'primevue/select'
-import Button from 'primevue/button'
-import Dialog from 'primevue/dialog'
-import InputText from 'primevue/inputtext'
-import Textarea from 'primevue/textarea'
-import ToggleSwitch from 'primevue/toggleswitch'
-import Message from 'primevue/message'
 import { skinDiseaseCategoryApi } from '@/api/categories'
 import type { SkinDiseaseCategory } from '@/api/types'
 
@@ -77,48 +70,51 @@ const saveNewOption = handleSubmit(async (values) => {
   <div class="flex flex-col gap-2">
     <label class="font-medium text-sm">Skin disease category</label>
     <div class="flex gap-2">
-      <Select
+      <USelectMenu
         v-model="modelValue"
-        :options="options"
-        option-label="name"
-        option-value="id"
+        :items="options"
+        label-key="name"
+        value-key="id"
         placeholder="Select an option"
         :loading="loading"
-        show-clear
-        filter
-        fluid
+        clear
+        class="w-full"
       />
-      <Button icon="pi pi-plus" text aria-label="Add new option" @click="openAddDialog" />
+      <UButton icon="i-lucide-plus" variant="ghost" aria-label="Add new option" @click="openAddDialog" />
     </div>
 
-    <Dialog
-      v-model:visible="showAddDialog"
-      header="Add skin disease category"
-      modal
-      :style="{ width: '28rem' }"
+    <UModal
+      v-model:open="showAddDialog"
+      title="Add skin disease category"
+      :ui="{ content: 'max-w-md' }"
     >
+      <template #body>
       <div class="flex flex-col gap-4">
         <div class="flex flex-col gap-2">
           <label class="font-medium text-sm">Name</label>
-          <InputText v-model="newName" :invalid="!!errors.name" fluid autofocus />
-          <Message v-if="errors.name" severity="error" size="small" variant="simple">
-            {{ errors.name }}
-          </Message>
+          <UInput
+            v-model="newName"
+            :color="errors.name ? 'error' : undefined"
+            class="w-full"
+            autofocus
+          />
+          <UAlert v-if="errors.name" color="error" variant="subtle" :description="errors.name" />
         </div>
         <div class="flex items-center gap-2">
-          <ToggleSwitch v-model="newInfluence" input-id="influence-shedding" />
+          <USwitch v-model="newInfluence" id="influence-shedding" />
           <label for="influence-shedding" class="text-sm">Influences shedding propensity</label>
         </div>
         <div class="flex flex-col gap-2">
           <label class="font-medium text-sm">Literature (Optional)</label>
-          <Textarea v-model="newLiterature" rows="2" fluid />
+          <UTextarea v-model="newLiterature" :rows="2" class="w-full" />
         </div>
         <p v-if="saveError" class="text-sm text-red-500">{{ saveError }}</p>
       </div>
-      <template #footer>
-        <Button label="Cancel" text @click="showAddDialog = false" />
-        <Button label="Add" :loading="saving" @click="saveNewOption" />
       </template>
-    </Dialog>
+      <template #footer>
+        <UButton label="Cancel" variant="ghost" @click="showAddDialog = false" />
+        <UButton label="Add" :loading="saving" @click="saveNewOption" />
+      </template>
+    </UModal>
   </div>
 </template>

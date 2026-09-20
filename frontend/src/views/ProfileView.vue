@@ -3,12 +3,7 @@ import { onMounted, ref, watchEffect } from 'vue'
 import { useForm } from 'vee-validate'
 import * as yup from 'yup'
 import { startRegistration } from '@simplewebauthn/browser'
-import Card from 'primevue/card'
-import InputText from 'primevue/inputtext'
-import Password from 'primevue/password'
-import Button from 'primevue/button'
-import Message from 'primevue/message'
-import Dialog from 'primevue/dialog'
+import PasswordField from '@/components/auth/PasswordField.vue'
 import { useAuthStore } from '@/stores/auth'
 import { getErrorMessage } from '@/api/errors'
 import * as webauthnApi from '@/api/webauthn'
@@ -173,6 +168,9 @@ const passwordSchema = yup.object({
 const passwordLoading = ref(false)
 const passwordErrorMessage = ref('')
 const passwordSuccessMessage = ref('')
+const showEmailCurrentPassword = ref(false)
+const showPasswordCurrentPassword = ref(false)
+const showConfirmPassword = ref(false)
 
 const {
   defineField: definePasswordField,
@@ -211,164 +209,248 @@ const onPasswordSubmit = handlePasswordSubmit(async (values) => {
   <div class="flex flex-col gap-6 max-w-lg">
     <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-0">Edit profile</h1>
 
-    <Card>
-      <template #content>
+    <UCard>
         <form class="flex flex-col gap-4" @submit.prevent="onSubmit">
           <div class="flex flex-col sm:flex-row gap-4">
             <div class="flex flex-col gap-2 flex-1">
               <label for="first-name" class="font-medium text-sm">First name</label>
-              <InputText id="first-name" v-model="firstName" :invalid="!!errors.firstName" fluid />
-              <Message v-if="errors.firstName" severity="error" size="small" variant="simple">
-                {{ errors.firstName }}
-              </Message>
+              <UInput
+                id="first-name"
+                v-model="firstName"
+                :color="errors.firstName ? 'error' : undefined"
+                class="w-full"
+              />
+              <UAlert
+                v-if="errors.firstName"
+                color="error"
+                variant="subtle"
+                :description="errors.firstName"
+              />
             </div>
             <div class="flex flex-col gap-2 flex-1">
               <label for="last-name" class="font-medium text-sm">Last name</label>
-              <InputText id="last-name" v-model="lastName" :invalid="!!errors.lastName" fluid />
-              <Message v-if="errors.lastName" severity="error" size="small" variant="simple">
-                {{ errors.lastName }}
-              </Message>
+              <UInput
+                id="last-name"
+                v-model="lastName"
+                :color="errors.lastName ? 'error' : undefined"
+                class="w-full"
+              />
+              <UAlert
+                v-if="errors.lastName"
+                color="error"
+                variant="subtle"
+                :description="errors.lastName"
+              />
             </div>
           </div>
 
           <div class="flex flex-col gap-2">
             <label class="font-medium text-sm">Laboratory</label>
-            <InputText :model-value="auth.user?.laboratory?.laboratory_name" disabled fluid />
+            <UInput
+              :model-value="auth.user?.laboratory?.laboratory_name"
+              disabled
+              class="w-full"
+            />
           </div>
 
-          <Message v-if="errorMessage" severity="error" size="small">{{ errorMessage }}</Message>
-          <Message v-if="successMessage" severity="success" size="small">{{
-            successMessage
-          }}</Message>
+          <UAlert v-if="errorMessage" color="error" variant="outline" :description="errorMessage" />
+          <UAlert
+            v-if="successMessage"
+            color="success"
+            variant="outline"
+            :description="successMessage"
+          />
 
-          <Button type="submit" label="Save changes" :loading="loading" class="self-start" />
+          <UButton type="submit" label="Save changes" :loading="loading" class="self-start" />
         </form>
-      </template>
-    </Card>
+    </UCard>
 
-    <Card>
-      <template #content>
+    <UCard>
         <form class="flex flex-col gap-4" @submit.prevent="onEmailSubmit">
           <h2 class="text-lg font-medium text-surface-900 dark:text-surface-0">Email address</h2>
 
           <div class="flex flex-col gap-2">
             <label class="font-medium text-sm">Current email</label>
-            <InputText :model-value="auth.user?.email" disabled fluid />
+            <UInput :model-value="auth.user?.email" disabled class="w-full" />
           </div>
 
           <div class="flex flex-col gap-2">
             <label for="new-email" class="font-medium text-sm">New email</label>
-            <InputText id="new-email" v-model="newEmail" :invalid="!!emailErrors.newEmail" fluid />
-            <Message v-if="emailErrors.newEmail" severity="error" size="small" variant="simple">
-              {{ emailErrors.newEmail }}
-            </Message>
+            <UInput
+              id="new-email"
+              v-model="newEmail"
+              :color="emailErrors.newEmail ? 'error' : undefined"
+              class="w-full"
+            />
+            <UAlert
+              v-if="emailErrors.newEmail"
+              color="error"
+              variant="subtle"
+              :description="emailErrors.newEmail"
+            />
           </div>
 
           <div class="flex flex-col gap-2">
             <label for="email-current-password" class="font-medium text-sm">Current password</label>
-            <Password
-              input-id="email-current-password"
+            <UInput
+              id="email-current-password"
               v-model="emailCurrentPassword"
-              toggle-mask
-              :feedback="false"
-              fluid
-              :invalid="!!emailErrors.currentPassword"
+              :type="showEmailCurrentPassword ? 'text' : 'password'"
+              :color="emailErrors.currentPassword ? 'error' : undefined"
+              class="w-full"
+              :ui="{ trailing: 'pe-1' }"
+            >
+              <template #trailing>
+                <UButton
+                  color="neutral"
+                  variant="link"
+                  size="sm"
+                  :icon="showEmailCurrentPassword ? 'i-lucide-eye-off' : 'i-lucide-eye'"
+                  :aria-label="showEmailCurrentPassword ? 'Hide password' : 'Show password'"
+                  :aria-pressed="showEmailCurrentPassword"
+                  @click="showEmailCurrentPassword = !showEmailCurrentPassword"
+                />
+              </template>
+            </UInput>
+            <UAlert
+              v-if="emailErrors.currentPassword"
+              color="error"
+              variant="subtle"
+              :description="emailErrors.currentPassword"
             />
-            <Message v-if="emailErrors.currentPassword" severity="error" size="small" variant="simple">
-              {{ emailErrors.currentPassword }}
-            </Message>
           </div>
 
-          <Message v-if="emailErrorMessage" severity="error" size="small">{{ emailErrorMessage }}</Message>
-          <Message v-if="emailSuccessMessage" severity="success" size="small">{{
-            emailSuccessMessage
-          }}</Message>
+          <UAlert
+            v-if="emailErrorMessage"
+            color="error"
+            variant="outline"
+            :description="emailErrorMessage"
+          />
+          <UAlert
+            v-if="emailSuccessMessage"
+            color="success"
+            variant="outline"
+            :description="emailSuccessMessage"
+          />
 
-          <Button
+          <UButton
             type="submit"
             label="Update email"
             :loading="emailLoading"
             class="self-start"
           />
         </form>
-      </template>
-    </Card>
+    </UCard>
 
-    <Card>
-      <template #content>
+    <UCard>
         <form class="flex flex-col gap-4" @submit.prevent="onPasswordSubmit">
           <h2 class="text-lg font-medium text-surface-900 dark:text-surface-0">Password</h2>
 
           <div class="flex flex-col gap-2">
             <label for="password-current-password" class="font-medium text-sm">Current password</label>
-            <Password
-              input-id="password-current-password"
+            <UInput
+              id="password-current-password"
               v-model="passwordCurrentPassword"
-              toggle-mask
-              :feedback="false"
-              fluid
-              :invalid="!!passwordErrors.currentPassword"
+              :type="showPasswordCurrentPassword ? 'text' : 'password'"
+              :color="passwordErrors.currentPassword ? 'error' : undefined"
+              class="w-full"
+              :ui="{ trailing: 'pe-1' }"
+            >
+              <template #trailing>
+                <UButton
+                  color="neutral"
+                  variant="link"
+                  size="sm"
+                  :icon="showPasswordCurrentPassword ? 'i-lucide-eye-off' : 'i-lucide-eye'"
+                  :aria-label="showPasswordCurrentPassword ? 'Hide password' : 'Show password'"
+                  :aria-pressed="showPasswordCurrentPassword"
+                  @click="showPasswordCurrentPassword = !showPasswordCurrentPassword"
+                />
+              </template>
+            </UInput>
+            <UAlert
+              v-if="passwordErrors.currentPassword"
+              color="error"
+              variant="subtle"
+              :description="passwordErrors.currentPassword"
             />
-            <Message v-if="passwordErrors.currentPassword" severity="error" size="small" variant="simple">
-              {{ passwordErrors.currentPassword }}
-            </Message>
           </div>
 
           <div class="flex flex-col gap-2">
             <label for="new-password" class="font-medium text-sm">New password</label>
-            <Password
-              input-id="new-password"
+            <PasswordField
+              id="new-password"
               v-model="newPassword"
-              toggle-mask
-              fluid
               :invalid="!!passwordErrors.newPassword"
             />
-            <Message v-if="passwordErrors.newPassword" severity="error" size="small" variant="simple">
-              {{ passwordErrors.newPassword }}
-            </Message>
+            <UAlert
+              v-if="passwordErrors.newPassword"
+              color="error"
+              variant="subtle"
+              :description="passwordErrors.newPassword"
+            />
           </div>
 
           <div class="flex flex-col gap-2">
             <label for="confirm-password" class="font-medium text-sm">Confirm new password</label>
-            <Password
-              input-id="confirm-password"
+            <UInput
+              id="confirm-password"
               v-model="confirmPassword"
-              toggle-mask
-              :feedback="false"
-              fluid
-              :invalid="!!passwordErrors.confirmPassword"
+              :type="showConfirmPassword ? 'text' : 'password'"
+              :color="passwordErrors.confirmPassword ? 'error' : undefined"
+              class="w-full"
+              :ui="{ trailing: 'pe-1' }"
+            >
+              <template #trailing>
+                <UButton
+                  color="neutral"
+                  variant="link"
+                  size="sm"
+                  :icon="showConfirmPassword ? 'i-lucide-eye-off' : 'i-lucide-eye'"
+                  :aria-label="showConfirmPassword ? 'Hide password' : 'Show password'"
+                  :aria-pressed="showConfirmPassword"
+                  @click="showConfirmPassword = !showConfirmPassword"
+                />
+              </template>
+            </UInput>
+            <UAlert
+              v-if="passwordErrors.confirmPassword"
+              color="error"
+              variant="subtle"
+              :description="passwordErrors.confirmPassword"
             />
-            <Message v-if="passwordErrors.confirmPassword" severity="error" size="small" variant="simple">
-              {{ passwordErrors.confirmPassword }}
-            </Message>
           </div>
 
-          <Message v-if="passwordErrorMessage" severity="error" size="small">{{
-            passwordErrorMessage
-          }}</Message>
-          <Message v-if="passwordSuccessMessage" severity="success" size="small">{{
-            passwordSuccessMessage
-          }}</Message>
+          <UAlert
+            v-if="passwordErrorMessage"
+            color="error"
+            variant="outline"
+            :description="passwordErrorMessage"
+          />
+          <UAlert
+            v-if="passwordSuccessMessage"
+            color="success"
+            variant="outline"
+            :description="passwordSuccessMessage"
+          />
 
-          <Button
+          <UButton
             type="submit"
             label="Update password"
             :loading="passwordLoading"
             class="self-start"
           />
         </form>
-      </template>
-    </Card>
+    </UCard>
 
-    <Card>
-      <template #content>
+    <UCard>
         <div class="flex flex-col gap-4">
           <div class="flex items-center justify-between">
             <h2 class="text-lg font-medium text-surface-900 dark:text-surface-0">Passkeys</h2>
-            <Button
+            <UButton
               label="Add a passkey"
-              icon="pi pi-plus"
-              size="small"
+              icon="i-lucide-plus"
+              size="sm"
               @click="openAddPasskeyDialog"
             />
           </div>
@@ -377,9 +459,12 @@ const onPasswordSubmit = handlePasswordSubmit(async (values) => {
             Use a passkey to sign in without a password, on this device or others.
           </p>
 
-          <Message v-if="credentialsError" severity="error" size="small">{{
-            credentialsError
-          }}</Message>
+          <UAlert
+            v-if="credentialsError"
+            color="error"
+            variant="outline"
+            :description="credentialsError"
+          />
 
           <p v-if="!credentialsLoading && credentials.length === 0" class="text-sm text-surface-500 dark:text-surface-400">
             No passkeys registered yet.
@@ -402,30 +487,42 @@ const onPasswordSubmit = handlePasswordSubmit(async (values) => {
                   </template>
                 </span>
               </div>
-              <Button
-                icon="pi pi-trash"
-                severity="danger"
-                text
+              <UButton
+                icon="i-lucide-trash-2"
+                color="error"
+                variant="ghost"
+                aria-label="Delete passkey"
                 @click="onDeletePasskey(credential)"
               />
             </li>
           </ul>
         </div>
-      </template>
-    </Card>
+    </UCard>
 
-    <Dialog v-model:visible="showAddPasskeyDialog" modal header="Add a passkey" style="width: 28rem">
+    <UModal v-model:open="showAddPasskeyDialog" title="Add a passkey" :ui="{ content: 'max-w-md' }">
+      <template #body>
       <div class="flex flex-col gap-4">
         <div class="flex flex-col gap-2">
           <label for="device-name" class="font-medium text-sm">Device name (optional)</label>
-          <InputText id="device-name" v-model="newDeviceName" placeholder="e.g. MacBook Pro" fluid />
+          <UInput
+            id="device-name"
+            v-model="newDeviceName"
+            placeholder="e.g. MacBook Pro"
+            class="w-full"
+          />
         </div>
-        <Message v-if="credentialsError" severity="error" size="small">{{ credentialsError }}</Message>
+        <UAlert
+          v-if="credentialsError"
+          color="error"
+          variant="outline"
+          :description="credentialsError"
+        />
       </div>
-      <template #footer>
-        <Button label="Cancel" text @click="showAddPasskeyDialog = false" />
-        <Button label="Continue" :loading="addingPasskey" @click="onAddPasskey" />
       </template>
-    </Dialog>
+      <template #footer>
+        <UButton label="Cancel" variant="ghost" @click="showAddPasskeyDialog = false" />
+        <UButton label="Continue" :loading="addingPasskey" @click="onAddPasskey" />
+      </template>
+    </UModal>
   </div>
 </template>

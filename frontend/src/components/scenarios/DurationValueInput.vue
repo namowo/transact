@@ -1,8 +1,5 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import InputNumber from 'primevue/inputnumber'
-import InputGroup from 'primevue/inputgroup'
-import InputGroupAddon from 'primevue/inputgroupaddon'
 
 // The underlying v-model is always seconds. The UI splits it into
 // years/days/hours/minutes/seconds fields so composite durations (e.g. "1
@@ -59,15 +56,15 @@ function onPartChange() {
 
 <template>
   <div class="flex flex-wrap gap-2">
-    <InputGroup v-for="{ key, label } in units" :key="key" class="flex-1 min-w-24">
-      <InputNumber
+    <UFieldGroup v-for="{ key, label } in units" :key="key" class="flex-1 min-w-24">
+      <UInputNumber
         v-model="parts[key]"
         :min="0"
-        :invalid="invalid"
-        fluid
+        :color="invalid ? 'error' : undefined"
+        class="w-full"
         @update:model-value="onPartChange"
       />
-      <InputGroupAddon>{{ label }}</InputGroupAddon>
-    </InputGroup>
+      <UBadge color="neutral" variant="outline" size="lg" :label="label" />
+    </UFieldGroup>
   </div>
 </template>

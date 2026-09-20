@@ -2,8 +2,6 @@
 import { computed, onMounted, ref } from 'vue'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
-import Button from 'primevue/button'
-import Message from 'primevue/message'
 import { listStudies, passQualityCheck } from '@/api/studies'
 import type { Study } from '@/api/types'
 
@@ -54,8 +52,8 @@ async function approve(study: Study) {
   <div class="flex flex-col gap-6">
     <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-0">Quality Check</h1>
 
-    <Message v-if="loadError" severity="error" size="small">{{ loadError }}</Message>
-    <Message v-if="actionError" severity="error" size="small">{{ actionError }}</Message>
+    <UAlert v-if="loadError" color="error" variant="outline" :description="loadError" />
+    <UAlert v-if="actionError" color="error" variant="outline" :description="actionError" />
 
     <div class="overflow-x-auto">
       <DataTable :value="pendingStudies" :loading="loading" data-key="id">
@@ -66,9 +64,9 @@ async function approve(study: Study) {
         <Column field="year" header="Year" />
         <Column header="" style="width: 12rem">
           <template #body="{ data }">
-            <Button
+            <UButton
               label="Pass quality check"
-              size="small"
+              size="sm"
               :loading="actingOnId === data.id"
               @click="approve(data)"
             />

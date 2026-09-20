@@ -2,11 +2,6 @@
 import { computed, onMounted, ref } from 'vue'
 import { useForm } from 'vee-validate'
 import * as yup from 'yup'
-import Select from 'primevue/select'
-import Button from 'primevue/button'
-import Dialog from 'primevue/dialog'
-import InputNumber from 'primevue/inputnumber'
-import Message from 'primevue/message'
 import CategorySelect from './CategorySelect.vue'
 import SkinDiseaseCategorySelect from './SkinDiseaseCategorySelect.vue'
 import DeterminationOfSheddingPropensityCategorySelect from './DeterminationOfSheddingPropensityCategorySelect.vue'
@@ -45,6 +40,12 @@ async function load() {
 }
 
 onMounted(load)
+
+// USelect's label-key only supports a plain field lookup, not a callback
+// like PrimeVue's option-label, so precompute the display label per item.
+const individualOptions = computed(() =>
+  individuals.value.map((individual) => ({ ...individual, label: describeIndividual(individual) })),
+)
 
 const selectedIndividual = computed(
   () => individuals.value.find((candidate) => candidate.id === individualId.value) ?? null,
@@ -141,61 +142,63 @@ const saveIndividual = handleSubmit(async (values) => {
   <div class="flex flex-col gap-2">
     <label class="font-medium text-sm">Individual</label>
     <div class="flex gap-2">
-      <Select
+      <USelectMenu
         v-model="individualId"
-        :options="individuals"
-        :option-label="describeIndividual"
-        option-value="id"
+        :items="individualOptions"
+        value-key="id"
         placeholder="Select an individual"
         :loading="loading"
-        show-clear
-        filter
-        fluid
+        clear
+        class="w-full"
       />
-      <Button
+      <UButton
         v-if="selectedIndividual"
-        icon="pi pi-pencil"
-        text
+        icon="i-lucide-pencil"
+        variant="ghost"
         aria-label="Edit individual"
         @click="openEditDialog"
       />
-      <Button icon="pi pi-plus" text aria-label="Add new individual" @click="openCreateDialog" />
+      <UButton icon="i-lucide-plus" variant="ghost" aria-label="Add new individual" @click="openCreateDialog" />
     </div>
 
-    <Dialog
-      v-model:visible="showDialog"
-      :header="dialogMode === 'edit' ? 'Edit individual' : 'Add individual'"
-      modal
-      :style="{ width: '28rem' }"
+    <UModal
+      v-model:open="showDialog"
+      :title="dialogMode === 'edit' ? 'Edit individual' : 'Add individual'"
+      :ui="{ content: 'max-w-md' }"
     >
-      <div class="flex flex-col gap-4">
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <CategorySelect
-            v-model="formSexId"
-            label="Sex (Optional)"
-            :api="sexApi"
-          />
-          <div class="flex flex-col gap-2">
-            <label class="font-medium text-sm">Age (Optional)</label>
-            <InputNumber v-model="formAge" :invalid="!!errors.age" fluid />
-            <Message v-if="errors.age" severity="error" size="small" variant="simple">
-              {{ errors.age }}
-            </Message>
+      <template #body>
+        <div class="flex flex-col gap-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <CategorySelect
+              v-model="formSexId"
+              label="Sex (Optional)"
+              :api="sexApi"
+            />
+            <div class="flex flex-col gap-2">
+              <label class="font-medium text-sm">Age (Optional)</label>
+              <UInputNumber v-model="formAge" :color="errors.age ? 'error' : undefined" class="w-full" />
+              <UAlert
+                v-if="errors.age"
+                color="error"
+                variant="subtle"
+                :description="errors.age"
+              />
+            </div>
           </div>
+          <CategorySelect
+            v-model="formDnaSheddingPropensityCategoryId"
+            label="DNA shedding propensity (Optional)"
+            :api="dnaSheddingPropensityCategoryApi"
+          />
+          <SkinDiseaseCategorySelect v-model="formSkinDiseaseCategoryId" />
+          <DeterminationOfSheddingPropensityCategorySelect v-model="formDeterminationCategoryId" />
+          <p v-if="saveError" class="text-sm text-red-500">{{ saveError }}</p>
         </div>
-        <CategorySelect
-          v-model="formDnaSheddingPropensityCategoryId"
-          label="DNA shedding propensity (Optional)"
-          :api="dnaSheddingPropensityCategoryApi"
-        />
-        <SkinDiseaseCategorySelect v-model="formSkinDiseaseCategoryId" />
-        <DeterminationOfSheddingPropensityCategorySelect v-model="formDeterminationCategoryId" />
-        <p v-if="saveError" class="text-sm text-red-500">{{ saveError }}</p>
-      </div>
-      <template #footer>
-        <Button label="Cancel" text @click="showDialog = false" />
-        <Button label="Save" :loading="saving" @click="saveIndividual" />
       </template>
-    </Dialog>
+      <template #footer>
+        <UButton label="Cancel" variant="ghost" @click="showDialog = false" />
+        <UButton label="Save" :loading="saving" @click="saveIndividual" />
+      </template>
+    </UModal>
   </div>
 </template>

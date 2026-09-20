@@ -1,10 +1,5 @@
-<urwen>
-  
-</urwen><script setup lang="ts">
+<script setup lang="ts">
 import SelectButton from 'primevue/selectbutton'
-import Textarea from 'primevue/textarea'
-import ToggleSwitch from 'primevue/toggleswitch'
-import Button from 'primevue/button'
 import CategorySelect from './CategorySelect.vue'
 import ItemSelect from './ItemSelect.vue'
 import {
@@ -102,28 +97,28 @@ const kindOptions = [
 
       <div class="flex flex-wrap gap-6">
         <div class="flex items-center gap-2">
-          <ToggleSwitch v-model="draft.backgroundDna" input-id="bg-dna" />
+          <USwitch v-model="draft.backgroundDna" id="bg-dna" />
           <label for="bg-dna" class="text-sm">Background DNA present</label>
         </div>
         <div class="flex items-center gap-2">
-          <ToggleSwitch v-model="draft.prevalence" input-id="prevalence" />
+          <USwitch v-model="draft.prevalence" id="prevalence" />
           <label for="prevalence" class="text-sm">Prevalence</label>
         </div>
       </div>
 
       <div class="flex flex-col gap-2">
         <label class="font-medium text-sm">Further description (Optional)</label>
-        <Textarea v-model="draft.furtherDescription" rows="2" fluid />
+        <UTextarea v-model="draft.furtherDescription" :rows="2" class="w-full" />
       </div>
     </template>
 
-    <Button
+    <UButton
       v-if="props.locked"
       :label="`Delete ${props.label.toLowerCase()}`"
-      icon="pi pi-trash"
-      severity="danger"
-      outlined
-      size="small"
+      icon="i-lucide-trash-2"
+      color="error"
+      variant="outline"
+      size="sm"
       class="self-start"
       @click="emit('delete')"
     />

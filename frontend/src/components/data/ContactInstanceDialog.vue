@@ -1,8 +1,5 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import Dialog from 'primevue/dialog'
-import Button from 'primevue/button'
-import Message from 'primevue/message'
 import EntitySelect from '@/components/scenarios/EntitySelect.vue'
 import SurfaceInstanceForm from './SurfaceInstanceForm.vue'
 import { emptyContactInstanceDraft, saveContactInstanceDraft } from './contactInstanceDraft'
@@ -52,43 +49,44 @@ async function save() {
 </script>
 
 <template>
-  <Dialog
-    v-model:visible="visible"
-    header="Add actual contact"
-    modal
-    :style="{ width: '36rem' }"
+  <UModal
+    v-model:open="visible"
+    title="Add actual contact"
+    :ui="{ content: 'max-w-xl' }"
   >
-    <div class="flex flex-col gap-4">
-      <EntitySelect
-        v-model="draft.contactTemplateId"
-        label="Contact template"
-        :options="props.contactTemplates"
-        :option-label="templateLabel"
-      />
-
-      <template v-if="selectedTemplate">
-        <SurfaceInstanceForm
-          v-model="draft.donorSurface"
-          label="Donor"
-          :template="selectedTemplate.donor_surface_template ?? null"
+    <template #body>
+      <div class="flex flex-col gap-4">
+        <EntitySelect
+          v-model="draft.contactTemplateId"
+          label="Contact template"
+          :options="props.contactTemplates"
+          :option-label="templateLabel"
         />
-        <SurfaceInstanceForm
-          v-model="draft.recipientSurface"
-          label="Recipient"
-          :template="selectedTemplate.recipient_surface_template ?? null"
-        />
-      </template>
 
-      <Message v-if="submitError" severity="error" size="small">{{ submitError }}</Message>
-    </div>
+        <template v-if="selectedTemplate">
+          <SurfaceInstanceForm
+            v-model="draft.donorSurface"
+            label="Donor"
+            :template="selectedTemplate.donor_surface_template ?? null"
+          />
+          <SurfaceInstanceForm
+            v-model="draft.recipientSurface"
+            label="Recipient"
+            :template="selectedTemplate.recipient_surface_template ?? null"
+          />
+        </template>
+
+        <UAlert v-if="submitError" color="error" variant="outline" :description="submitError" />
+      </div>
+    </template>
     <template #footer>
-      <Button label="Cancel" text @click="visible = false" />
-      <Button
+      <UButton label="Cancel" variant="ghost" @click="visible = false" />
+      <UButton
         label="Save"
         :loading="submitting"
         :disabled="!selectedTemplate"
         @click="save"
       />
     </template>
-  </Dialog>
+  </UModal>
 </template>

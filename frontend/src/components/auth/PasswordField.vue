@@ -1,62 +1,65 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import IconField from 'primevue/iconfield'
-import InputIcon from 'primevue/inputicon'
-import InputPassword from 'primevue/inputpassword'
-import Chip from 'primevue/chip'
-import Check from '@primeicons/vue/check'
-import Eye from '@primeicons/vue/eye'
-import EyeSlash from '@primeicons/vue/eye-slash'
-import Lock from '@primeicons/vue/lock'
-import Times from '@primeicons/vue/times'
+import { ref, computed } from 'vue'
 
 const value = defineModel<string>({ default: '' })
-const mask = ref(true)
+
+defineProps<{ id?: string; invalid?: boolean; disabled?: boolean }>()
+
+const show = ref(false)
 
 const rules = [
-  { label: '8+ characters', test: (v: string) => v.length >= 8 },
-  { label: 'Number', test: (v: string) => /\d/.test(v) },
-  { label: 'Uppercase letter', test: (v: string) => /[A-Z]/.test(v) },
-  { label: 'Special character', test: (v: string) => /[^a-zA-Z0-9]/.test(v) },
+  { regex: /.{8,}/, text: '8+ characters' },
+  { regex: /\d/, text: 'Number' },
+  { regex: /[A-Z]/, text: 'Uppercase letter' },
+  { regex: /[^a-zA-Z0-9]/, text: 'Special character' },
 ]
+
+const strength = computed(() => rules.map((rule) => ({ met: rule.regex.test(value.value), text: rule.text })))
+const score = computed(() => strength.value.filter((rule) => rule.met).length)
+
+const color = computed(() => {
+  if (score.value === 0) return 'neutral'
+  if (score.value <= 1) return 'error'
+  if (score.value <= 3) return 'warning'
+  return 'success'
+})
 </script>
 
 <template>
-  <div>
-    <IconField>
-      <InputIcon>
-        <Lock />
-      </InputIcon>
-      <InputPassword v-model="value" :mask="mask" fluid />
-      <InputIcon class="cursor-pointer" @click="mask = !mask">
-        <Eye v-if="mask" :size="16" />
-        <EyeSlash v-else :size="16" />
-      </InputIcon>
-    </IconField>
-    <div class="mt-3 flex items-center flex-wrap gap-1.5">
-      <Chip
-        v-for="rule in rules"
-        :key="rule.label"
-        :class="
-          'py-1! px-2! text-xs! gap-1.5! bg-transparent! border border-surface-200 dark:border-surface-700 ' +
-          (rule.test(value)
-            ? 'text-green-600! dark:text-green-400!'
-            : 'text-surface-500! dark:text-surface-400!')
-        "
+  <div class="flex flex-col gap-2">
+    <UInput
+      :id="id"
+      v-model="value"
+      :type="show ? 'text' : 'password'"
+      :color="invalid ? 'error' : color"
+      :disabled="disabled"
+      class="w-full"
+      :ui="{ trailing: 'pe-1' }"
+    >
+      <template #trailing>
+        <UButton
+          color="neutral"
+          variant="link"
+          size="sm"
+          :icon="show ? 'i-lucide-eye-off' : 'i-lucide-eye'"
+          :aria-label="show ? 'Hide password' : 'Show password'"
+          :aria-pressed="show"
+          @click="show = !show"
+        />
+      </template>
+    </UInput>
+
+    <div class="flex items-center flex-wrap gap-1.5">
+      <UBadge
+        v-for="rule in strength"
+        :key="rule.text"
+        :color="rule.met ? 'success' : 'neutral'"
+        variant="subtle"
+        size="sm"
       >
-        <span
-          :class="
-            'size-4 inline-flex items-center justify-center rounded-full ' +
-            (rule.test(value)
-              ? 'bg-green-600 text-surface-0 dark:bg-green-400 dark:text-surface-900'
-              : 'bg-surface-200 dark:bg-surface-700 text-surface-500 dark:text-surface-400')
-          "
-        >
-          <Check v-if="rule.test(value)" :size="12" />
-          <Times v-else :size="12" />
-        </span>
-        {{ rule.label }}
-      </Chip>
+        <UIcon :name="rule.met ? 'i-lucide-check' : 'i-lucide-x'" class="size-3" />
+        {{ rule.text }}
+      </UBadge>
     </div>
   </div>
 </template>

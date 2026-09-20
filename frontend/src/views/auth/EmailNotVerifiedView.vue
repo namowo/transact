@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import Button from 'primevue/button'
-import Message from 'primevue/message'
 import { resendVerification } from '@/api/auth'
 import { useAuthStore } from '@/stores/auth'
 import { getErrorMessage } from '@/api/errors'
@@ -59,10 +57,10 @@ async function onCheckAgain() {
       >.
     </p>
 
-    <Message v-if="resendMessage" severity="info" size="small">{{ resendMessage }}</Message>
+    <UAlert v-if="resendMessage" color="info" variant="outline" :description="resendMessage" />
 
-    <Button label="I've confirmed my email" :loading="checking" @click="onCheckAgain" />
-    <Button label="Resend email" outlined :loading="resending" @click="onResend" />
-    <Button label="Log out" text @click="onLogout" />
+    <UButton label="I've confirmed my email" :loading="checking" @click="onCheckAgain" />
+    <UButton label="Resend email" variant="outline" :loading="resending" @click="onResend" />
+    <UButton label="Log out" variant="ghost" @click="onLogout" />
   </div>
 </template>

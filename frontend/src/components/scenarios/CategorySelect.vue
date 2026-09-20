@@ -2,12 +2,6 @@
 import { onMounted, ref } from 'vue'
 import { useForm } from 'vee-validate'
 import * as yup from 'yup'
-import Select from 'primevue/select'
-import Button from 'primevue/button'
-import Dialog from 'primevue/dialog'
-import InputText from 'primevue/inputtext'
-import Textarea from 'primevue/textarea'
-import Message from 'primevue/message'
 import type { NamedCategory } from '@/api/types'
 
 const props = defineProps<{
@@ -89,58 +83,72 @@ const saveNewOption = handleSubmit(async (values) => {
   <div class="flex flex-col gap-2">
     <div class="flex items-center gap-1.5">
       <label class="font-medium text-sm">{{ label }}</label>
-      <i
+      <UTooltip
         v-if="description"
-        v-tooltip.top="{ value: description, pt: { text: { class: 'max-w-xs' } } }"
-        class="pi pi-info-circle text-surface-500 dark:text-surface-400 text-sm cursor-help"
-      />
+        :text="description"
+        :content="{ side: 'top' }"
+        :ui="{ content: 'max-w-xs' }"
+      >
+        <UIcon
+          name="i-lucide-info"
+          class="text-surface-500 dark:text-surface-400 text-sm cursor-help"
+        />
+      </UTooltip>
     </div>
     <div class="flex gap-2">
-      <Select
+      <USelectMenu
         :model-value="modelValue"
-        :options="options"
-        option-label="name"
-        option-value="id"
+        :items="options"
+        label-key="name"
+        value-key="id"
         :placeholder="placeholder ?? 'Select an option'"
         :loading="loading"
-        show-clear
-        filter
-        fluid
+        clear
+        class="w-full"
         @update:model-value="emit('update:modelValue', $event)"
       />
-      <Button
+      <UButton
         v-if="allowAdd ?? true"
-        icon="pi pi-plus"
-        text
+        icon="i-lucide-plus"
+        variant="ghost"
         aria-label="Add new option"
         @click="openAddDialog"
       />
     </div>
 
-    <Dialog
-      v-model:visible="showAddDialog"
-      :header="`Add ${label}`"
-      modal
-      :style="{ width: '28rem' }"
+    <UModal
+      v-model:open="showAddDialog"
+      :title="`Add ${label}`"
+      :ui="{ content: 'max-w-md' }"
     >
-      <div class="flex flex-col gap-4">
-        <div class="flex flex-col gap-2">
-          <label class="font-medium text-sm">Name</label>
-          <InputText v-model="newName" :invalid="!!errors.name" fluid autofocus />
-          <Message v-if="errors.name" severity="error" size="small" variant="simple">
-            {{ errors.name }}
-          </Message>
+      <template #body>
+        <div class="flex flex-col gap-4">
+          <div class="flex flex-col gap-2">
+            <label class="font-medium text-sm">Name</label>
+            <UInput
+              v-model="newName"
+              :color="errors.name ? 'error' : undefined"
+              class="w-full"
+              autofocus
+            />
+            <UAlert
+              v-if="errors.name"
+              color="error"
+              variant="subtle"
+              :description="errors.name"
+            />
+          </div>
+          <div class="flex flex-col gap-2">
+            <label class="font-medium text-sm">Description (Optional)</label>
+            <UTextarea v-model="newDescription" rows="2" class="w-full" />
+          </div>
+          <p v-if="saveError" class="text-sm text-red-500">{{ saveError }}</p>
         </div>
-        <div class="flex flex-col gap-2">
-          <label class="font-medium text-sm">Description (Optional)</label>
-          <Textarea v-model="newDescription" rows="2" fluid />
-        </div>
-        <p v-if="saveError" class="text-sm text-red-500">{{ saveError }}</p>
-      </div>
-      <template #footer>
-        <Button label="Cancel" text @click="showAddDialog = false" />
-        <Button label="Add" :loading="saving" @click="saveNewOption" />
       </template>
-    </Dialog>
+      <template #footer>
+        <UButton label="Cancel" variant="ghost" @click="showAddDialog = false" />
+        <UButton label="Add" :loading="saving" @click="saveNewOption" />
+      </template>
+    </UModal>
   </div>
 </template>

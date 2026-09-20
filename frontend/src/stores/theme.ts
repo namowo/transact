@@ -13,7 +13,7 @@ export const useThemeStore = defineStore('theme', () => {
   const isDark = ref(getInitialIsDark())
 
   watchEffect(() => {
-    document.documentElement.classList.toggle('app-dark', isDark.value)
+    document.documentElement.classList.toggle('dark', isDark.value)
     localStorage.setItem(STORAGE_KEY, isDark.value ? 'dark' : 'light')
 
     const favicon = document.getElementById('favicon') as HTMLLinkElement | null

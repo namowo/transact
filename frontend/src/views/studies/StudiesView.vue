@@ -3,13 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import DataView from 'primevue/dataview'
 import SelectButton from 'primevue/selectbutton'
-import InputText from 'primevue/inputtext'
-import IconField from 'primevue/iconfield'
-import InputIcon from 'primevue/inputicon'
-import Tag from 'primevue/tag'
-import Button from 'primevue/button'
-import Dialog from 'primevue/dialog'
-import { useToast } from 'primevue/usetoast'
+import { useToast } from '@nuxt/ui/composables'
 import { listStudies } from '@/api/studies'
 import { useAuthStore } from '@/stores/auth'
 import type { Study } from '@/api/types'
@@ -95,10 +89,10 @@ function canEdit(study: Study) {
 
 function downloadStudy(study: Study) {
   toast.add({
-    severity: 'info',
-    summary: 'Coming soon',
-    detail: `Downloading data for "${study.title}" will be available in a future update.`,
-    life: 4000,
+    color: 'info',
+    title: 'Coming soon',
+    description: `Downloading data for "${study.title}" will be available in a future update.`,
+    duration: 4000,
   })
 }
 
@@ -127,10 +121,10 @@ function choosePurpose(purpose: 'transfer' | 'repository') {
           }}
         </p>
       </div>
-      <Button
+      <UButton
         v-if="auth.isAuthenticated"
         label="Add study"
-        icon="pi pi-plus"
+        icon="i-lucide-plus"
         @click="showPurposeDialog = true"
       />
     </div>
@@ -138,10 +132,12 @@ function choosePurpose(purpose: 'transfer' | 'repository') {
     <DataView :value="filteredStudies" :loading="loading" data-key="id" paginator :rows="10">
       <template #header>
         <div class="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
-          <IconField class="sm:max-w-sm w-full">
-            <InputIcon class="pi pi-search" />
-            <InputText v-model="searchQuery" placeholder="Search title, author, journal, DOI…" fluid />
-          </IconField>
+          <UInput
+            v-model="searchQuery"
+            icon="i-lucide-search"
+            placeholder="Search title, author, journal, DOI…"
+            class="sm:max-w-sm w-full"
+          />
           <SelectButton
             v-model="sortKey"
             :options="sortOptions"
@@ -168,11 +164,11 @@ function choosePurpose(purpose: 'transfer' | 'repository') {
           >
             <div class="flex-1 flex flex-col gap-2">
               <div class="flex flex-wrap items-center gap-2">
-                <Tag
-                  :value="item.laboratory?.laboratory_name ?? 'Unknown laboratory'"
-                  :severity="isOwnLab(item) ? 'success' : 'secondary'"
+                <UBadge
+                  :label="item.laboratory?.laboratory_name ?? 'Unknown laboratory'"
+                  :color="isOwnLab(item) ? 'success' : 'neutral'"
                 />
-                <Tag v-if="item.quality_check_passed" value="QC passed" severity="info" />
+                <UBadge v-if="item.quality_check_passed" label="QC passed" color="info" />
                 <span v-if="item.year" class="text-surface-500 dark:text-surface-400 text-sm">{{
                   item.year
                 }}</span>
@@ -202,12 +198,12 @@ function choosePurpose(purpose: 'transfer' | 'repository') {
                   Edit
                 </span>
                 <div class="flex flex-row sm:flex-col gap-2">
-                  <Button
+                  <UButton
                     label="Details"
-                    icon="pi pi-pencil"
-                    severity="secondary"
-                    size="small"
-                    outlined
+                    icon="i-lucide-pencil"
+                    color="neutral"
+                    size="sm"
+                    variant="outline"
                     :disabled="!canEdit(item)"
                     @click="
                       router.push({
@@ -217,12 +213,12 @@ function choosePurpose(purpose: 'transfer' | 'repository') {
                       })
                     "
                   />
-                  <Button
+                  <UButton
                     label="Planning"
-                    icon="pi pi-sitemap"
-                    severity="secondary"
-                    size="small"
-                    outlined
+                    icon="i-lucide-network"
+                    color="neutral"
+                    size="sm"
+                    variant="outline"
                     :disabled="!canEdit(item)"
                     @click="
                       router.push({
@@ -232,13 +228,13 @@ function choosePurpose(purpose: 'transfer' | 'repository') {
                       })
                     "
                   />
-                  <Button
+                  <UButton
                     v-if="item.add_data_to_repository"
                     label="Add data"
-                    icon="pi pi-database"
-                    severity="secondary"
-                    size="small"
-                    outlined
+                    icon="i-lucide-database"
+                    color="neutral"
+                    size="sm"
+                    variant="outline"
                     :disabled="!canEdit(item)"
                     @click="
                       router.push({
@@ -250,11 +246,11 @@ function choosePurpose(purpose: 'transfer' | 'repository') {
                   />
                 </div>
               </div>
-              <Button
+              <UButton
                 label="Download"
-                icon="pi pi-download"
-                size="small"
-                outlined
+                icon="i-lucide-download"
+                size="sm"
+                variant="outline"
                 @click="downloadStudy(item)"
               />
             </div>
@@ -263,29 +259,30 @@ function choosePurpose(purpose: 'transfer' | 'repository') {
       </template>
     </DataView>
 
-    <Dialog
-      v-model:visible="showPurposeDialog"
-      header="What would you like to do?"
-      modal
-      :style="{ width: '32rem' }"
+    <UModal
+      v-model:open="showPurposeDialog"
+      title="What would you like to do?"
+      :ui="{ content: 'max-w-lg' }"
     >
+      <template #body>
       <div class="flex flex-col sm:flex-row gap-3">
-        <Button
+        <UButton
           label="Plan a transfer experiment"
           class="flex-1"
-          outlined
+          variant="outline"
           @click="choosePurpose('transfer')"
         />
-        <Button
+        <UButton
           label="Add data to repository"
           class="flex-1"
-          outlined
+          variant="outline"
           @click="choosePurpose('repository')"
         />
       </div>
-      <template #footer>
-        <Button label="Cancel" text @click="showPurposeDialog = false" />
       </template>
-    </Dialog>
+      <template #footer>
+        <UButton label="Cancel" variant="ghost" @click="showPurposeDialog = false" />
+      </template>
+    </UModal>
   </div>
 </template>

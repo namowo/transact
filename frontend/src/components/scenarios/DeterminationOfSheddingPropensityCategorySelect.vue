@@ -2,12 +2,6 @@
 import { computed, onMounted, ref } from 'vue'
 import { useForm } from 'vee-validate'
 import * as yup from 'yup'
-import Select from 'primevue/select'
-import Button from 'primevue/button'
-import Dialog from 'primevue/dialog'
-import InputText from 'primevue/inputtext'
-import Textarea from 'primevue/textarea'
-import Message from 'primevue/message'
 import { determinationOfSheddingPropensityCategoryApi } from '@/api/categories'
 import type { DeterminationOfSheddingPropensityCategory } from '@/api/types'
 
@@ -145,84 +139,87 @@ const saveNewOption = handleSubmit(async (values) => {
   <div class="flex flex-col gap-2">
     <label class="font-medium text-sm">Determination of shedding propensity</label>
     <div class="flex gap-2">
-      <Select
+      <USelectMenu
         v-model="modelValue"
-        :options="selectOptions"
-        option-label="label"
-        option-value="id"
+        :items="selectOptions"
+        label-key="label"
+        value-key="id"
         placeholder="Select an option"
         :loading="loading"
-        show-clear
-        filter
-        fluid
+        clear
+        class="w-full"
       />
-      <Button icon="pi pi-plus" text aria-label="Add new reference" @click="openAddDialog" />
+      <UButton icon="i-lucide-plus" variant="ghost" aria-label="Add new reference" @click="openAddDialog" />
     </div>
 
-    <Dialog
-      v-model:visible="showAddDialog"
-      header="Add determination of shedding propensity reference"
-      modal
-      :style="{ width: '36rem' }"
+    <UModal
+      v-model:open="showAddDialog"
+      title="Add determination of shedding propensity reference"
+      :ui="{ content: 'max-w-xl' }"
     >
-      <div class="flex flex-col gap-4">
-        <Message v-if="errors['']" severity="error" size="small" variant="simple">
-          {{ errors[''] }}
-        </Message>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div class="flex flex-col gap-2">
-            <label class="font-medium text-sm">Authors</label>
-            <InputText v-model="authors" fluid autofocus />
+      <template #body>
+        <div class="flex flex-col gap-4">
+          <UAlert
+            v-if="errors['']"
+            color="error"
+            variant="subtle"
+            :description="errors['']"
+          />
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="flex flex-col gap-2">
+              <label class="font-medium text-sm">Authors</label>
+              <UInput v-model="authors" class="w-full" autofocus />
+            </div>
+            <div class="flex flex-col gap-2">
+              <label class="font-medium text-sm">Title</label>
+              <UInput v-model="title" class="w-full" />
+            </div>
           </div>
           <div class="flex flex-col gap-2">
-            <label class="font-medium text-sm">Title</label>
-            <InputText v-model="title" fluid />
-          </div>
-        </div>
-        <div class="flex flex-col gap-2">
-          <label class="font-medium text-sm">DOI (Optional)</label>
-          <InputText v-model="doi" fluid />
-        </div>
-        <div class="flex flex-col gap-2">
-          <label class="font-medium text-sm">Restrictions prior to sampling (Optional)</label>
-          <Textarea v-model="restrictionsPriorToSampling" rows="2" fluid />
-        </div>
-        <div class="flex flex-col gap-2">
-          <label class="font-medium text-sm">Monitored transfer factors (Optional)</label>
-          <Textarea v-model="monitoredTransferFactors" rows="2" fluid />
-        </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div class="flex flex-col gap-2">
-            <label class="font-medium text-sm">Number of participants (Optional)</label>
-            <InputText v-model="numberOfParticipants" fluid />
+            <label class="font-medium text-sm">DOI (Optional)</label>
+            <UInput v-model="doi" class="w-full" />
           </div>
           <div class="flex flex-col gap-2">
-            <label class="font-medium text-sm">Replicates (Optional)</label>
-            <InputText v-model="replicates" fluid />
+            <label class="font-medium text-sm">Restrictions prior to sampling (Optional)</label>
+            <UTextarea v-model="restrictionsPriorToSampling" rows="2" class="w-full" />
           </div>
+          <div class="flex flex-col gap-2">
+            <label class="font-medium text-sm">Monitored transfer factors (Optional)</label>
+            <UTextarea v-model="monitoredTransferFactors" rows="2" class="w-full" />
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="flex flex-col gap-2">
+              <label class="font-medium text-sm">Number of participants (Optional)</label>
+              <UInput v-model="numberOfParticipants" class="w-full" />
+            </div>
+            <div class="flex flex-col gap-2">
+              <label class="font-medium text-sm">Replicates (Optional)</label>
+              <UInput v-model="replicates" class="w-full" />
+            </div>
+          </div>
+          <div class="flex flex-col gap-2">
+            <label class="font-medium text-sm">Shedder test (Optional)</label>
+            <UTextarea v-model="shedderTest" rows="2" class="w-full" />
+          </div>
+          <div class="flex flex-col gap-2">
+            <label class="font-medium text-sm">Classification criteria (Optional)</label>
+            <UTextarea v-model="classificationCriteria" rows="2" class="w-full" />
+          </div>
+          <div class="flex flex-col gap-2">
+            <label class="font-medium text-sm">Classification scheme (Optional)</label>
+            <UTextarea v-model="classificationScheme" rows="2" class="w-full" />
+          </div>
+          <div class="flex flex-col gap-2">
+            <label class="font-medium text-sm">Classification outcome (Optional)</label>
+            <UTextarea v-model="classificationOutcome" rows="2" class="w-full" />
+          </div>
+          <p v-if="saveError" class="text-sm text-red-500">{{ saveError }}</p>
         </div>
-        <div class="flex flex-col gap-2">
-          <label class="font-medium text-sm">Shedder test (Optional)</label>
-          <Textarea v-model="shedderTest" rows="2" fluid />
-        </div>
-        <div class="flex flex-col gap-2">
-          <label class="font-medium text-sm">Classification criteria (Optional)</label>
-          <Textarea v-model="classificationCriteria" rows="2" fluid />
-        </div>
-        <div class="flex flex-col gap-2">
-          <label class="font-medium text-sm">Classification scheme (Optional)</label>
-          <Textarea v-model="classificationScheme" rows="2" fluid />
-        </div>
-        <div class="flex flex-col gap-2">
-          <label class="font-medium text-sm">Classification outcome (Optional)</label>
-          <Textarea v-model="classificationOutcome" rows="2" fluid />
-        </div>
-        <p v-if="saveError" class="text-sm text-red-500">{{ saveError }}</p>
-      </div>
-      <template #footer>
-        <Button label="Cancel" text @click="showAddDialog = false" />
-        <Button label="Add" :loading="saving" @click="saveNewOption" />
       </template>
-    </Dialog>
+      <template #footer>
+        <UButton label="Cancel" variant="ghost" @click="showAddDialog = false" />
+        <UButton label="Add" :loading="saving" @click="saveNewOption" />
+      </template>
+    </UModal>
   </div>
 </template>

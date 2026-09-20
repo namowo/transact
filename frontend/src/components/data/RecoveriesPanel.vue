@@ -4,11 +4,6 @@ import { useForm } from 'vee-validate'
 import * as yup from 'yup'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
-import Button from 'primevue/button'
-import Dialog from 'primevue/dialog'
-import InputNumber from 'primevue/inputnumber'
-import InputText from 'primevue/inputtext'
-import Message from 'primevue/message'
 import CategorySelect from '@/components/scenarios/CategorySelect.vue'
 import EntitySelect from '@/components/scenarios/EntitySelect.vue'
 import { recoveryApi, recoverySetApi, samplingMethodApi, extractionMethodApi } from '@/api/methods'
@@ -242,19 +237,22 @@ async function saveNewSet() {
       <p class="text-sm text-surface-500 dark:text-surface-400">
         Samples recovered from this study's actual contacts' surfaces.
       </p>
-      <Button
+      <UButton
         label="Add recovery"
-        icon="pi pi-plus"
+        icon="i-lucide-plus"
         :disabled="!studySurfaces.length"
         @click="openCreateDialog"
       />
     </div>
 
-    <Message v-if="!studySurfaces.length" severity="info" size="small">
-      Add an actual contact before recording recoveries.
-    </Message>
+    <UAlert
+      v-if="!studySurfaces.length"
+      color="info"
+      variant="outline"
+      description="Add an actual contact before recording recoveries."
+    />
 
-    <Message v-if="loadError" severity="error" size="small">{{ loadError }}</Message>
+    <UAlert v-if="loadError" color="error" variant="outline" :description="loadError" />
 
     <div v-for="group in groupedRecoveries" :key="group.recoverySetId ?? 'ungrouped'" class="flex flex-col gap-2">
       <h4 class="font-medium text-sm">
@@ -276,12 +274,12 @@ async function saveNewSet() {
           <Column header="" style="width: 6rem">
             <template #body="{ data }">
               <div class="flex gap-1 justify-end">
-                <Button icon="pi pi-pencil" text rounded aria-label="Edit" @click="openEditDialog(data)" />
-                <Button
-                  icon="pi pi-trash"
-                  text
-                  rounded
-                  severity="danger"
+                <UButton icon="i-lucide-pencil" variant="ghost" square aria-label="Edit" @click="openEditDialog(data)" />
+                <UButton
+                  icon="i-lucide-trash-2"
+                  variant="ghost"
+                  square
+                  color="error"
                   aria-label="Delete"
                   @click="deleteRow(data)"
                 />
@@ -292,91 +290,110 @@ async function saveNewSet() {
       </div>
     </div>
 
-    <Dialog
-      v-model:visible="dialogVisible"
-      :header="editingId === null ? 'Add recovery' : 'Edit recovery'"
-      modal
-      :style="{ width: '32rem' }"
+    <UModal
+      v-model:open="dialogVisible"
+      :title="editingId === null ? 'Add recovery' : 'Edit recovery'"
+      :ui="{ content: 'max-w-lg' }"
     >
-      <div class="flex flex-col gap-4">
-        <div class="flex flex-col gap-2">
-          <EntitySelect
-            v-model="surfaceId"
-            label="Surface"
-            :options="studySurfaces"
-            :option-label="surfaceLabel"
-          />
-          <Message v-if="errors.surface_id" severity="error" size="small" variant="simple">
-            {{ errors.surface_id }}
-          </Message>
-        </div>
-        <div class="flex flex-col gap-2">
-          <label class="font-medium text-sm">Recovery set (Optional)</label>
-          <div class="flex gap-2">
+      <template #body>
+        <div class="flex flex-col gap-4">
+          <div class="flex flex-col gap-2">
             <EntitySelect
-              v-model="recoverySetId"
-              label=""
-              :options="recoverySets"
-              :option-label="(s: RecoverySet) => s.name || `Set #${s.id}`"
-              class="flex-1"
+              v-model="surfaceId"
+              label="Surface"
+              :options="studySurfaces"
+              :option-label="surfaceLabel"
             />
-            <Button icon="pi pi-plus" text aria-label="Add recovery set" @click="openNewSetDialog" />
+            <UAlert
+              v-if="errors.surface_id"
+              color="error"
+              variant="subtle"
+              :description="errors.surface_id"
+            />
           </div>
-        </div>
-        <EntitySelect
-          v-model="samplingMethodId"
-          label="Sampling method"
-          :options="samplingMethods"
-          :option-label="(m: SamplingMethod) => `#${m.id}`"
-        />
-        <EntitySelect
-          v-model="extractionMethodId"
-          label="Extraction method"
-          :options="extractionMethods"
-          :option-label="methodLabel"
-        />
-        <div class="flex flex-col gap-2">
-          <label class="font-medium text-sm">Elution volume</label>
-          <InputNumber v-model="elutionVolume" :invalid="!!errors.elution_volume" fluid />
-          <Message v-if="errors.elution_volume" severity="error" size="small" variant="simple">
-            {{ errors.elution_volume }}
-          </Message>
-        </div>
-        <div class="flex flex-col gap-2">
-          <label class="font-medium text-sm">Area</label>
-          <InputNumber v-model="area" :invalid="!!errors.area" fluid />
-          <Message v-if="errors.area" severity="error" size="small" variant="simple">
-            {{ errors.area }}
-          </Message>
-        </div>
-        <CategorySelect
-          v-model="experienceLevelOfSamplerId"
-          label="Experience level of sampler"
-          :api="experienceLevelCategoryApi"
-        />
+          <div class="flex flex-col gap-2">
+            <label class="font-medium text-sm">Recovery set (Optional)</label>
+            <div class="flex gap-2">
+              <EntitySelect
+                v-model="recoverySetId"
+                label=""
+                :options="recoverySets"
+                :option-label="(s: RecoverySet) => s.name || `Set #${s.id}`"
+                class="flex-1"
+              />
+              <UButton icon="i-lucide-plus" variant="ghost" aria-label="Add recovery set" @click="openNewSetDialog" />
+            </div>
+          </div>
+          <EntitySelect
+            v-model="samplingMethodId"
+            label="Sampling method"
+            :options="samplingMethods"
+            :option-label="(m: SamplingMethod) => `#${m.id}`"
+          />
+          <EntitySelect
+            v-model="extractionMethodId"
+            label="Extraction method"
+            :options="extractionMethods"
+            :option-label="methodLabel"
+          />
+          <div class="flex flex-col gap-2">
+            <label class="font-medium text-sm">Elution volume</label>
+            <UInputNumber
+              v-model="elutionVolume"
+              :color="errors.elution_volume ? 'error' : undefined"
+              class="w-full"
+            />
+            <UAlert
+              v-if="errors.elution_volume"
+              color="error"
+              variant="subtle"
+              :description="errors.elution_volume"
+            />
+          </div>
+          <div class="flex flex-col gap-2">
+            <label class="font-medium text-sm">Area</label>
+            <UInputNumber
+              v-model="area"
+              :color="errors.area ? 'error' : undefined"
+              class="w-full"
+            />
+            <UAlert
+              v-if="errors.area"
+              color="error"
+              variant="subtle"
+              :description="errors.area"
+            />
+          </div>
+          <CategorySelect
+            v-model="experienceLevelOfSamplerId"
+            label="Experience level of sampler"
+            :api="experienceLevelCategoryApi"
+          />
 
-        <Message v-if="submitError" severity="error" size="small">{{ submitError }}</Message>
-      </div>
-      <template #footer>
-        <Button label="Cancel" text @click="dialogVisible = false" />
-        <Button label="Save" :loading="submitting" @click="submitForm" />
+          <UAlert v-if="submitError" color="error" variant="outline" :description="submitError" />
+        </div>
       </template>
-    </Dialog>
+      <template #footer>
+        <UButton label="Cancel" variant="ghost" @click="dialogVisible = false" />
+        <UButton label="Save" :loading="submitting" @click="submitForm" />
+      </template>
+    </UModal>
 
-    <Dialog
-      v-model:visible="newSetDialogVisible"
-      header="Add recovery set"
-      modal
-      :style="{ width: '24rem' }"
+    <UModal
+      v-model:open="newSetDialogVisible"
+      title="Add recovery set"
+      :ui="{ content: 'max-w-sm' }"
     >
-      <div class="flex flex-col gap-2">
-        <label class="font-medium text-sm">Name</label>
-        <InputText v-model="newSetName" fluid autofocus />
-      </div>
-      <template #footer>
-        <Button label="Cancel" text @click="newSetDialogVisible = false" />
-        <Button label="Add" :loading="savingSet" @click="saveNewSet" />
+      <template #body>
+        <div class="flex flex-col gap-2">
+          <label class="font-medium text-sm">Name</label>
+          <UInput v-model="newSetName" class="w-full" autofocus />
+        </div>
       </template>
-    </Dialog>
+      <template #footer>
+        <UButton label="Cancel" variant="ghost" @click="newSetDialogVisible = false" />
+        <UButton label="Add" :loading="savingSet" @click="saveNewSet" />
+      </template>
+    </UModal>
   </div>
 </template>

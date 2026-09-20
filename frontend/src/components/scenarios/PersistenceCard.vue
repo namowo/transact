@@ -1,14 +1,5 @@
 <script setup lang="ts">
 import Panel from 'primevue/panel'
-import Message from 'primevue/message'
-import Tag from 'primevue/tag'
-import Textarea from 'primevue/textarea'
-import InputNumber from 'primevue/inputnumber'
-import InputGroup from 'primevue/inputgroup'
-import InputGroupAddon from 'primevue/inputgroupaddon'
-import ToggleSwitch from 'primevue/toggleswitch'
-import Button from 'primevue/button'
-import InputText from 'primevue/inputtext'
 import CategorySelect from './CategorySelect.vue'
 import DurationValueInput from './DurationValueInput.vue'
 import FieldLabel from './FieldLabel.vue'
@@ -55,7 +46,7 @@ function formatDuration(seconds: number | null): string | null {
   <Panel v-if="!props.editable" toggleable :collapsed="collapsed" @update:collapsed="collapsed = $event">
     <template #header>
       <span class="font-semibold">{{ draft.name || `Persistence #${props.index + 1}` }}</span>
-      <Tag value="From another study" severity="info" />
+      <UBadge label="From another study" color="info" />
     </template>
 
     <div class="flex flex-col gap-3 text-sm">
@@ -88,11 +79,11 @@ function formatDuration(seconds: number | null): string | null {
         {{ draft.descriptionOfDisturbance }}
       </p>
 
-      <Button
+      <UButton
         label="Remove from this scenario"
-        icon="pi pi-times"
-        severity="warn"
-        outlined
+        icon="i-lucide-x"
+        color="warning"
+        variant="outline"
         class="self-start"
         @click="emit('remove')"
       />
@@ -107,7 +98,7 @@ function formatDuration(seconds: number | null): string | null {
     <div class="flex flex-col gap-4">
       <div class="flex flex-col gap-2">
         <label class="font-medium text-sm">Name (Optional)</label>
-        <InputText v-model="draft.name" placeholder="e.g. Winter, Summer" fluid />
+        <UInput v-model="draft.name" placeholder="e.g. Winter, Summer" class="w-full" />
       </div>
       <div class="flex flex-col gap-2">
         <FieldLabel
@@ -118,9 +109,12 @@ function formatDuration(seconds: number | null): string | null {
           v-model="draft.intervalOfPersistence"
           :invalid="!!errorFor('intervalOfPersistence')"
         />
-        <Message v-if="errorFor('intervalOfPersistence')" severity="error" size="small" variant="simple">
-          {{ errorFor('intervalOfPersistence') }}
-        </Message>
+        <UAlert
+          v-if="errorFor('intervalOfPersistence')"
+          color="error"
+          variant="subtle"
+          :description="errorFor('intervalOfPersistence')"
+        />
       </div>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div class="flex flex-col gap-2">
@@ -128,23 +122,30 @@ function formatDuration(seconds: number | null): string | null {
             label="Temperature"
             description="Record the ambient temperature between the last contact and sampling in °C."
           />
-          <InputGroup>
-            <InputNumber v-model="draft.temperature" fluid />
-            <InputGroupAddon>°C</InputGroupAddon>
-          </InputGroup>
+          <UFieldGroup>
+            <UInputNumber v-model="draft.temperature" class="w-full" />
+            <UBadge color="neutral" variant="outline" size="lg" label="°C" />
+          </UFieldGroup>
         </div>
         <div class="flex flex-col gap-2">
           <FieldLabel
             label="Humidity"
             description="Record the ambient relative humidity (%) between the experiment's last contact and sampling."
           />
-          <InputGroup>
-            <InputNumber v-model="draft.humidity" :invalid="!!errorFor('humidity')" fluid />
-            <InputGroupAddon>%</InputGroupAddon>
-          </InputGroup>
-          <Message v-if="errorFor('humidity')" severity="error" size="small" variant="simple">
-            {{ errorFor('humidity') }}
-          </Message>
+          <UFieldGroup>
+            <UInputNumber
+              v-model="draft.humidity"
+              :color="errorFor('humidity') ? 'error' : undefined"
+              class="w-full"
+            />
+            <UBadge color="neutral" variant="outline" size="lg" label="%" />
+          </UFieldGroup>
+          <UAlert
+            v-if="errorFor('humidity')"
+            color="error"
+            variant="subtle"
+            :description="errorFor('humidity')"
+          />
         </div>
       </div>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -153,13 +154,20 @@ function formatDuration(seconds: number | null): string | null {
             label="UV irradiation (Optional)"
             description="Record UV radiation exposure (type and intensity in mW/cm²) during the interval between the last contact and sample collection. For orientation: no direct light (ambient indoor lighting like fluorescent or LED bulbs with minimal UV exposure, no direct sunlight): mostly UVA 0.0001–0.02 mW/cm²; sunlight exposure (direct or indirect exposure to natural sunlight (outdoors), intensity varies with time of day, geography, and weather condition): UVA and UVB (natural solar) 0.5–10+ mW/cm²."
           />
-          <InputGroup>
-            <InputNumber v-model="draft.uvIrradiation" :invalid="!!errorFor('uvIrradiation')" fluid />
-            <InputGroupAddon>mW/cm²</InputGroupAddon>
-          </InputGroup>
-          <Message v-if="errorFor('uvIrradiation')" severity="error" size="small" variant="simple">
-            {{ errorFor('uvIrradiation') }}
-          </Message>
+          <UFieldGroup>
+            <UInputNumber
+              v-model="draft.uvIrradiation"
+              :color="errorFor('uvIrradiation') ? 'error' : undefined"
+              class="w-full"
+            />
+            <UBadge color="neutral" variant="outline" size="lg" label="mW/cm²" />
+          </UFieldGroup>
+          <UAlert
+            v-if="errorFor('uvIrradiation')"
+            color="error"
+            variant="subtle"
+            :description="errorFor('uvIrradiation')"
+          />
         </div>
         <div class="flex flex-col gap-2">
           <label class="font-medium text-sm">Duration of disturbance (Optional)</label>
@@ -167,18 +175,21 @@ function formatDuration(seconds: number | null): string | null {
             v-model="draft.durationOfDisturbance"
             :invalid="!!errorFor('durationOfDisturbance')"
           />
-          <Message v-if="errorFor('durationOfDisturbance')" severity="error" size="small" variant="simple">
-            {{ errorFor('durationOfDisturbance') }}
-          </Message>
+          <UAlert
+            v-if="errorFor('durationOfDisturbance')"
+            color="error"
+            variant="subtle"
+            :description="errorFor('durationOfDisturbance')"
+          />
         </div>
       </div>
       <div class="flex flex-wrap gap-6">
         <div class="flex items-center gap-2">
-          <ToggleSwitch v-model="draft.indoors" :input-id="`indoors-${props.index}`" />
+          <USwitch v-model="draft.indoors" :id="`indoors-${props.index}`" />
           <label :for="`indoors-${props.index}`" class="text-sm">Indoors</label>
         </div>
         <div class="flex items-center gap-2">
-          <ToggleSwitch v-model="draft.changeOverTime" :input-id="`change-over-time-${props.index}`" />
+          <USwitch v-model="draft.changeOverTime" :id="`change-over-time-${props.index}`" />
           <label :for="`change-over-time-${props.index}`" class="text-sm">Changes over time</label>
         </div>
       </div>
@@ -197,14 +208,14 @@ function formatDuration(seconds: number | null): string | null {
           label="Description of disturbance (Optional)"
           description="Describe if there have been other environmental conditions (e.g. rain, rapid change in temperature, etc.)"
         />
-        <Textarea v-model="draft.descriptionOfDisturbance" rows="2" fluid />
+        <UTextarea v-model="draft.descriptionOfDisturbance" :rows="2" class="w-full" />
       </div>
 
-      <Button
+      <UButton
         label="Remove persistence"
-        icon="pi pi-trash"
-        severity="danger"
-        outlined
+        icon="i-lucide-trash-2"
+        color="error"
+        variant="outline"
         class="self-start"
         :disabled="!props.removable"
         @click="emit('remove')"

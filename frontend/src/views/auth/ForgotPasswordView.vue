@@ -3,9 +3,6 @@ import { ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useForm } from 'vee-validate'
 import * as yup from 'yup'
-import InputText from 'primevue/inputtext'
-import Button from 'primevue/button'
-import Message from 'primevue/message'
 import { forgotPassword } from '@/api/auth'
 
 const loading = ref(false)
@@ -38,10 +35,12 @@ const onSubmit = handleSubmit(async (values) => {
 <template>
   <div v-if="done" class="flex flex-col gap-4 text-center">
     <i class="pi pi-envelope text-4xl text-primary" />
-    <Message severity="info" size="small">
-      If an account matches <strong>{{ email }}</strong
-      >, we've sent a password reset link to it.
-    </Message>
+    <UAlert color="info" variant="outline">
+      <template #description>
+        If an account matches <strong>{{ email }}</strong
+        >, we've sent a password reset link to it.
+      </template>
+    </UAlert>
     <RouterLink :to="{ name: 'login' }" class="text-primary no-underline hover:underline">
       Back to login
     </RouterLink>
@@ -56,19 +55,17 @@ const onSubmit = handleSubmit(async (values) => {
     </div>
     <div class="flex flex-col gap-2">
       <label for="email" class="font-medium text-sm">Email</label>
-      <InputText
+      <UInput
         id="email"
         v-model="email"
         type="email"
-        :invalid="!!errors.email"
+        :color="errors.email ? 'error' : undefined"
         autofocus
-        fluid
+        class="w-full"
       />
-      <Message v-if="errors.email" severity="error" size="small" variant="simple">
-        {{ errors.email }}
-      </Message>
+      <UAlert v-if="errors.email" color="error" variant="subtle" :description="errors.email" />
     </div>
-    <Button type="submit" label="Send reset link" :loading="loading" fluid />
+    <UButton type="submit" label="Send reset link" :loading="loading" block />
     <p class="text-center text-sm">
       <RouterLink :to="{ name: 'login' }" class="text-primary no-underline hover:underline">
         Back to login

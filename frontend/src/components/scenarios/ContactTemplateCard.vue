@@ -1,14 +1,6 @@
 <script setup lang="ts">
 import Panel from 'primevue/panel'
-import Message from 'primevue/message'
-import Textarea from 'primevue/textarea'
-import InputNumber from 'primevue/inputnumber'
-import InputGroup from 'primevue/inputgroup'
-import InputGroupAddon from 'primevue/inputgroupaddon'
-import ToggleSwitch from 'primevue/toggleswitch'
-import Button from 'primevue/button'
-import Divider from 'primevue/divider'
-import { useConfirm } from 'primevue/useconfirm'
+import { useConfirm } from '@/composables/useConfirm'
 import SurfaceTemplateForm from './SurfaceTemplateForm.vue'
 import CategorySelect from './CategorySelect.vue'
 import DurationValueInput from './DurationValueInput.vue'
@@ -44,9 +36,9 @@ function confirmDeleteSurfaceTemplate(which: 'donor' | 'recipient') {
   confirm.require({
     message: `Delete this ${label}? You'll be able to add a new one with a different kind.`,
     header: `Delete ${label}`,
-    icon: 'pi pi-exclamation-triangle',
-    rejectProps: { label: 'Cancel', severity: 'secondary', text: true },
-    acceptProps: { label: 'Delete', severity: 'danger' },
+    rejectLabel: 'Cancel',
+    acceptLabel: 'Delete',
+    acceptColor: 'error',
     accept: () => deleteSurfaceTemplateSlot(which),
   })
 }
@@ -87,14 +79,17 @@ async function deleteSurfaceTemplateSlot(which: 'donor' | 'recipient') {
         />
       </div>
 
-      <Divider />
+      <USeparator />
 
       <div class="flex flex-col gap-2">
         <label class="font-medium text-sm">Duration (Optional)</label>
         <DurationValueInput v-model="draft.duration" :invalid="!!errorFor('duration')" />
-        <Message v-if="errorFor('duration')" severity="error" size="small" variant="simple">
-          {{ errorFor('duration') }}
-        </Message>
+        <UAlert
+          v-if="errorFor('duration')"
+          color="error"
+          variant="subtle"
+          :description="errorFor('duration')"
+        />
       </div>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -114,13 +109,20 @@ async function deleteSurfaceTemplateSlot(which: 'donor' | 'recipient') {
 
       <div class="flex flex-col gap-2">
         <label class="font-medium text-sm">Contact area</label>
-        <InputGroup>
-          <InputNumber v-model="draft.contactArea" :invalid="!!errorFor('contactArea')" fluid />
-          <InputGroupAddon>cm²</InputGroupAddon>
-        </InputGroup>
-        <Message v-if="errorFor('contactArea')" severity="error" size="small" variant="simple">
-          {{ errorFor('contactArea') }}
-        </Message>
+        <UFieldGroup>
+          <UInputNumber
+            v-model="draft.contactArea"
+            :color="errorFor('contactArea') ? 'error' : undefined"
+            class="w-full"
+          />
+          <UBadge color="neutral" variant="outline" size="lg" label="cm²" />
+        </UFieldGroup>
+        <UAlert
+          v-if="errorFor('contactArea')"
+          color="error"
+          variant="subtle"
+          :description="errorFor('contactArea')"
+        />
       </div>
 
       <CategorySelect
@@ -131,60 +133,70 @@ async function deleteSurfaceTemplateSlot(which: 'donor' | 'recipient') {
 
       <div class="flex flex-col gap-2">
         <label class="font-medium text-sm">Description of contact (Optional)</label>
-        <Textarea v-model="draft.descriptionOfContact" rows="2" fluid />
+        <UTextarea v-model="draft.descriptionOfContact" rows="2" class="w-full" />
       </div>
 
-      <Divider />
+      <USeparator />
 
       <h4 class="font-medium text-sm">Conditions during contact</h4>
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div class="flex flex-col gap-2">
           <label class="font-medium text-sm">Temperature</label>
-          <InputGroup>
-            <InputNumber v-model="draft.temperature" fluid />
-            <InputGroupAddon>°C</InputGroupAddon>
-          </InputGroup>
+          <UFieldGroup>
+            <UInputNumber v-model="draft.temperature" class="w-full" />
+            <UBadge color="neutral" variant="outline" size="lg" label="°C" />
+          </UFieldGroup>
         </div>
         <div class="flex flex-col gap-2">
           <label class="font-medium text-sm">Humidity</label>
-          <InputGroup>
-            <InputNumber v-model="draft.humidity" :invalid="!!errorFor('humidity')" fluid />
-            <InputGroupAddon>%</InputGroupAddon>
-          </InputGroup>
-          <Message v-if="errorFor('humidity')" severity="error" size="small" variant="simple">
-            {{ errorFor('humidity') }}
-          </Message>
+          <UFieldGroup>
+            <UInputNumber
+              v-model="draft.humidity"
+              :color="errorFor('humidity') ? 'error' : undefined"
+              class="w-full"
+            />
+            <UBadge color="neutral" variant="outline" size="lg" label="%" />
+          </UFieldGroup>
+          <UAlert
+            v-if="errorFor('humidity')"
+            color="error"
+            variant="subtle"
+            :description="errorFor('humidity')"
+          />
         </div>
         <div class="flex flex-col gap-2">
           <FieldLabel
             label="UV irradiation"
             description="Record UV radiation exposure (type and intensity in mW/cm²) during contact. For orientation: no direct light (ambient indoor lighting like fluorescent or LED bulbs with minimal UV exposure, no direct sunlight): mostly UVA 0.0001–0.02 mW/cm²; sunlight exposure (direct or indirect exposure to natural sunlight (outdoors), intensity varies with time of day, geography, and weather condition): UVA and UVB (natural solar) 0.5–10+ mW/cm²."
           />
-          <InputGroup>
-            <InputNumber
+          <UFieldGroup>
+            <UInputNumber
               v-model="draft.uvIrradiation"
-              :invalid="!!errorFor('uvIrradiation')"
-              fluid
+              :color="errorFor('uvIrradiation') ? 'error' : undefined"
+              class="w-full"
             />
-            <InputGroupAddon>mW/cm²</InputGroupAddon>
-          </InputGroup>
-          <Message v-if="errorFor('uvIrradiation')" severity="error" size="small" variant="simple">
-            {{ errorFor('uvIrradiation') }}
-          </Message>
+            <UBadge color="neutral" variant="outline" size="lg" label="mW/cm²" />
+          </UFieldGroup>
+          <UAlert
+            v-if="errorFor('uvIrradiation')"
+            color="error"
+            variant="subtle"
+            :description="errorFor('uvIrradiation')"
+          />
         </div>
       </div>
       <div class="flex items-center gap-2">
-        <ToggleSwitch v-model="draft.indoors" input-id="indoors" />
+        <USwitch v-model="draft.indoors" id="indoors" />
         <label for="indoors" class="text-sm">Indoors</label>
       </div>
 
-      <Divider />
+      <USeparator />
 
-      <Button
+      <UButton
         label="Remove contact template"
-        icon="pi pi-trash"
-        severity="danger"
-        outlined
+        icon="i-lucide-trash-2"
+        color="error"
+        variant="outline"
         class="self-start"
         :disabled="!props.removable"
         @click="emit('remove')"

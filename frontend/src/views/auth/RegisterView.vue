@@ -3,9 +3,6 @@ import { ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useForm } from 'vee-validate'
 import * as yup from 'yup'
-import InputText from 'primevue/inputtext'
-import Button from 'primevue/button'
-import Message from 'primevue/message'
 import PasswordField from '@/components/auth/PasswordField.vue'
 import { useAuthStore } from '@/stores/auth'
 import { resendVerification } from '@/api/auth'
@@ -90,14 +87,14 @@ async function onResend() {
       We've sent a confirmation link to <strong>{{ registeredEmail }}</strong
       >. Please check your inbox to activate your account.
     </p>
-    <Message v-if="resendMessage" severity="info" size="small">{{ resendMessage }}</Message>
-    <Button
+    <UAlert v-if="resendMessage" color="info" variant="outline" :description="resendMessage" />
+    <UButton
       label="Resend email"
-      text
+      variant="ghost"
       :loading="resending"
       @click="onResend"
     />
-    <Button label="Back to login" outlined @click="router.push({ name: 'login' })" />
+    <UButton label="Back to login" variant="outline" @click="router.push({ name: 'login' })" />
   </div>
 
   <form v-else class="flex flex-col gap-6" @submit.prevent="onSubmit">
@@ -111,46 +108,50 @@ async function onResend() {
     <div class="flex flex-col sm:flex-row gap-4">
       <div class="flex flex-col gap-2 flex-1">
         <label for="first-name" class="font-medium text-sm">First name</label>
-        <InputText
+        <UInput
           id="first-name"
           v-model="firstName"
           v-bind="firstNameAttrs"
-          :invalid="!!errors.first_name"
+          :color="errors.first_name ? 'error' : undefined"
           autofocus
-          fluid
+          class="w-full"
         />
-        <Message v-if="errors.first_name" severity="error" size="small" variant="simple">
-          {{ errors.first_name }}
-        </Message>
+        <UAlert
+          v-if="errors.first_name"
+          color="error"
+          variant="subtle"
+          :description="errors.first_name"
+        />
       </div>
       <div class="flex flex-col gap-2 flex-1">
         <label for="last-name" class="font-medium text-sm">Last name</label>
-        <InputText
+        <UInput
           id="last-name"
           v-model="lastName"
           v-bind="lastNameAttrs"
-          :invalid="!!errors.last_name"
-          fluid
+          :color="errors.last_name ? 'error' : undefined"
+          class="w-full"
         />
-        <Message v-if="errors.last_name" severity="error" size="small" variant="simple">
-          {{ errors.last_name }}
-        </Message>
+        <UAlert
+          v-if="errors.last_name"
+          color="error"
+          variant="subtle"
+          :description="errors.last_name"
+        />
       </div>
     </div>
 
     <div class="flex flex-col gap-2">
       <label for="email" class="font-medium text-sm">Email</label>
-      <InputText
+      <UInput
         id="email"
         v-model="emailField"
         v-bind="emailAttrs"
         type="email"
-        :invalid="!!errors.email"
-        fluid
+        :color="errors.email ? 'error' : undefined"
+        class="w-full"
       />
-      <Message v-if="errors.email" severity="error" size="small" variant="simple">
-        {{ errors.email }}
-      </Message>
+      <UAlert v-if="errors.email" color="error" variant="subtle" :description="errors.email" />
     </div>
 
     <div class="flex flex-col gap-2">
@@ -158,9 +159,9 @@ async function onResend() {
       <PasswordField v-model="password" :invalid="!!errors.password"/>
     </div>
 
-    <Message v-if="errorMessage" severity="error" size="small">{{ errorMessage }}</Message>
+    <UAlert v-if="errorMessage" color="error" variant="outline" :description="errorMessage" />
 
-    <Button type="submit" label="Register" :loading="isSubmitting" fluid />
+    <UButton type="submit" label="Register" :loading="isSubmitting" block />
 
     <p class="text-center text-sm text-surface-600 dark:text-surface-300 mt-2">
       Already have an account?

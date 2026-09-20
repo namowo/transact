@@ -1,7 +1,5 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import Select from 'primevue/select'
-import Message from 'primevue/message'
 import { listLaboratories } from '@/api/laboratories'
 import type { Laboratory } from '@/api/types'
 
@@ -28,20 +26,22 @@ onMounted(loadLaboratories)
 
 <template>
   <div>
-    <Select
+    <USelectMenu
       v-model="modelValue"
-      :options="laboratories"
-      option-label="laboratory_name"
-      option-value="id"
-      filter
-      show-clear
+      :items="laboratories"
+      label-key="laboratory_name"
+      value-key="id"
       :loading="loading"
       placeholder="Select your laboratory"
+      clear
       class="w-full"
-      fluid
     />
-    <Message v-if="loadError" severity="error" size="small" variant="simple" class="mt-1">
-      {{ loadError }}
-    </Message>
+    <UAlert
+      v-if="loadError"
+      color="error"
+      variant="subtle"
+      :description="loadError"
+      class="mt-1"
+    />
   </div>
 </template>

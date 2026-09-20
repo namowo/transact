@@ -2,15 +2,7 @@
 import { onMounted, ref } from 'vue'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
-import Checkbox from 'primevue/checkbox'
-import Button from 'primevue/button'
-import Message from 'primevue/message'
-import IconField from 'primevue/iconfield'
-import InputIcon from 'primevue/inputicon'
-import InputText from 'primevue/inputtext'
-import Select from 'primevue/select'
-import ConfirmDialog from 'primevue/confirmdialog'
-import { useConfirm } from 'primevue/useconfirm'
+import { useConfirm } from '@/composables/useConfirm'
 import { FilterMatchMode } from '@primevue/core/api'
 import { grantLabAdmin, listLabUsers, removeFromLaboratory, revokeLabAdmin } from '@/api/users'
 import {
@@ -110,9 +102,9 @@ function toggleLabAdmin(user: User) {
   confirm.require({
     message: `${verb} lab admin access for ${user.first_name} ${user.last_name}?`,
     header: `${verb} lab admin`,
-    icon: 'pi pi-exclamation-triangle',
-    rejectProps: { label: 'Cancel', severity: 'secondary', text: true },
-    acceptProps: { label: verb, severity: user.can_manage_lab_users ? 'danger' : 'primary' },
+    rejectLabel: 'Cancel',
+    acceptLabel: verb,
+    acceptColor: user.can_manage_lab_users ? 'error' : 'primary',
     accept: () => applyLabAdmin(user),
   })
 }
@@ -131,9 +123,9 @@ function confirmRemoveUser(user: User) {
   confirm.require({
     message: `Remove ${user.first_name} ${user.last_name} from this laboratory?`,
     header: 'Remove user',
-    icon: 'pi pi-exclamation-triangle',
-    rejectProps: { label: 'Cancel', severity: 'secondary', text: true },
-    acceptProps: { label: 'Remove', severity: 'danger' },
+    rejectLabel: 'Cancel',
+    acceptLabel: 'Remove',
+    acceptColor: 'error',
     accept: () => removeUser(user),
   })
 }
@@ -168,8 +160,6 @@ async function deny(request: LabMembershipRequest) {
 
 <template>
   <div class="flex flex-col gap-6">
-    <ConfirmDialog />
-
     <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-0">Manage Lab Users</h1>
 
     <div v-if="requests.length || requestsLoading" class="flex flex-col gap-3">
@@ -177,12 +167,18 @@ async function deny(request: LabMembershipRequest) {
         Pending requests
       </h2>
 
-      <Message v-if="requestsLoadError" severity="error" size="small">
-        {{ requestsLoadError }}
-      </Message>
-      <Message v-if="requestsActionError" severity="error" size="small">
-        {{ requestsActionError }}
-      </Message>
+      <UAlert
+        v-if="requestsLoadError"
+        color="error"
+        variant="outline"
+        :description="requestsLoadError"
+      />
+      <UAlert
+        v-if="requestsActionError"
+        color="error"
+        variant="outline"
+        :description="requestsActionError"
+      />
 
       <div class="overflow-x-auto">
         <DataTable :value="requests" :loading="requestsLoading" data-key="id">
@@ -202,17 +198,17 @@ async function deny(request: LabMembershipRequest) {
           <Column header="" style="width: 14rem">
             <template #body="{ data }">
               <div class="flex gap-1 justify-end">
-                <Button
+                <UButton
                   label="Approve"
-                  size="small"
+                  size="sm"
                   :loading="actingOnId === data.id"
                   @click="approve(data)"
                 />
-                <Button
+                <UButton
                   label="Deny"
-                  severity="danger"
-                  text
-                  size="small"
+                  color="error"
+                  variant="ghost"
+                  size="sm"
                   :loading="actingOnId === data.id"
                   @click="deny(data)"
                 />
@@ -226,19 +222,20 @@ async function deny(request: LabMembershipRequest) {
     <div class="flex flex-col gap-3">
       <h2 class="text-lg font-semibold text-surface-900 dark:text-surface-0">Users</h2>
 
-      <Message v-if="loadError" severity="error" size="small">{{ loadError }}</Message>
-      <Message v-if="actionError" severity="error" size="small">{{ actionError }}</Message>
+      <UAlert v-if="loadError" color="error" variant="outline" :description="loadError" />
+      <UAlert v-if="actionError" color="error" variant="outline" :description="actionError" />
 
       <div class="overflow-x-auto">
         <div class="mb-3 flex items-center justify-between gap-3">
-          <Button type="button" variant="outlined" size="small" @click="clearFilters()">
-            <i class="pi pi-filter-slash" />
+          <UButton type="button" icon="i-lucide-filter-x" variant="outline" size="sm" @click="clearFilters()">
             Clear Filters
-          </Button>
-          <IconField iconPosition="left">
-            <InputIcon class="pi pi-search" />
-            <InputText v-model="filters['global'].value" type="text" placeholder="Keyword Search" />
-          </IconField>
+          </UButton>
+          <UInput
+            v-model="filters['global'].value"
+            type="text"
+            icon="i-lucide-search"
+            placeholder="Keyword Search"
+          />
         </div>
 
         <DataTable
@@ -263,7 +260,7 @@ async function deny(request: LabMembershipRequest) {
             :showAddButton="false"
           >
             <template #filter="{ filterModel }">
-              <InputText v-model="filterModel.value" type="text" placeholder="Search by first name" />
+              <UInput v-model="filterModel.value" type="text" placeholder="Search by first name" />
             </template>
           </Column>
 
@@ -275,7 +272,7 @@ async function deny(request: LabMembershipRequest) {
             :showAddButton="false"
           >
             <template #filter="{ filterModel }">
-              <InputText v-model="filterModel.value" type="text" placeholder="Search by last name" />
+              <UInput v-model="filterModel.value" type="text" placeholder="Search by last name" />
             </template>
           </Column>
 
@@ -287,7 +284,7 @@ async function deny(request: LabMembershipRequest) {
             :showAddButton="false"
           >
             <template #filter="{ filterModel }">
-              <InputText v-model="filterModel.value" type="text" placeholder="Search by email" />
+              <UInput v-model="filterModel.value" type="text" placeholder="Search by email" />
             </template>
           </Column>
 
@@ -301,20 +298,17 @@ async function deny(request: LabMembershipRequest) {
             :showAddButton="false"
           >
             <template #body="{ data }">
-              <Checkbox
+              <USwitch
                 :model-value="data.can_manage_lab_users"
-                :binary="true"
                 @update:model-value="toggleLabAdmin(data)"
               />
             </template>
             <template #filter="{ filterModel }">
-              <Select
+              <USelectMenu
                 v-model="filterModel.value"
-                :options="booleanOptions"
-                optionLabel="label"
-                optionValue="value"
+                :items="booleanOptions"
                 placeholder="Any"
-                showClear
+                clear
                 class="w-full"
               />
             </template>
@@ -330,16 +324,14 @@ async function deny(request: LabMembershipRequest) {
             :showAddButton="false"
           >
             <template #body="{ data }">
-              <Checkbox :model-value="data.can_quality_check" :binary="true" :disabled="true" />
+              <USwitch :model-value="data.can_quality_check" disabled />
             </template>
             <template #filter="{ filterModel }">
-              <Select
+              <USelectMenu
                 v-model="filterModel.value"
-                :options="booleanOptions"
-                optionLabel="label"
-                optionValue="value"
+                :items="booleanOptions"
                 placeholder="Any"
-                showClear
+                clear
                 class="w-full"
               />
             </template>
@@ -355,16 +347,14 @@ async function deny(request: LabMembershipRequest) {
             :showAddButton="false"
           >
             <template #body="{ data }">
-              <Checkbox :model-value="data.is_superuser" :binary="true" :disabled="true" />
+              <USwitch :model-value="data.is_superuser" disabled />
             </template>
             <template #filter="{ filterModel }">
-              <Select
+              <USelectMenu
                 v-model="filterModel.value"
-                :options="booleanOptions"
-                optionLabel="label"
-                optionValue="value"
+                :items="booleanOptions"
                 placeholder="Any"
-                showClear
+                clear
                 class="w-full"
               />
             </template>
@@ -372,12 +362,12 @@ async function deny(request: LabMembershipRequest) {
 
           <Column header="" style="width: 6rem">
             <template #body="{ data }">
-              <Button
+              <UButton
                 v-if="canRemove(data)"
-                icon="pi pi-user-minus"
-                text
-                rounded
-                severity="danger"
+                icon="i-lucide-user-minus"
+                variant="ghost"
+                square
+                color="error"
                 aria-label="Remove from laboratory"
                 @click="confirmRemoveUser(data)"
               />

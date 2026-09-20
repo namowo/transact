@@ -1,7 +1,5 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import Textarea from 'primevue/textarea'
-import Message from 'primevue/message'
 import InlineCreatableSelect from './InlineCreatableSelect.vue'
 import { itemCategoryApi, itemSubcategoryApi } from '@/api/categories'
 import type { ItemSubcategory, NamedCategory } from '@/api/types'
@@ -84,9 +82,12 @@ async function createSubcategory(name: string) {
       :create="createCategory"
       placeholder="Select or type to add a category"
     />
-    <Message v-if="props.categoryError" severity="error" size="small" variant="simple">
-      {{ props.categoryError }}
-    </Message>
+    <UAlert
+      v-if="props.categoryError"
+      color="error"
+      variant="subtle"
+      :description="props.categoryError"
+    />
   </div>
 
   <div class="flex flex-col gap-2">
@@ -103,9 +104,17 @@ async function createSubcategory(name: string) {
 
   <div class="flex flex-col gap-2">
     <label class="font-medium text-sm">Description</label>
-    <Textarea v-model="description" rows="2" :invalid="!!props.descriptionError" fluid />
-    <Message v-if="props.descriptionError" severity="error" size="small" variant="simple">
-      {{ props.descriptionError }}
-    </Message>
+    <UTextarea
+      v-model="description"
+      :rows="2"
+      :color="props.descriptionError ? 'error' : undefined"
+      class="w-full"
+    />
+    <UAlert
+      v-if="props.descriptionError"
+      color="error"
+      variant="subtle"
+      :description="props.descriptionError"
+    />
   </div>
 </template>

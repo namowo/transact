@@ -2,14 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
-import Button from 'primevue/button'
-import ProgressSpinner from 'primevue/progressspinner'
-import Message from 'primevue/message'
-import Tabs from 'primevue/tabs'
-import TabList from 'primevue/tablist'
-import Tab from 'primevue/tab'
-import TabPanels from 'primevue/tabpanels'
-import TabPanel from 'primevue/tabpanel'
+import type { TabsItem } from '@nuxt/ui'
 import ContactInstanceDialog from '@/components/data/ContactInstanceDialog.vue'
 import IndividualsAndItemsPanel from '@/components/data/IndividualsAndItemsPanel.vue'
 import RecoveriesPanel from '@/components/data/RecoveriesPanel.vue'
@@ -73,6 +66,13 @@ function surfaceSummary(contact: Contact, side: 'donor_surface' | 'recipient_sur
   const category = surface.surface_template?.item?.item_category?.name
   return category ? `Item (${category})` : 'Item'
 }
+
+const tabItems = computed<TabsItem[]>(() => [
+  { label: 'Individuals & items', value: 'individuals-items', slot: 'individuals-items' },
+  { label: 'Contacts', value: 'contacts', slot: 'contacts', badge: contacts.value.length },
+  { label: 'Recoveries', value: 'recoveries', slot: 'recoveries' },
+  { label: 'Results', value: 'results', slot: 'results' },
+])
 </script>
 
 <template>
@@ -80,87 +80,82 @@ function surfaceSummary(contact: Contact, side: 'donor_surface' | 'recipient_sur
     <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-0">Data entry</h1>
 
     <div v-if="loading" class="flex justify-center py-12">
-      <ProgressSpinner style="width: 3rem; height: 3rem" />
+      <UProgress class="w-12" />
     </div>
 
-    <Message v-else-if="loadError" severity="error" size="small">{{ loadError }}</Message>
+    <UAlert v-else-if="loadError" color="error" variant="outline" :description="loadError" />
 
-    <Tabs v-else value="contacts">
-      <TabList>
-        <Tab value="individuals-items">Individuals & items</Tab>
-        <Tab value="contacts">Contacts ({{ contacts.length }})</Tab>
-        <Tab value="recoveries">Recoveries</Tab>
-        <Tab value="results">Results</Tab>
-      </TabList>
-      <TabPanels>
-        <TabPanel value="individuals-items">
-          <IndividualsAndItemsPanel />
-        </TabPanel>
+    <UTabs v-else default-value="contacts" :items="tabItems" class="w-full">
+      <template #individuals-items>
+        <IndividualsAndItemsPanel />
+      </template>
 
-        <TabPanel value="contacts">
-          <div class="flex flex-col gap-4">
-            <div class="flex items-center justify-between">
-              <p class="text-sm text-surface-500 dark:text-surface-400">
-                Actual contacts recorded for this study's planned scenarios.
-              </p>
-              <Button
-                label="Add actual contact"
-                icon="pi pi-plus"
-                :disabled="!contactTemplates.length"
-                @click="dialogVisible = true"
-              />
-            </div>
-
-            <Message v-if="!contactTemplates.length" severity="info" size="small">
-              Plan a scenario with at least one contact template before entering actual data.
-            </Message>
-
-            <div class="overflow-x-auto">
-              <DataTable :value="contacts" data-key="id">
-                <Column header="Contact template">
-                  <template #body="{ data }">#{{ data.contact_template_id }}</template>
-                </Column>
-                <Column header="Donor">
-                  <template #body="{ data }">{{ surfaceSummary(data, 'donor_surface') }}</template>
-                </Column>
-                <Column header="Recipient">
-                  <template #body="{ data }">{{ surfaceSummary(data, 'recipient_surface') }}</template>
-                </Column>
-                <Column header="" style="width: 4rem">
-                  <template #body="{ data }">
-                    <Button
-                      icon="pi pi-trash"
-                      text
-                      rounded
-                      severity="danger"
-                      aria-label="Delete"
-                      @click="onDeleteContact(data)"
-                    />
-                  </template>
-                </Column>
-              </DataTable>
-            </div>
-
-            <ContactInstanceDialog
-              v-model:visible="dialogVisible"
-              :contact-templates="contactTemplates"
-              @saved="onContactSaved"
+      <template #contacts>
+        <div class="flex flex-col gap-4">
+          <div class="flex items-center justify-between">
+            <p class="text-sm text-surface-500 dark:text-surface-400">
+              Actual contacts recorded for this study's planned scenarios.
+            </p>
+            <UButton
+              label="Add actual contact"
+              icon="i-lucide-plus"
+              :disabled="!contactTemplates.length"
+              @click="dialogVisible = true"
             />
           </div>
-        </TabPanel>
 
-        <TabPanel value="recoveries">
-          <RecoveriesPanel
-            :study-id="studyId"
-            :contacts="contacts"
-            @update:recoveries="scopedRecoveries = $event"
+          <UAlert
+            v-if="!contactTemplates.length"
+            color="info"
+            variant="outline"
+            description="Plan a scenario with at least one contact template before entering actual data."
           />
-        </TabPanel>
 
-        <TabPanel value="results">
-          <ResultsTab :recoveries="scopedRecoveries" />
-        </TabPanel>
-      </TabPanels>
-    </Tabs>
+          <div class="overflow-x-auto">
+            <DataTable :value="contacts" data-key="id">
+              <Column header="Contact template">
+                <template #body="{ data }">#{{ data.contact_template_id }}</template>
+              </Column>
+              <Column header="Donor">
+                <template #body="{ data }">{{ surfaceSummary(data, 'donor_surface') }}</template>
+              </Column>
+              <Column header="Recipient">
+                <template #body="{ data }">{{ surfaceSummary(data, 'recipient_surface') }}</template>
+              </Column>
+              <Column header="" style="width: 4rem">
+                <template #body="{ data }">
+                  <UButton
+                    icon="i-lucide-trash-2"
+                    variant="ghost"
+                    square
+                    color="error"
+                    aria-label="Delete"
+                    @click="onDeleteContact(data)"
+                  />
+                </template>
+              </Column>
+            </DataTable>
+          </div>
+
+          <ContactInstanceDialog
+            v-model:visible="dialogVisible"
+            :contact-templates="contactTemplates"
+            @saved="onContactSaved"
+          />
+        </div>
+      </template>
+
+      <template #recoveries>
+        <RecoveriesPanel
+          :study-id="studyId"
+          :contacts="contacts"
+          @update:recoveries="scopedRecoveries = $event"
+        />
+      </template>
+
+      <template #results>
+        <ResultsTab :recoveries="scopedRecoveries" />
+      </template>
+    </UTabs>
   </div>
 </template>

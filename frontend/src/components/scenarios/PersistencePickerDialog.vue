@@ -1,13 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import Dialog from 'primevue/dialog'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
-import Button from 'primevue/button'
-import IconField from 'primevue/iconfield'
-import InputIcon from 'primevue/inputicon'
-import InputText from 'primevue/inputtext'
-import Breadcrumb from 'primevue/breadcrumb'
 import PersistenceDetails from './PersistenceDetails.vue'
 import { persistenceLabel } from './persistenceDraft'
 import type { Persistence, Scenario } from '@/api/types'
@@ -55,6 +49,7 @@ function goToScenariosRoot() {
 }
 
 const breadcrumbItems = computed(() => [
+  { label: 'Scenarios', icon: 'i-lucide-folder', onClick: goToScenariosRoot },
   ...(browsedScenario.value ? [{ label: scenarioLabel(browsedScenario.value) }] : []),
 ])
 
@@ -73,100 +68,95 @@ function confirmSelection() {
 </script>
 
 <template>
-  <Dialog
-    v-model:visible="visible"
-    header="Duplicate a persistence from this study"
-    modal
-    position="top"
-    :style="{ width: '64rem' }"
+  <!-- TODO: dialog position (was position="top") - UModal has no built-in top-aligned position -->
+  <UModal
+    v-model:open="visible"
+    title="Duplicate a persistence from this study"
+    :ui="{ content: 'max-w-5xl' }"
   >
-    <div class="flex flex-col gap-3">
-      <Breadcrumb
-        :home="{ label: 'Scenarios', icon: 'pi pi-folder', command: goToScenariosRoot }"
-        :model="breadcrumbItems"
-      />
-      <IconField iconPosition="left">
-        <InputIcon class="pi pi-search" />
-        <InputText
+    <template #body>
+      <div class="flex flex-col gap-3">
+        <UBreadcrumb :items="breadcrumbItems" />
+        <UInput
           v-model="filter"
           type="text"
+          icon="i-lucide-search"
           :placeholder="level === 'scenarios' ? 'Search scenarios' : 'Search persistencies'"
-          fluid
+          class="w-full"
         />
-      </IconField>
 
-      <div style="height: 28rem">
-        <DataTable
-          v-if="level === 'scenarios'"
-          :value="scenarios"
-          :globalFilterFields="['scenario_category.name']"
-          :filters="{ global: { value: filter, matchMode: 'contains' } }"
-          dataKey="id"
-          scrollable
-          scrollHeight="28rem"
-        >
-          <template #empty>No scenarios in this study yet.</template>
-          <Column header="Scenario">
-            <template #body="{ data }">
-              <button
-                type="button"
-                class="flex items-center gap-2 text-left w-full hover:underline"
-                @click="openScenarioFolder(data)"
-              >
-                <i class="pi pi-folder text-surface-400" />
-                <span>{{ scenarioLabel(data) }}</span>
-              </button>
-            </template>
-          </Column>
-        </DataTable>
-
-        <div v-else class="flex gap-4 h-full">
+        <div style="height: 28rem">
           <DataTable
-            :value="browsedScenarioPersistencies"
-            :globalFilterFields="['name', 'disturbance_category.name', 'geographic_location_category.name']"
+            v-if="level === 'scenarios'"
+            :value="scenarios"
+            :globalFilterFields="['scenario_category.name']"
             :filters="{ global: { value: filter, matchMode: 'contains' } }"
             dataKey="id"
             scrollable
             scrollHeight="28rem"
-            class="w-72 shrink-0"
           >
-            <template #empty>No persistencies on this scenario.</template>
-            <Column header="Persistence">
+            <template #empty>No scenarios in this study yet.</template>
+            <Column header="Scenario">
               <template #body="{ data }">
                 <button
                   type="button"
                   class="flex items-center gap-2 text-left w-full hover:underline"
-                  :class="{ 'font-medium text-primary': previewedId === data.id }"
-                  @click="previewedId = data.id"
+                  @click="openScenarioFolder(data)"
                 >
-                  <i class="pi pi-file text-surface-400" />
-                  <span>{{ persistenceLabel(data) }}</span>
+                  <i class="pi pi-folder text-surface-400" />
+                  <span>{{ scenarioLabel(data) }}</span>
                 </button>
               </template>
             </Column>
           </DataTable>
 
-          <div class="flex-1 min-w-0 border-l border-surface-200 dark:border-surface-700 pl-4 overflow-y-auto h-full">
-            <div
-              v-if="previewedId === null"
-              class="flex items-center justify-center h-full text-sm text-surface-500 dark:text-surface-400"
+          <div v-else class="flex gap-4 h-full">
+            <DataTable
+              :value="browsedScenarioPersistencies"
+              :globalFilterFields="['name', 'disturbance_category.name', 'geographic_location_category.name']"
+              :filters="{ global: { value: filter, matchMode: 'contains' } }"
+              dataKey="id"
+              scrollable
+              scrollHeight="28rem"
+              class="w-72 shrink-0"
             >
-              Select a persistence to preview it.
+              <template #empty>No persistencies on this scenario.</template>
+              <Column header="Persistence">
+                <template #body="{ data }">
+                  <button
+                    type="button"
+                    class="flex items-center gap-2 text-left w-full hover:underline"
+                    :class="{ 'font-medium text-primary': previewedId === data.id }"
+                    @click="previewedId = data.id"
+                  >
+                    <i class="pi pi-file text-surface-400" />
+                    <span>{{ persistenceLabel(data) }}</span>
+                  </button>
+                </template>
+              </Column>
+            </DataTable>
+
+            <div class="flex-1 min-w-0 border-l border-surface-200 dark:border-surface-700 pl-4 overflow-y-auto h-full">
+              <div
+                v-if="previewedId === null"
+                class="flex items-center justify-center h-full text-sm text-surface-500 dark:text-surface-400"
+              >
+                Select a persistence to preview it.
+              </div>
+              <PersistenceDetails v-else :persistence="previewedPersistence()" />
             </div>
-            <PersistenceDetails v-else :persistence="previewedPersistence()" />
           </div>
         </div>
       </div>
-    </div>
+    </template>
     <template #footer>
-      <Button label="Close" text @click="visible = false" />
-      <Button
+      <UButton label="Close" variant="ghost" @click="visible = false" />
+      <UButton
         label="Duplicate into this scenario"
-        icon="pi pi-arrow-right"
-        icon-pos="right"
+        trailing-icon="i-lucide-arrow-right"
         :disabled="previewedId === null"
         @click="confirmSelection"
       />
     </template>
-  </Dialog>
+  </UModal>
 </template>

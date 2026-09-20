@@ -3,11 +3,6 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
-import Button from 'primevue/button'
-import Message from 'primevue/message'
-import IconField from 'primevue/iconfield'
-import InputIcon from 'primevue/inputicon'
-import InputText from 'primevue/inputtext'
 import { FilterMatchMode } from '@primevue/core/api'
 import { useAuthStore } from '@/stores/auth'
 import { samplingMethodApi } from '@/api/methods'
@@ -103,21 +98,22 @@ async function deleteRow(row: SamplingMethod) {
   <div class="flex flex-col gap-6">
     <div class="flex items-center justify-between">
       <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-0">Sampling methods</h1>
-      <Button label="Add sampling method" icon="pi pi-plus" @click="openCreate" />
+      <UButton label="Add sampling method" icon="i-lucide-plus" @click="openCreate" />
     </div>
 
-    <Message v-if="loadError" severity="error" size="small">{{ loadError }}</Message>
+    <UAlert v-if="loadError" color="error" variant="outline" :description="loadError" />
 
     <div class="overflow-x-auto">
       <div class="mb-3 flex items-center justify-between gap-3">
-        <Button type="button" variant="outlined" size="small" @click="clearFilters()">
-          <i class="pi pi-filter-slash" />
+        <UButton type="button" icon="i-lucide-filter-x" variant="outline" size="sm" @click="clearFilters()">
           Clear Filters
-        </Button>
-        <IconField iconPosition="left">
-          <InputIcon class="pi pi-search" />
-          <InputText v-model="filters['global'].value" type="text" placeholder="Keyword Search" />
-        </IconField>
+        </UButton>
+        <UInput
+          v-model="filters['global'].value"
+          type="text"
+          icon="i-lucide-search"
+          placeholder="Keyword Search"
+        />
       </div>
 
       <DataTable
@@ -149,7 +145,7 @@ async function deleteRow(row: SamplingMethod) {
           :showAddButton="false"
         >
           <template #filter="{ filterModel }">
-            <InputText v-model="filterModel.value" type="text" placeholder="Search" />
+            <UInput v-model="filterModel.value" type="text" placeholder="Search" />
           </template>
         </Column>
         <Column
@@ -160,7 +156,7 @@ async function deleteRow(row: SamplingMethod) {
           :showAddButton="false"
         >
           <template #filter="{ filterModel }">
-            <InputText v-model="filterModel.value" type="text" placeholder="Search" />
+            <UInput v-model="filterModel.value" type="text" placeholder="Search" />
           </template>
         </Column>
         <Column
@@ -171,7 +167,7 @@ async function deleteRow(row: SamplingMethod) {
           :showAddButton="false"
         >
           <template #filter="{ filterModel }">
-            <InputText v-model="filterModel.value" type="text" placeholder="Search" />
+            <UInput v-model="filterModel.value" type="text" placeholder="Search" />
           </template>
         </Column>
         <Column
@@ -182,7 +178,7 @@ async function deleteRow(row: SamplingMethod) {
           :showAddButton="false"
         >
           <template #filter="{ filterModel }">
-            <InputText v-model="filterModel.value" type="text" placeholder="Search" />
+            <UInput v-model="filterModel.value" type="text" placeholder="Search" />
           </template>
         </Column>
         <Column
@@ -193,7 +189,7 @@ async function deleteRow(row: SamplingMethod) {
           :showAddButton="false"
         >
           <template #filter="{ filterModel }">
-            <InputText v-model="filterModel.value" type="text" placeholder="Search" />
+            <UInput v-model="filterModel.value" type="text" placeholder="Search" />
           </template>
         </Column>
         <Column
@@ -204,18 +200,18 @@ async function deleteRow(row: SamplingMethod) {
           :showAddButton="false"
         >
           <template #filter="{ filterModel }">
-            <InputText v-model="filterModel.value" type="text" placeholder="Search" />
+            <UInput v-model="filterModel.value" type="text" placeholder="Search" />
           </template>
         </Column>
         <Column header="" style="width: 6rem">
           <template #body="{ data }">
             <div class="flex gap-1 justify-end">
-              <Button icon="pi pi-pencil" text rounded aria-label="Edit" @click="openEdit(data)" />
-              <Button
-                icon="pi pi-trash"
-                text
-                rounded
-                severity="danger"
+              <UButton icon="i-lucide-pencil" variant="ghost" square aria-label="Edit" @click="openEdit(data)" />
+              <UButton
+                icon="i-lucide-trash-2"
+                variant="ghost"
+                square
+                color="error"
                 aria-label="Delete"
                 @click="deleteRow(data)"
               />

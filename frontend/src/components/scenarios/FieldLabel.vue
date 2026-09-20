@@ -9,10 +9,16 @@ defineProps<{
 <template>
   <div class="flex items-center gap-1.5">
     <label :for="$props.for" class="font-medium text-sm">{{ label }}</label>
-    <i
+    <UTooltip
       v-if="description"
-      v-tooltip.top="{ value: description, pt: { text: { class: 'max-w-xs' } } }"
-      class="pi pi-info-circle text-surface-500 dark:text-surface-400 text-sm cursor-help"
-    />
+      :text="description"
+      :content="{ side: 'top' }"
+      :ui="{ content: 'max-w-xs' }"
+    >
+      <UIcon
+        name="i-lucide-info"
+        class="text-surface-500 dark:text-surface-400 text-sm cursor-help"
+      />
+    </UTooltip>
   </div>
 </template>

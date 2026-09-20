@@ -3,18 +3,8 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useFieldArray, useForm } from 'vee-validate'
 import * as yup from 'yup'
-import ToggleSwitch from 'primevue/toggleswitch'
-import Button from 'primevue/button'
-import Message from 'primevue/message'
-import ProgressSpinner from 'primevue/progressspinner'
-import Divider from 'primevue/divider'
-import ConfirmDialog from 'primevue/confirmdialog'
-import { useToast } from 'primevue/usetoast'
-import Stepper from 'primevue/stepper'
-import StepList from 'primevue/steplist'
-import StepPanels from 'primevue/steppanels'
-import Step from 'primevue/step'
-import StepPanel from 'primevue/steppanel'
+import { useToast } from '@nuxt/ui/composables'
+import type { StepperItem } from '@nuxt/ui'
 import CategorySelect from '@/components/scenarios/CategorySelect.vue'
 import ContactTemplateCard from '@/components/scenarios/ContactTemplateCard.vue'
 import PersistenceCard from '@/components/scenarios/PersistenceCard.vue'
@@ -98,6 +88,16 @@ const activeStep = computed<string>({
     router.replace({ query: { ...route.query, step: panelToStep[value] ?? 'details' } })
   },
 })
+
+const stepItems = computed<StepperItem[]>(() => [
+  { value: '1', title: 'Details', slot: '1' },
+  { value: '2', title: 'Persistence', slot: '2' },
+  {
+    value: '3',
+    title: `Contact templates (${contactTemplateFields.value.length})`,
+    slot: '3',
+  },
+])
 
 interface ScenarioFormValues {
   realistic: boolean
@@ -328,7 +328,7 @@ const onSubmit = handleSubmit(async (formValues) => {
   const incomplete = firstIncompleteStep()
   if (incomplete) {
     activeStep.value = stepToPanel[incomplete.step]
-    toast.add({ severity: 'warn', summary: 'Scenario incomplete', detail: incomplete.message, life: 5000 })
+    toast.add({ color: 'warning', title: 'Scenario incomplete', description: incomplete.message, duration: 5000 })
     return
   }
 
@@ -382,14 +382,12 @@ function onCancel() {
 
 <template>
   <div class="flex flex-col gap-6">
-    <ConfirmDialog />
-
     <div class="flex flex-col gap-1">
-      <Button
+      <UButton
         label="Back to study"
-        icon="pi pi-arrow-left"
-        text
-        size="small"
+        icon="i-lucide-arrow-left"
+        variant="ghost"
+        size="sm"
         class="self-start -ml-3!"
         @click="onCancel"
       />
@@ -398,158 +396,157 @@ function onCancel() {
       </h1>
     </div>
 
-    <Message v-if="duplicateFromId !== null && !loading && !loadError" severity="info" size="small">
-      Review and adjust the duplicated data below, then save to create it as a new scenario in this
-      study.
-    </Message>
+    <UAlert
+      v-if="duplicateFromId !== null && !loading && !loadError"
+      color="info"
+      variant="outline"
+      description="Review and adjust the duplicated data below, then save to create it as a new scenario in this study."
+    />
 
     <div v-if="loading" class="flex justify-center py-12">
-      <ProgressSpinner style="width: 3rem; height: 3rem" />
+      <UProgress class="w-12" />
     </div>
 
-    <Message v-else-if="loadError" severity="error" size="small">{{ loadError }}</Message>
+    <UAlert v-else-if="loadError" color="error" variant="outline" :description="loadError" />
 
-    <Message v-else-if="!isEditable" severity="info" size="small">
-      This scenario was created for another study, so it can only be edited there. You can still
-      view it here, or remove it from this study on the scenarios list.
-    </Message>
+    <UAlert
+      v-else-if="!isEditable"
+      color="info"
+      variant="outline"
+      description="This scenario was created for another study, so it can only be edited there. You can still view it here, or remove it from this study on the scenarios list."
+    />
 
     <form v-else class="flex flex-col gap-4" @submit.prevent="onSubmit">
-      <Stepper v-model:value="activeStep" :linear="false" class="bg-transparent!">
-        <StepList class="sticky top-0 z-10 bg-surface-0 dark:bg-surface-900">
-          <Step value="1">Details</Step>
-          <Step value="2">Persistence</Step>
-          <Step value="3">Contact templates ({{ contactTemplateFields.length }})</Step>
-        </StepList>
-        <StepPanels class="bg-transparent!">
-          <StepPanel value="1" class="bg-transparent!">
-            <div class="flex flex-col gap-4 max-w-2xl">
-              <div class="flex flex-col gap-2">
-                <CategorySelect
-                  v-model="scenarioCategoryId"
-                  label="Scenario category"
-                  description="Use the label that you are also using in the sheet 'Activity Scenarios'. Provide the corresponding reference profiles in the sheet 'Reference Profiles'."
-                  :api="scenarioCategoryApi"
-                />
-                <Message
-                  v-if="errors.scenarioCategoryId"
-                  severity="error"
-                  size="small"
-                  variant="simple"
-                >
-                  {{ errors.scenarioCategoryId }}
-                </Message>
-              </div>
-
-              <div class="flex items-center gap-2">
-                <ToggleSwitch v-model="realistic" input-id="realistic" />
-                <label for="realistic" class="text-sm">Realistic scenario</label>
-              </div>
-
-              <div class="flex justify-end mt-2">
-                <Button label="Continue" icon="pi pi-arrow-right" icon-pos="right" @click="activeStep = '2'" />
-              </div>
+      <UStepper
+        v-model="activeStep"
+        :items="stepItems"
+        :linear="false"
+        class="bg-transparent!"
+      >
+        <template #1>
+          <div class="flex flex-col gap-4 max-w-2xl">
+            <div class="flex flex-col gap-2">
+              <CategorySelect
+                v-model="scenarioCategoryId"
+                label="Scenario category"
+                description="Use the label that you are also using in the sheet 'Activity Scenarios'. Provide the corresponding reference profiles in the sheet 'Reference Profiles'."
+                :api="scenarioCategoryApi"
+              />
+              <UAlert
+                v-if="errors.scenarioCategoryId"
+                color="error"
+                variant="subtle"
+                :description="errors.scenarioCategoryId"
+              />
             </div>
-          </StepPanel>
 
-          <StepPanel value="2" class="bg-transparent!">
-            <div class="flex flex-col gap-4">
-              <p
-                v-if="persistenceFields.length === 0"
-                class="text-sm text-surface-500 dark:text-surface-400"
-              >
-                No persistence linked yet.
-              </p>
-
-              <PersistenceCard
-                v-for="(persistenceField, index) in persistenceFields"
-                :key="persistenceField.key"
-                v-model="persistenceField.value"
-                :errors="errors"
-                :index="index"
-                :collapsed="collapsedPersistencies[index]"
-                :removable="true"
-                :editable="isPersistenceEditable(persistenceField.value, studyId)"
-                @update:collapsed="collapsedPersistencies[index] = $event"
-                @remove="removePersistence(index)"
-              />
-
-              <div class="flex gap-2">
-                <Button
-                  label="Add new persistence"
-                  icon="pi pi-plus"
-                  outlined
-                  @click="addPersistence"
-                />
-                <Button
-                  label="Duplicate a persistence from this study"
-                  icon="pi pi-copy"
-                  outlined
-                  :loading="studyScenariosLoading"
-                  :disabled="!hasPickablePersistencies"
-                  @click="persistencePickerVisible = true"
-                />
-              </div>
-
-              <PersistencePickerDialog
-                v-model:visible="persistencePickerVisible"
-                :scenarios="pickableScenarios"
-                @select="addExistingPersistence"
-              />
-
-              <div class="flex justify-between mt-2">
-                <Button label="Back" icon="pi pi-arrow-left" text @click="activeStep = '1'" />
-                <Button
-                  label="Continue"
-                  icon="pi pi-arrow-right"
-                  icon-pos="right"
-                  @click="activeStep = '3'"
-                />
-              </div>
+            <div class="flex items-center gap-2">
+              <USwitch v-model="realistic" id="realistic" />
+              <label for="realistic" class="text-sm">Realistic scenario</label>
             </div>
-          </StepPanel>
 
-          <StepPanel value="3" class="bg-transparent!">
-            <div class="flex flex-col gap-4">
-              <ContactTemplateCard
-                v-for="(contactTemplateField, index) in contactTemplateFields"
-                :key="contactTemplateField.key"
-                v-model="contactTemplateField.value"
-                :errors="errors"
-                :index="index"
-                :collapsed="collapsedContactTemplates[index]"
-                :removable="contactTemplateFields.length > 1"
-                @update:collapsed="collapsedContactTemplates[index] = $event"
-                @remove="removeContactTemplate(index)"
-              />
-
-              <Button
-                label="Add contact template"
-                icon="pi pi-plus"
-                outlined
-                class="self-start"
-                @click="addContactTemplate"
-              />
-
-              <div class="flex justify-start mt-2">
-                <Button label="Back" icon="pi pi-arrow-left" text @click="activeStep = '2'" />
-              </div>
+            <div class="flex justify-end mt-2">
+              <UButton label="Continue" trailing-icon="i-lucide-arrow-right" @click="activeStep = '2'" />
             </div>
-          </StepPanel>
-        </StepPanels>
-      </Stepper>
+          </div>
+        </template>
 
-      <Divider />
+        <template #2>
+          <div class="flex flex-col gap-4">
+            <p
+              v-if="persistenceFields.length === 0"
+              class="text-sm text-surface-500 dark:text-surface-400"
+            >
+              No persistence linked yet.
+            </p>
 
-      <Message v-if="submitError" severity="error" size="small">{{ submitError }}</Message>
+            <PersistenceCard
+              v-for="(persistenceField, index) in persistenceFields"
+              :key="persistenceField.key"
+              v-model="persistenceField.value"
+              :errors="errors"
+              :index="index"
+              :collapsed="collapsedPersistencies[index]"
+              :removable="true"
+              :editable="isPersistenceEditable(persistenceField.value, studyId)"
+              @update:collapsed="collapsedPersistencies[index] = $event"
+              @remove="removePersistence(index)"
+            />
+
+            <div class="flex gap-2">
+              <UButton
+                label="Add new persistence"
+                icon="i-lucide-plus"
+                variant="outline"
+                @click="addPersistence"
+              />
+              <UButton
+                label="Duplicate a persistence from this study"
+                icon="i-lucide-copy"
+                variant="outline"
+                :loading="studyScenariosLoading"
+                :disabled="!hasPickablePersistencies"
+                @click="persistencePickerVisible = true"
+              />
+            </div>
+
+            <PersistencePickerDialog
+              v-model:visible="persistencePickerVisible"
+              :scenarios="pickableScenarios"
+              @select="addExistingPersistence"
+            />
+
+            <div class="flex justify-between mt-2">
+              <UButton label="Back" icon="i-lucide-arrow-left" variant="ghost" @click="activeStep = '1'" />
+              <UButton
+                label="Continue"
+                trailing-icon="i-lucide-arrow-right"
+                @click="activeStep = '3'"
+              />
+            </div>
+          </div>
+        </template>
+
+        <template #3>
+          <div class="flex flex-col gap-4">
+            <ContactTemplateCard
+              v-for="(contactTemplateField, index) in contactTemplateFields"
+              :key="contactTemplateField.key"
+              v-model="contactTemplateField.value"
+              :errors="errors"
+              :index="index"
+              :collapsed="collapsedContactTemplates[index]"
+              :removable="contactTemplateFields.length > 1"
+              @update:collapsed="collapsedContactTemplates[index] = $event"
+              @remove="removeContactTemplate(index)"
+            />
+
+            <UButton
+              label="Add contact template"
+              icon="i-lucide-plus"
+              variant="outline"
+              class="self-start"
+              @click="addContactTemplate"
+            />
+
+            <div class="flex justify-start mt-2">
+              <UButton label="Back" icon="i-lucide-arrow-left" variant="ghost" @click="activeStep = '2'" />
+            </div>
+          </div>
+        </template>
+      </UStepper>
+
+      <USeparator />
+
+      <UAlert v-if="submitError" color="error" variant="outline" :description="submitError" />
 
       <div class="flex gap-2 mt-2">
-        <Button
+        <UButton
           type="submit"
           :label="editingId === null ? 'Add scenario' : 'Save changes'"
           :loading="submitting"
         />
-        <Button label="Cancel" text type="button" @click="onCancel" />
+        <UButton label="Cancel" variant="ghost" type="button" @click="onCancel" />
       </div>
     </form>
   </div>

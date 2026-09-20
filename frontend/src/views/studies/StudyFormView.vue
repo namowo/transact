@@ -3,21 +3,8 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useFieldArray, useForm } from 'vee-validate'
 import * as yup from 'yup'
-import InputText from 'primevue/inputtext'
-import InputNumber from 'primevue/inputnumber'
-import Textarea from 'primevue/textarea'
-import Select from 'primevue/select'
-import Button from 'primevue/button'
-import Message from 'primevue/message'
-import Divider from 'primevue/divider'
-import ProgressSpinner from 'primevue/progressspinner'
-import Stepper from 'primevue/stepper'
-import StepList from 'primevue/steplist'
-import StepPanels from 'primevue/steppanels'
-import Step from 'primevue/step'
-import StepPanel from 'primevue/steppanel'
-import ConfirmDialog from 'primevue/confirmdialog'
-import { useConfirm } from 'primevue/useconfirm'
+import type { StepperItem } from '@nuxt/ui'
+import { useConfirm } from '@/composables/useConfirm'
 import { createStudy, deleteStudy, getStudy, updateStudy } from '@/api/studies'
 import { useAuthStore } from '@/stores/auth'
 import ScenariosList from '@/components/scenarios/ScenariosList.vue'
@@ -56,6 +43,14 @@ const activeStep = computed<string>({
     router.replace({ query: { ...route.query, step: panelToStep[value] ?? 'details' } })
   },
 })
+
+const stepItems = computed<StepperItem[]>(() => [
+  { value: '1', title: 'Study details', slot: '1' },
+  { value: '2', title: 'Planning', disabled: editingId.value === null, slot: '2' },
+  ...(purpose.value === 'repository'
+    ? [{ value: '3', title: 'Add data', disabled: editingId.value === null, slot: '3' }]
+    : []),
+])
 
 const authorTitleOptions = ['Dr.', 'Prof.', 'Prof. Dr.', 'PhD', 'MSc', 'BSc']
 
@@ -345,9 +340,9 @@ function confirmSwitchPurpose(newPurpose: 'transfer' | 'repository') {
   confirm.require({
     message: `Switch this study's purpose to "${label}"?`,
     header: 'Switch study purpose',
-    icon: 'pi pi-exclamation-triangle',
-    rejectProps: { label: 'Cancel', severity: 'secondary', text: true },
-    acceptProps: { label: 'Switch', severity: 'danger' },
+    rejectLabel: 'Cancel',
+    acceptLabel: 'Switch',
+    acceptColor: 'error',
     accept: () => switchPurpose(newPurpose),
   })
 }
@@ -373,9 +368,9 @@ function confirmDeleteStudy() {
   confirm.require({
     message: 'Delete this study permanently? This cannot be undone.',
     header: 'Delete study',
-    icon: 'pi pi-exclamation-triangle',
-    rejectProps: { label: 'Cancel', severity: 'secondary', text: true },
-    acceptProps: { label: 'Delete', severity: 'danger' },
+    rejectLabel: 'Cancel',
+    acceptLabel: 'Delete',
+    acceptColor: 'error',
     accept: removeStudy,
   })
 }
@@ -383,110 +378,100 @@ function confirmDeleteStudy() {
 
 <template>
   <div class="flex flex-col gap-6">
-    <ConfirmDialog />
-
     <h1 v-if="editingId === null" class="text-2xl font-bold text-surface-900 dark:text-surface-0">
       {{ purposeOptions.find((option) => option.value === purpose)?.label ?? 'Add study' }}
     </h1>
 
     <div v-if="loadingStudy" class="flex justify-center py-12">
-      <ProgressSpinner style="width: 3rem; height: 3rem" />
+      <UProgress class="w-12" />
     </div>
 
-    <Message v-else-if="loadError" severity="error" size="small">{{ loadError }}</Message>
+    <UAlert v-else-if="loadError" color="error" variant="outline" :description="loadError" />
 
-    <Stepper v-else v-model:value="activeStep" :linear="false" class="bg-transparent!">
-      <StepList class="sticky top-0 z-10 bg-surface-0 dark:bg-surface-900">
-        <Step value="1">Study details</Step>
-        <Step value="2" :disabled="editingId === null">Planning</Step>
-        <Step v-if="purpose === 'repository'" value="3" :disabled="editingId === null">
-          Add data
-        </Step>
-      </StepList>
-      <StepPanels class="bg-transparent!">
-        <StepPanel value="1" class="bg-transparent!">
+    <UStepper
+      v-else
+      v-model="activeStep"
+      :items="stepItems"
+      :linear="false"
+      class="bg-transparent!"
+    >
+        <template #1>
           <form class="flex flex-col gap-4 max-w-2xl" @submit.prevent="onSubmit">
             <div class="flex flex-col gap-2">
               <label for="study-title" class="font-medium text-sm">Title</label>
-              <InputText
+              <UInput
                 id="study-title"
                 v-model="title"
                 v-bind="titleAttrs"
-                :invalid="!!errors.title"
-                fluid
+                :color="errors.title ? 'error' : undefined"
+                class="w-full"
                 autofocus
               />
-              <Message v-if="errors.title" severity="error" size="small" variant="simple">
-                {{ errors.title }}
-              </Message>
+              <UAlert v-if="errors.title" color="error" variant="subtle" :description="errors.title" />
             </div>
 
             <div class="flex flex-col gap-2">
               <label for="study-description" class="font-medium text-sm"
                 >Description (Optional)</label
               >
-              <Textarea
+              <UTextarea
                 id="study-description"
                 v-model="description"
                 v-bind="descriptionAttrs"
-                rows="3"
-                fluid
+                :rows="3"
+                class="w-full"
               />
             </div>
 
             <div class="flex flex-col gap-2">
               <div class="flex items-center justify-between">
                 <label class="font-medium text-sm">Authors</label>
-                <Button label="Add author" icon="pi pi-plus" text size="small" @click="addAuthor" />
+                <UButton label="Add author" icon="i-lucide-plus" variant="ghost" size="sm" @click="addAuthor" />
               </div>
               <div
                 v-for="(field, index) in authorFields"
                 :key="field.key"
                 class="flex flex-col sm:flex-row gap-2 sm:items-start"
               >
-                <Select
+                <USelectMenu
                   v-model="field.value.title"
-                  :options="authorTitleOptions"
+                  :items="authorTitleOptions"
                   placeholder="Title"
-                  show-clear
+                  clear
                   class="w-full sm:w-28 sm:shrink-0"
                 />
                 <div class="flex-1 flex flex-col gap-1">
-                  <InputText
+                  <UInput
                     v-model="field.value.first_name"
                     placeholder="First name"
-                    :invalid="!!showAuthorError(index, 'first_name')"
-                    fluid
+                    :color="showAuthorError(index, 'first_name') ? 'error' : undefined"
+                    class="w-full"
                   />
-                  <Message
+                  <UAlert
                     v-if="showAuthorError(index, 'first_name')"
-                    severity="error"
-                    size="small"
-                    variant="simple"
-                  >
-                    {{ showAuthorError(index, 'first_name') }}
-                  </Message>
+                    color="error"
+                    variant="subtle"
+                    :description="showAuthorError(index, 'first_name')"
+                  />
                 </div>
                 <div class="flex-1 flex flex-col gap-1">
-                  <InputText
+                  <UInput
                     v-model="field.value.last_name"
                     placeholder="Last name"
-                    :invalid="!!showAuthorError(index, 'last_name')"
-                    fluid
+                    :color="showAuthorError(index, 'last_name') ? 'error' : undefined"
+                    class="w-full"
                   />
-                  <Message
+                  <UAlert
                     v-if="showAuthorError(index, 'last_name')"
-                    severity="error"
-                    size="small"
-                    variant="simple"
-                  >
-                    {{ showAuthorError(index, 'last_name') }}
-                  </Message>
+                    color="error"
+                    variant="subtle"
+                    :description="showAuthorError(index, 'last_name')"
+                  />
                 </div>
-                <Button
-                  icon="pi pi-trash"
-                  severity="danger"
-                  text
+                <UButton
+                  icon="i-lucide-trash-2"
+                  color="error"
+                  variant="ghost"
                   aria-label="Remove author"
                   :disabled="authorFields.length === 1"
                   @click="removeAuthor(index)"
@@ -497,40 +482,38 @@ function confirmDeleteStudy() {
             <template v-if="purpose === 'repository'">
               <div class="flex flex-col gap-2">
                 <label for="study-journal" class="font-medium text-sm">Journal (Optional)</label>
-                <InputText id="study-journal" v-model="journal" v-bind="journalAttrs" fluid />
+                <UInput id="study-journal" v-model="journal" v-bind="journalAttrs" class="w-full" />
               </div>
 
               <div class="grid grid-cols-2 gap-4">
                 <div class="flex flex-col gap-2">
                   <label for="study-year" class="font-medium text-sm">Year (Optional)</label>
-                  <InputNumber
+                  <!-- TODO: number formatting (was :use-grouping="false") -->
+                  <UInputNumber
                     id="study-year"
                     v-model="year"
                     v-bind="yearAttrs"
-                    :invalid="!!errors.year"
-                    :use-grouping="false"
+                    :color="errors.year ? 'error' : undefined"
                     :min="1000"
                     :max="9999"
-                    fluid
+                    class="w-full"
                   />
-                  <Message v-if="errors.year" severity="error" size="small" variant="simple">
-                    {{ errors.year }}
-                  </Message>
+                  <UAlert v-if="errors.year" color="error" variant="subtle" :description="errors.year" />
                 </div>
                 <div class="flex flex-col gap-2">
                   <label for="study-doi" class="font-medium text-sm">DOI (Optional)</label>
-                  <InputText id="study-doi" v-model="doi" v-bind="doiAttrs" fluid />
+                  <UInput id="study-doi" v-model="doi" v-bind="doiAttrs" class="w-full" />
                 </div>
               </div>
 
               <div class="flex flex-col gap-2">
                 <label for="study-abstract" class="font-medium text-sm">Abstract (Optional)</label>
-                <Textarea
+                <UTextarea
                   id="study-abstract"
                   v-model="abstractField"
                   v-bind="abstractAttrs"
-                  rows="3"
-                  fluid
+                  :rows="3"
+                  class="w-full"
                 />
               </div>
             </template>
@@ -539,20 +522,18 @@ function confirmDeleteStudy() {
               <label for="study-contact-author" class="font-medium text-sm"
                 >Corresponding author contact (Optional)</label
               >
-              <Select
+              <USelectMenu
                 id="study-contact-author"
                 v-model="correspondingAuthorIndex"
-                :options="correspondingAuthorOptions"
-                option-label="label"
-                option-value="value"
+                :items="correspondingAuthorOptions"
                 :placeholder="
                   correspondingAuthorOptions.length
                     ? 'Select an author'
                     : 'Add an author with a first and last name first'
                 "
                 :disabled="!correspondingAuthorOptions.length"
-                show-clear
-                fluid
+                clear
+                class="w-full"
                 @update:model-value="onCorrespondingAuthorChange"
               />
             </div>
@@ -562,55 +543,52 @@ function confirmDeleteStudy() {
                 <label for="study-contact-email" class="font-medium text-sm"
                   >Email (Optional)</label
                 >
-                <InputText
+                <UInput
                   id="study-contact-email"
                   v-model="correspondingEmail"
                   v-bind="correspondingEmailAttrs"
-                  :invalid="!!errors.corresponding_author_email"
+                  :color="errors.corresponding_author_email ? 'error' : undefined"
                   :disabled="correspondingAuthorIndex == null"
                   type="email"
-                  fluid
+                  class="w-full"
                 />
-                <Message
+                <UAlert
                   v-if="errors.corresponding_author_email"
-                  severity="error"
-                  size="small"
-                  variant="simple"
-                >
-                  {{ errors.corresponding_author_email }}
-                </Message>
+                  color="error"
+                  variant="subtle"
+                  :description="errors.corresponding_author_email"
+                />
               </div>
               <div class="flex flex-col gap-2">
                 <label for="study-contact-phone" class="font-medium text-sm"
                   >Phone number (Optional)</label
                 >
-                <InputText
+                <UInput
                   id="study-contact-phone"
                   v-model="correspondingPhone"
                   v-bind="correspondingPhoneAttrs"
                   :disabled="correspondingAuthorIndex == null"
-                  fluid
+                  class="w-full"
                 />
               </div>
             </div>
 
-            <Message v-if="submitError" severity="error" size="small">{{ submitError }}</Message>
+            <UAlert v-if="submitError" color="error" variant="outline" :description="submitError" />
 
             <div class="flex justify-between items-center gap-2 mt-2">
               <div class="flex gap-2">
-                <Button
+                <UButton
                   type="submit"
                   :label="editingId === null ? 'Add study & continue' : 'Save changes'"
                   :loading="submitting"
                 />
-                <Button label="Cancel" text type="button" @click="onCancel" />
+                <UButton label="Cancel" variant="ghost" type="button" @click="onCancel" />
               </div>
-              <Button
+              <UButton
                 v-if="editingId !== null"
                 label="Continue"
-                icon="pi pi-arrow-right"
-                icon-pos="right"
-                text
+                trailing-icon="i-lucide-arrow-right"
+                variant="ghost"
                 type="button"
                 @click="activeStep = '2'"
               />
@@ -619,7 +597,7 @@ function confirmDeleteStudy() {
 
           <template v-if="editingId !== null">
             <div class="max-w-2xl pt-16">
-              <Divider />
+              <USeparator />
             </div>
 
             <div class="max-w-2xl flex flex-col gap-4">
@@ -638,60 +616,66 @@ function confirmDeleteStudy() {
                     purposeOptions.find((option) => option.value === purpose)?.label
                   }}</span>
                 </p>
-                <Button
+                <UButton
                   v-if="otherPurposeOption"
                   type="button"
                   :label="`Switch to: ${otherPurposeOption.label}`"
-                  severity="secondary"
-                  outlined
+                  color="neutral"
+                  variant="outline"
                   class="w-fit"
                   :loading="switchingPurpose"
                   @click="confirmSwitchPurpose(otherPurposeOption.value)"
                 />
-                <Message v-if="switchPurposeError" severity="error" size="small" variant="simple">
-                  {{ switchPurposeError }}
-                </Message>
+                <UAlert
+                  v-if="switchPurposeError"
+                  color="error"
+                  variant="subtle"
+                  :description="switchPurposeError"
+                />
               </div>
 
               <div class="flex flex-col gap-2">
                 <label class="font-medium text-sm">Delete study</label>
-                <Button
+                <UButton
                   label="Delete"
-                  icon="pi pi-trash"
-                  severity="danger"
+                  icon="i-lucide-trash-2"
+                  color="error"
                   class="w-fit"
                   :loading="deleting"
                   @click="confirmDeleteStudy"
                 />
-                <Message v-if="deleteError" severity="error" size="small" variant="simple">
-                  {{ deleteError }}
-                </Message>
+                <UAlert
+                  v-if="deleteError"
+                  color="error"
+                  variant="subtle"
+                  :description="deleteError"
+                />
               </div>
             </div>
           </template>
-        </StepPanel>
-        <StepPanel value="2" class="bg-transparent!">
+        </template>
+
+        <template #2>
           <ScenariosList v-if="editingId !== null" :study-id="editingId" />
           <div class="flex justify-between mt-4">
-            <Button label="Back" icon="pi pi-arrow-left" text type="button" @click="activeStep = '1'" />
-            <Button
+            <UButton label="Back" icon="i-lucide-arrow-left" variant="ghost" type="button" @click="activeStep = '1'" />
+            <UButton
               v-if="purpose === 'repository'"
               label="Continue"
-              icon="pi pi-arrow-right"
-              icon-pos="right"
-              text
+              trailing-icon="i-lucide-arrow-right"
+              variant="ghost"
               type="button"
               @click="activeStep = '3'"
             />
           </div>
-        </StepPanel>
-        <StepPanel v-if="purpose === 'repository'" value="3" class="bg-transparent!">
+        </template>
+
+        <template v-if="purpose === 'repository'" #3>
           <DataEntryView v-if="editingId !== null" :study-id="String(editingId)" />
           <div class="flex justify-start mt-4">
-            <Button label="Back" icon="pi pi-arrow-left" text type="button" @click="activeStep = '2'" />
+            <UButton label="Back" icon="i-lucide-arrow-left" variant="ghost" type="button" @click="activeStep = '2'" />
           </div>
-        </StepPanel>
-      </StepPanels>
-    </Stepper>
+        </template>
+    </UStepper>
   </div>
 </template>
