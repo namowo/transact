@@ -121,14 +121,14 @@ function formatDuration(seconds: number | null | undefined): string | null {
             <div v-if="contactTemplate.contact_area != null">
               <span class="font-medium">Contact area:</span> {{ contactTemplate.contact_area }} cm²
             </div>
-            <div v-if="contactTemplate.temperature != null">
-              <span class="font-medium">Temperature:</span> {{ contactTemplate.temperature }} °C
+            <div v-if="contactTemplate.condition_during_contact?.temperature != null">
+              <span class="font-medium">Temperature:</span> {{ contactTemplate.condition_during_contact.temperature }} °C
             </div>
-            <div v-if="contactTemplate.humidity != null">
-              <span class="font-medium">Humidity:</span> {{ contactTemplate.humidity }} %
+            <div v-if="contactTemplate.condition_during_contact?.humidity != null">
+              <span class="font-medium">Humidity:</span> {{ contactTemplate.condition_during_contact.humidity }} %
             </div>
-            <div v-if="contactTemplate.uv_irradiation != null">
-              <span class="font-medium">UV irradiation:</span> {{ contactTemplate.uv_irradiation }} mW/cm²
+            <div v-if="contactTemplate.condition_during_contact?.uv_irradiation != null">
+              <span class="font-medium">UV irradiation:</span> {{ contactTemplate.condition_during_contact.uv_irradiation }} mW/cm²
             </div>
             <div v-if="contactTemplate.activity_category">
               <span class="font-medium">Activity:</span> {{ contactTemplate.activity_category.name }}

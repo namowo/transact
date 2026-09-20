@@ -57,7 +57,7 @@ const submitError = ref('')
 // Only the study that originally created a scenario may edit it; other
 // studies can only link/unlink it via ScenariosList, since it's a shared
 // record they don't own.
-const owningStudyId = ref<number | null>(null)
+const owningStudyId = ref<string | null>(null)
 const isEditable = computed(
   () => owningStudyId.value === null || owningStudyId.value === studyId.value,
 )

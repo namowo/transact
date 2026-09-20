@@ -74,9 +74,9 @@ export function isPersistenceEditable(draft: PersistenceDraft, currentStudyId: s
 
 function authorCitation(authors: { last_name: string }[]): string | null {
   if (authors.length === 0) return null
-  if (authors.length === 1) return authors[0].last_name
-  if (authors.length === 2) return `${authors[0].last_name} & ${authors[1].last_name}`
-  return `${authors[0].last_name} et al.`
+  if (authors.length === 1) return authors[0]!.last_name
+  if (authors.length === 2) return `${authors[0]!.last_name} & ${authors[1]!.last_name}`
+  return `${authors[0]!.last_name} et al.`
 }
 
 function persistenceSubtitle(persistence: Persistence): string | null {

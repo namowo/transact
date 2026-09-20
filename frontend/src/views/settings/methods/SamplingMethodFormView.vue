@@ -78,10 +78,10 @@ function fieldError(key: SubMethodKey, fieldKey: string) {
 
 // Existing sub-method record ids, so editing updates them instead of
 // creating duplicates.
-const existingSubMethodIds = ref<Record<SubMethodKey, number | null>>(
+const existingSubMethodIds = ref<Record<SubMethodKey, string | null>>(
   Object.fromEntries(subMethodKeys.map((key) => [key, null])) as Record<
     SubMethodKey,
-    number | null
+    string | null
   >,
 )
 
@@ -141,7 +141,7 @@ async function onSubmit() {
       }
     }
 
-    const subMethodIds: Record<SubMethodKey, number | null> = {} as any
+    const subMethodIds: Record<SubMethodKey, string | null> = {} as any
 
     for (const config of subMethodConfigs) {
       const key = config.key as SubMethodKey

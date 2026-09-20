@@ -39,7 +39,7 @@ function surfaceLabel(surface: Surface): string {
 }
 
 const studySurfaces = computed<Surface[]>(() => {
-  const bySurfaceId = new Map<number, Surface>()
+  const bySurfaceId = new Map<string, Surface>()
   for (const contact of props.contacts) {
     if (contact.donor_surface) bySurfaceId.set(contact.donor_surface.id, contact.donor_surface)
     if (contact.recipient_surface)
@@ -67,7 +67,7 @@ const recoverySets = ref<RecoverySet[]>([])
 // Recoveries with no recovery_set_id are grouped under a single "Ungrouped"
 // bucket so the table always groups consistently.
 const groupedRecoveries = computed(() => {
-  const groups = new Map<number | null, Recovery[]>()
+  const groups = new Map<string | null, Recovery[]>()
   for (const recovery of recoveries.value) {
     const key = recovery.recovery_set_id ?? null
     if (!groups.has(key)) groups.set(key, [])

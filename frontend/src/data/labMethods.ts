@@ -61,8 +61,8 @@ export interface MethodConfig {
   api: {
     list: () => Promise<any[]>
     create: (payload: any) => Promise<any>
-    update: (id: number, payload: any) => Promise<any>
-    delete: (id: number) => Promise<void>
+    update: (id: string, payload: any) => Promise<any>
+    delete: (id: string) => Promise<void>
   }
   laboratoryScoped: boolean
   fields: MethodFieldConfig[]

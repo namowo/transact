@@ -16,7 +16,7 @@ const items = ref<SamplingMethod[]>([])
 const loading = ref(false)
 const loadError = ref('')
 
-function describeSubMethod(m: { id: number; description?: string | null } | null | undefined) {
+function describeSubMethod(m: { id: string; description?: string | null } | null | undefined) {
   if (!m) return '—'
   return m.description?.trim() || `#${m.id}`
 }
