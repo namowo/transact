@@ -33,7 +33,7 @@ jobs:
             cd ${{ secrets.DEPLOY_PATH }}
             uv sync
             uv run --directory backend alembic upgrade head
-            sudo systemctl restart mobilitaetscheck
+            sudo systemctl restart transact
 
       - name: Deploy frontend
         uses: appleboy/ssh-action@v1.2.0
