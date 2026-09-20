@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import DataView from 'primevue/dataview'
-import DataTable from 'primevue/datatable'
-import Column from 'primevue/column'
+import DataView from 'openvue/dataview'
+import DataTable from 'openvue/datatable'
+import Column from 'openvue/column'
 import { useConfirm } from '@/composables/useConfirm'
 import ScenarioViewDialog from './ScenarioViewDialog.vue'
 import ScenarioDetails from './ScenarioDetails.vue'

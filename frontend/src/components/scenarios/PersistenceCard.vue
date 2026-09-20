@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import Panel from 'primevue/panel'
+import Panel from 'openvue/panel'
 import CategorySelect from './CategorySelect.vue'
 import DurationValueInput from './DurationValueInput.vue'
 import FieldLabel from './FieldLabel.vue'

@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import DataTable from 'primevue/datatable'
-import Column from 'primevue/column'
+import DataTable from 'openvue/datatable'
+import Column from 'openvue/column'
 import { useConfirm } from '@/composables/useConfirm'
-import { FilterMatchMode } from '@primevue/core/api'
+import { FilterMatchMode } from '@openvue/core/api'
 import { grantLabAdmin, listLabUsers, removeFromLaboratory, revokeLabAdmin } from '@/api/users'
 import {
   approveMembershipRequest,

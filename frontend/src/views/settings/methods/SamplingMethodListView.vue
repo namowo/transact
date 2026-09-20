@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import DataTable from 'primevue/datatable'
-import Column from 'primevue/column'
-import { FilterMatchMode } from '@primevue/core/api'
+import DataTable from 'openvue/datatable'
+import Column from 'openvue/column'
+import { FilterMatchMode } from '@openvue/core/api'
 import { useAuthStore } from '@/stores/auth'
 import { samplingMethodApi } from '@/api/methods'
 import type { SamplingMethod } from '@/api/types'

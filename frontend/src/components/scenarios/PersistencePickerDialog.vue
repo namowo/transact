@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import DataTable from 'primevue/datatable'
-import Column from 'primevue/column'
+import DataTable from 'openvue/datatable'
+import Column from 'openvue/column'
 import PersistenceDetails from './PersistenceDetails.vue'
 import { persistenceLabel } from './persistenceDraft'
 import type { Persistence, Scenario } from '@/api/types'

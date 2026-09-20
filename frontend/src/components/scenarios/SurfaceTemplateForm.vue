@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import SelectButton from 'primevue/selectbutton'
+import SelectButton from 'openvue/selectbutton'
 import CategorySelect from './CategorySelect.vue'
 import ItemSelect from './ItemSelect.vue'
 import {

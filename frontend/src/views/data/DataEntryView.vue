@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import DataTable from 'primevue/datatable'
-import Column from 'primevue/column'
+import DataTable from 'openvue/datatable'
+import Column from 'openvue/column'
 import type { TabsItem } from '@nuxt/ui'
 import ContactInstanceDialog from '@/components/data/ContactInstanceDialog.vue'
 import IndividualsAndItemsPanel from '@/components/data/IndividualsAndItemsPanel.vue'

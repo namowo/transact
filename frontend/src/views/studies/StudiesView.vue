@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import DataView from 'primevue/dataview'
-import SelectButton from 'primevue/selectbutton'
+import DataView from 'openvue/dataview'
+import SelectButton from 'openvue/selectbutton'
 import { useToast } from '@nuxt/ui/composables'
 import { listStudies } from '@/api/studies'
 import { useAuthStore } from '@/stores/auth'

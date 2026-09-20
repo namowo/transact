@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import Panel from 'primevue/panel'
+import Panel from 'openvue/panel'
 import { useConfirm } from '@/composables/useConfirm'
 import SurfaceTemplateForm from './SurfaceTemplateForm.vue'
 import CategorySelect from './CategorySelect.vue'

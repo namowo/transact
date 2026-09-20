@@ -3,9 +3,9 @@ import './assets/main.css'
 
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
-import PrimeVue from 'primevue/config'
-import { definePreset } from '@primeuix/themes'
-import Aura from '@primeuix/themes/aura'
+import PrimeVue from 'openvue/config'
+import { definePreset } from '@openvue/themes'
+import Aura from '@openvue/themes/aura'
 import ui from '@nuxt/ui/vue-plugin'
 
 import App from './App.vue'

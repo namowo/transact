@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
-import Menu from 'primevue/menu'
-import type { MenuItem } from 'primevue/menuitem'
+import Menu from 'openvue/menu'
+import type { MenuItem } from 'openvue/menuitem'
 
 const router = useRouter()
 

@@ -2,7 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { useForm } from 'vee-validate'
 import * as yup from 'yup'
-import SelectButton from 'primevue/selectbutton'
+import SelectButton from 'openvue/selectbutton'
 import LaboratorySelect from '@/components/auth/LaboratorySelect.vue'
 import {
   fetchMyMembershipRequest,

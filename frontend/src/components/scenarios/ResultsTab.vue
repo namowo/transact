@@ -2,8 +2,8 @@
 import { computed, onMounted, ref } from 'vue'
 import { useForm } from 'vee-validate'
 import * as yup from 'yup'
-import DataTable from 'primevue/datatable'
-import Column from 'primevue/column'
+import DataTable from 'openvue/datatable'
+import Column from 'openvue/column'
 import EntitySelect from '@/components/scenarios/EntitySelect.vue'
 import {
   resultApi,

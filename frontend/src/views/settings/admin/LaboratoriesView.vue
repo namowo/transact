@@ -2,9 +2,9 @@
 import { onMounted, ref } from 'vue'
 import { useForm } from 'vee-validate'
 import * as yup from 'yup'
-import DataTable from 'primevue/datatable'
-import Column from 'primevue/column'
-import { FilterMatchMode } from '@primevue/core/api'
+import DataTable from 'openvue/datatable'
+import Column from 'openvue/column'
+import { FilterMatchMode } from '@openvue/core/api'
 import { createLaboratory, listLaboratories } from '@/api/laboratories'
 import {
   approveMembershipRequest,
