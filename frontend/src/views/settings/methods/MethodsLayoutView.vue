@@ -1,15 +1,11 @@
 <script setup lang="ts">
-import { useRouter } from 'vue-router'
-import Menu from 'openvue/menu'
-import type { MenuItem } from 'openvue/menuitem'
+import type { NavigationMenuItem } from '@nuxt/ui'
 
-const router = useRouter()
-
-function toMenuItem(label: string, name: string): MenuItem {
-  return { label, command: () => router.push({ name }) }
+function toMenuItem(label: string, name: string): NavigationMenuItem {
+  return { label, to: { name } }
 }
 
-const menuItems: MenuItem[] = [
+const menuItems: NavigationMenuItem[] = [
   toMenuItem('Extraction', 'settings-methods-extraction'),
   toMenuItem('PCR', 'settings-methods-pcr'),
   toMenuItem('CE', 'settings-methods-ce'),
@@ -23,7 +19,11 @@ const menuItems: MenuItem[] = [
 
 <template>
   <div class="flex flex-col gap-6 lg:flex-row lg:items-start">
-    <Menu :model="menuItems" class="w-full lg:w-56 shrink-0" />
+    <UNavigationMenu
+      :items="menuItems"
+      orientation="vertical"
+      class="w-full lg:w-56 shrink-0"
+    />
     <div class="flex-1 min-w-0">
       <router-view />
     </div>
