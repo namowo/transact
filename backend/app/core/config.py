@@ -51,20 +51,49 @@ class Settings(BaseSettings):
     EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS: int = 48
     PASSWORD_RESET_TOKEN_EXPIRE_HOURS: int = 2
 
-    WEBAUTHN_RP_ID: str = "localhost"
     WEBAUTHN_RP_NAME: str = "TransAct"
-    WEBAUTHN_ORIGIN: str = "http://localhost:5173"
     WEBAUTHN_CHALLENGE_TTL_SECONDS: int = 300
 
     # FastAPI Settings
-    HOST_URL: str = "http://localhost:8000"
-    FRONTEND_URL: str = "http://localhost:5173"
+    # Schemeless host (e.g. "transact.namowo.de"); ignored when ENVIRONMENT is "local".
+    HOST_URL: str = ""
     FRONTEND_DIR: str = "../frontend/dist"
     API_V1_STR: str = "/api/v1"
     ENVIRONMENT: Literal["local", "staging", "production"] = "local"
     BACKEND_CORS_ORIGINS: Annotated[list[AnyUrl] | str, BeforeValidator(parse_list)] = (
         []
     )
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def BACKEND_URL(self) -> str:
+        if self.ENVIRONMENT == "local":
+            return "http://localhost:8000"
+        return f"https://{self.HOST_URL.rstrip('/')}"
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def BACKEND_API_URL(self) -> str:
+        return f"{self.BACKEND_URL}{self.API_V1_STR}"
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def FRONTEND_URL(self) -> str:
+        if self.ENVIRONMENT == "local":
+            return "http://localhost:5173"
+        return f"https://{self.HOST_URL.rstrip('/')}"
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def WEBAUTHN_RP_ID(self) -> str:
+        if self.ENVIRONMENT == "local":
+            return "localhost"
+        return self.HOST_URL.rstrip("/")
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def WEBAUTHN_ORIGIN(self) -> str:
+        return self.FRONTEND_URL
 
     # SMTP settings. If SMTP_HOST is unset, outgoing mail is logged to the
     # console instead of being sent - convenient for local development.
@@ -81,8 +110,8 @@ class Settings(BaseSettings):
     def all_cors_origins(self) -> list[str]:
         origins = set(str(origin).rstrip("/") for origin in self.BACKEND_CORS_ORIGINS)
 
-        # Always add HOST_URL (frontend or backend)
-        host = self.HOST_URL.rstrip("/")
+        # Always add the backend origin
+        host = self.BACKEND_URL.rstrip("/")
         origins.add(host)
 
         # Local development → add Vite dev server

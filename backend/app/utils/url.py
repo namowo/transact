@@ -25,6 +25,4 @@ def create_token_url(endpoint: str, token: str):
 
 
 def create_backend_token_url(endpoint: str, token: str):
-    return add_query_params(
-        f"{settings.HOST_URL}{settings.API_V1_STR}/{endpoint}", {"token": token}
-    )
+    return add_query_params(f"{settings.BACKEND_API_URL}/{endpoint}", {"token": token})
