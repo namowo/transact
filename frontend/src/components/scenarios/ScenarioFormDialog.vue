@@ -401,16 +401,57 @@ function firstIncompleteStep(): { step: StepName; message: string } | null {
   return null
 }
 
-const onSubmit = handleSubmit(async (formValues) => {
-  if (!isEditable.value) return
+// Jumps to whichever step/card holds the first validation error and expands
+// it, so a field invalid on step 2/3 can't silently fail to save while the
+// user is looking at (and only sees success/failure on) a different step.
+function revealFirstError(errorPaths: string[]) {
+  const path = errorPaths[0]
+  if (!path) return
 
-  const incomplete = firstIncompleteStep()
-  if (incomplete) {
-    activeStep.value = stepToPanel[incomplete.step]
-    toast.add({ color: 'warning', title: 'Scenario incomplete', description: incomplete.message, duration: 5000 })
+  const persistenceMatch = path.match(/^persistencies\[(\d+)\]/)
+  if (persistenceMatch) {
+    const index = Number(persistenceMatch[1])
+    activeStep.value = stepToPanel.persistence
+    if (collapsedPersistencies.value[index]) collapsedPersistencies.value[index] = false
     return
   }
 
+  const contactTemplateMatch = path.match(/^contactTemplates\[(\d+)\]/)
+  if (contactTemplateMatch) {
+    const index = Number(contactTemplateMatch[1])
+    activeStep.value = stepToPanel['contact-templates']
+    if (collapsedContactTemplates.value[index]) collapsedContactTemplates.value[index] = false
+    return
+  }
+
+  activeStep.value = stepToPanel.details
+}
+
+const onSubmit = handleSubmit(
+  async (formValues) => {
+    if (!isEditable.value) return
+
+    const incomplete = firstIncompleteStep()
+    if (incomplete) {
+      activeStep.value = stepToPanel[incomplete.step]
+      toast.add({ color: 'warning', title: 'Scenario incomplete', description: incomplete.message, duration: 5000 })
+      return
+    }
+
+    await saveScenario(formValues)
+  },
+  ({ errors: validationErrors }) => {
+    revealFirstError(Object.keys(validationErrors))
+    toast.add({
+      color: 'error',
+      title: 'Scenario has errors',
+      description: 'Please fix the highlighted fields before saving.',
+      duration: 5000,
+    })
+  },
+)
+
+async function saveScenario(formValues: ScenarioFormValues) {
   submitting.value = true
   submitError.value = ''
   try {
@@ -446,7 +487,7 @@ const onSubmit = handleSubmit(async (formValues) => {
   } finally {
     submitting.value = false
   }
-})
+}
 
 function onCancel() {
   clearDraft()
