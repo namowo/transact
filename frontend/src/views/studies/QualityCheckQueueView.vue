@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import DataTable from 'openvue/datatable'
 import Column from 'openvue/column'
+import { FilterMatchMode } from '@openvue/core/api'
 import { listStudies, passQualityCheck } from '@/api/studies'
 import type { Study } from '@/api/types'
 
@@ -12,6 +13,21 @@ const actionError = ref('')
 const actingOnId = ref<string | null>(null)
 
 const pendingStudies = computed(() => studies.value.filter((s) => !s.quality_check_passed))
+
+function initFilters() {
+  return {
+    global: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    title: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    'laboratory.laboratory_name': { value: null, matchMode: FilterMatchMode.CONTAINS },
+    year: { value: null, matchMode: FilterMatchMode.CONTAINS },
+  }
+}
+
+const filters = ref(initFilters())
+
+function clearFilters() {
+  filters.value = initFilters()
+}
 
 async function load() {
   loading.value = true
@@ -56,12 +72,60 @@ async function approve(study: Study) {
     <UAlert v-if="actionError" color="error" variant="outline" :description="actionError" />
 
     <div class="overflow-x-auto">
-      <DataTable :value="pendingStudies" :loading="loading" data-key="id">
-        <Column field="title" header="Title" />
-        <Column header="Laboratory">
-          <template #body="{ data }">{{ data.laboratory?.laboratory_name ?? '—' }}</template>
+      <div class="mb-3 flex items-center justify-between gap-3">
+        <UButton type="button" icon="i-lucide-filter-x" variant="outline" size="sm" @click="clearFilters()">
+          Clear Filters
+        </UButton>
+        <UInput
+          v-model="filters['global'].value"
+          type="text"
+          icon="i-lucide-search"
+          placeholder="Keyword Search"
+        />
+      </div>
+
+      <DataTable
+        v-model:filters="filters"
+        :value="pendingStudies"
+        :loading="loading"
+        data-key="id"
+        filterDisplay="menu"
+        :globalFilterFields="['title', 'laboratory.laboratory_name', 'year']"
+      >
+        <Column
+          field="title"
+          header="Title"
+          sortable
+          :showFilterOperator="false"
+          :showAddButton="false"
+        >
+          <template #filter="{ filterModel }">
+            <UInput v-model="filterModel.value" type="text" placeholder="Search by title" />
+          </template>
         </Column>
-        <Column field="year" header="Year" />
+        <Column
+          field="laboratory.laboratory_name"
+          header="Laboratory"
+          sortable
+          :showFilterOperator="false"
+          :showAddButton="false"
+        >
+          <template #body="{ data }">{{ data.laboratory?.laboratory_name ?? '—' }}</template>
+          <template #filter="{ filterModel }">
+            <UInput v-model="filterModel.value" type="text" placeholder="Search by laboratory" />
+          </template>
+        </Column>
+        <Column
+          field="year"
+          header="Year"
+          sortable
+          :showFilterOperator="false"
+          :showAddButton="false"
+        >
+          <template #filter="{ filterModel }">
+            <UInput v-model="filterModel.value" type="text" placeholder="Search by year" />
+          </template>
+        </Column>
         <Column header="" style="width: 12rem">
           <template #body="{ data }">
             <UButton

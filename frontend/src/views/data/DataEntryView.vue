@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import DataTable from 'openvue/datatable'
 import Column from 'openvue/column'
+import { FilterMatchMode } from '@openvue/core/api'
 import type { TabsItem } from '@nuxt/ui'
 import ContactInstanceDialog from '@/components/data/ContactInstanceDialog.vue'
 import IndividualsAndItemsPanel from '@/components/data/IndividualsAndItemsPanel.vue'
@@ -67,6 +68,20 @@ function surfaceSummary(contact: Contact, side: 'donor_surface' | 'recipient_sur
   return category ? `Item (${category})` : 'Item'
 }
 
+function initContactFilters() {
+  return {
+    global: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    donor_surface: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    recipient_surface: { value: null, matchMode: FilterMatchMode.CONTAINS },
+  }
+}
+
+const contactFilters = ref(initContactFilters())
+
+function clearContactFilters() {
+  contactFilters.value = initContactFilters()
+}
+
 const tabItems = computed<TabsItem[]>(() => [
   { label: 'Individuals & items', value: 'individuals-items', slot: 'individuals-items' },
   { label: 'Contacts', value: 'contacts', slot: 'contacts', badge: contacts.value.length },
@@ -112,15 +127,59 @@ const tabItems = computed<TabsItem[]>(() => [
           />
 
           <div class="overflow-x-auto">
-            <DataTable :value="contacts" data-key="id">
-              <Column header="Contact template">
+            <div class="mb-3 flex items-center justify-between gap-3">
+              <UButton
+                type="button"
+                icon="i-lucide-filter-x"
+                variant="outline"
+                size="sm"
+                @click="clearContactFilters()"
+              >
+                Clear Filters
+              </UButton>
+              <UInput
+                v-model="contactFilters['global'].value"
+                type="text"
+                icon="i-lucide-search"
+                placeholder="Keyword Search"
+              />
+            </div>
+
+            <DataTable
+              v-model:filters="contactFilters"
+              :value="contacts"
+              data-key="id"
+              filter-display="menu"
+              removable-sort
+            >
+              <Column field="contact_template_id" header="Contact template" sortable>
                 <template #body="{ data }">#{{ data.contact_template_id }}</template>
               </Column>
-              <Column header="Donor">
+              <Column
+                field="donor_surface"
+                header="Donor"
+                sortable
+                :filter-field="(data: Contact) => surfaceSummary(data, 'donor_surface')"
+                :show-filter-operator="false"
+                :show-add-button="false"
+              >
                 <template #body="{ data }">{{ surfaceSummary(data, 'donor_surface') }}</template>
+                <template #filter="{ filterModel }">
+                  <UInput v-model="filterModel.value" type="text" placeholder="Search by donor" />
+                </template>
               </Column>
-              <Column header="Recipient">
+              <Column
+                field="recipient_surface"
+                header="Recipient"
+                sortable
+                :filter-field="(data: Contact) => surfaceSummary(data, 'recipient_surface')"
+                :show-filter-operator="false"
+                :show-add-button="false"
+              >
                 <template #body="{ data }">{{ surfaceSummary(data, 'recipient_surface') }}</template>
+                <template #filter="{ filterModel }">
+                  <UInput v-model="filterModel.value" type="text" placeholder="Search by recipient" />
+                </template>
               </Column>
               <Column header="" style="width: 4rem">
                 <template #body="{ data }">

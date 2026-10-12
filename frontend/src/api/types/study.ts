@@ -16,6 +16,7 @@ export interface AuthorInput {
 
 export interface Study {
   id: string
+  created_at: string
   laboratory_id: string | null
   laboratory?: Laboratory | null
   doi?: string | null

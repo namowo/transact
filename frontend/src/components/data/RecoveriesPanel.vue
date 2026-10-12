@@ -4,6 +4,7 @@ import { useForm } from 'vee-validate'
 import * as yup from 'yup'
 import DataTable from 'openvue/datatable'
 import Column from 'openvue/column'
+import { FilterMatchMode } from '@openvue/core/api'
 import CategorySelect from '@/components/scenarios/CategorySelect.vue'
 import EntitySelect from '@/components/scenarios/EntitySelect.vue'
 import { recoveryApi, recoverySetApi, samplingMethodApi, extractionMethodApi } from '@/api/methods'
@@ -98,6 +99,21 @@ async function load() {
 }
 
 onMounted(load)
+
+function initFilters() {
+  return {
+    global: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    'extraction_method.extraction_protocol': { value: null, matchMode: FilterMatchMode.CONTAINS },
+    elution_volume: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    area: { value: null, matchMode: FilterMatchMode.CONTAINS },
+  }
+}
+
+const filters = ref(initFilters())
+
+function clearFilters() {
+  filters.value = initFilters()
+}
 
 const samplingMethods = ref<SamplingMethod[]>([])
 const extractionMethods = ref<ExtractionMethod[]>([])
@@ -254,23 +270,71 @@ async function saveNewSet() {
 
     <UAlert v-if="loadError" color="error" variant="outline" :description="loadError" />
 
+    <div class="flex items-center justify-between gap-3">
+      <UButton type="button" icon="i-lucide-filter-x" variant="outline" size="sm" @click="clearFilters()">
+        Clear Filters
+      </UButton>
+      <UInput
+        v-model="filters['global'].value"
+        type="text"
+        icon="i-lucide-search"
+        placeholder="Keyword Search"
+      />
+    </div>
+
     <div v-for="group in groupedRecoveries" :key="group.recoverySetId ?? 'ungrouped'" class="flex flex-col gap-2">
       <h4 class="font-medium text-sm">
         {{ group.recoverySet?.name ?? (group.recoverySetId === null ? 'Ungrouped' : `Set #${group.recoverySetId}`) }}
       </h4>
       <div class="overflow-x-auto">
-        <DataTable :value="group.items" :loading="loading" data-key="id">
+        <DataTable
+          v-model:filters="filters"
+          :value="group.items"
+          :loading="loading"
+          data-key="id"
+          filterDisplay="menu"
+          :globalFilterFields="['extraction_method.extraction_protocol', 'elution_volume', 'area']"
+        >
           <Column header="Surface">
             <template #body="{ data }">{{ data.surface ? surfaceLabel(data.surface) : '—' }}</template>
           </Column>
           <Column header="Sampling method">
             <template #body="{ data }">{{ data.sampling_method ? `#${data.sampling_method.id}` : '—' }}</template>
           </Column>
-          <Column header="Extraction method">
+          <Column
+            field="extraction_method.extraction_protocol"
+            header="Extraction method"
+            sortable
+            :showFilterOperator="false"
+            :showAddButton="false"
+          >
             <template #body="{ data }">{{ data.extraction_method ? methodLabel(data.extraction_method) : '—' }}</template>
+            <template #filter="{ filterModel }">
+              <UInput v-model="filterModel.value" type="text" placeholder="Search by extraction method" />
+            </template>
           </Column>
-          <Column field="elution_volume" header="Elution volume" />
-          <Column field="area" header="Area" />
+          <Column
+            field="elution_volume"
+            header="Elution volume"
+            sortable
+            :showFilterOperator="false"
+            :showAddButton="false"
+          >
+            <template #filter="{ filterModel }">
+              <UInput v-model="filterModel.value" type="text" placeholder="Search by elution volume" />
+            </template>
+          </Column>
+          <Column
+            field="area"
+            header="Area"
+            sortable
+            :showFilterOperator="false"
+            :showAddButton="false"
+          >
+            <template #filter="{ filterModel }">
+              <UInput v-model="filterModel.value" type="text" placeholder="Search by area" />
+            </template>
+          </Column>
           <Column header="" style="width: 6rem">
             <template #body="{ data }">
               <div class="flex gap-1 justify-end">

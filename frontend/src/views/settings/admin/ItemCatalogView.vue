@@ -4,6 +4,7 @@ import { useForm } from 'vee-validate'
 import * as yup from 'yup'
 import DataTable from 'openvue/datatable'
 import Column from 'openvue/column'
+import { FilterMatchMode } from '@openvue/core/api'
 import { useConfirm } from '@/composables/useConfirm'
 import ItemCategoryFields from '@/components/scenarios/ItemCategoryFields.vue'
 import { itemCategoryApi, itemPartsCategoryApi, itemSubcategoryApi } from '@/api/categories'
@@ -109,6 +110,33 @@ function selectCategory(id: string) {
 // Expanded rows for the subcategory table: its description and nested
 // items are shown in an expansion row rather than as their own columns.
 const expandedSubcategoryRows = ref<Record<string, boolean>>({})
+
+function initSubcategoryFilters() {
+  return {
+    global: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    name: { value: null, matchMode: FilterMatchMode.CONTAINS },
+  }
+}
+
+const subcategoryFilters = ref(initSubcategoryFilters())
+
+function clearSubcategoryFilters() {
+  subcategoryFilters.value = initSubcategoryFilters()
+}
+
+function initPartFilters() {
+  return {
+    global: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    name: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    description: { value: null, matchMode: FilterMatchMode.CONTAINS },
+  }
+}
+
+const partFilters = ref(initPartFilters())
+
+function clearPartFilters() {
+  partFilters.value = initPartFilters()
+}
 
 const categoryTabItems = computed<TabsItem[]>(() => [
   {
@@ -505,16 +533,40 @@ function confirmDeleteItem(item: Item) {
               <div class="flex justify-end">
                 <UButton label="Add subcategory" icon="i-lucide-plus" variant="soft" size="xs" @click="openAddSubcategoryDialog" />
               </div>
+              <div class="mb-3 flex items-center justify-between gap-3">
+                <UButton type="button" icon="i-lucide-filter-x" variant="outline" size="sm" @click="clearSubcategoryFilters()">
+                  Clear Filters
+                </UButton>
+                <UInput
+                  v-model="subcategoryFilters['global'].value"
+                  type="text"
+                  icon="i-lucide-search"
+                  placeholder="Keyword Search"
+                />
+              </div>
               <div class="overflow-x-auto rounded-lg border border-surface-200 dark:border-surface-800">
                 <DataTable
                   v-model:expanded-rows="expandedSubcategoryRows"
+                  v-model:filters="subcategoryFilters"
                   :value="selectedCategorySubcategories"
                   :loading="subcategoriesLoading"
                   data-key="id"
+                  filterDisplay="menu"
+                  :globalFilterFields="['name']"
                 >
                   <template #empty>No subcategories in this category yet.</template>
                   <Column expander style="width: 3rem" />
-                  <Column field="name" header="Name" />
+                  <Column
+                    field="name"
+                    header="Name"
+                    sortable
+                    :showFilterOperator="false"
+                    :showAddButton="false"
+                  >
+                    <template #filter="{ filterModel }">
+                      <UInput v-model="filterModel.value" type="text" placeholder="Search by name" />
+                    </template>
+                  </Column>
                   <Column header="" style="width: 6rem">
                     <template #body="{ data }">
                       <div class="flex justify-end gap-1">
@@ -601,12 +653,49 @@ function confirmDeleteItem(item: Item) {
               <div class="flex justify-end">
                 <UButton label="Add item part" icon="i-lucide-plus" variant="soft" size="xs" @click="openAddPartDialog" />
               </div>
+              <div class="mb-3 flex items-center justify-between gap-3">
+                <UButton type="button" icon="i-lucide-filter-x" variant="outline" size="sm" @click="clearPartFilters()">
+                  Clear Filters
+                </UButton>
+                <UInput
+                  v-model="partFilters['global'].value"
+                  type="text"
+                  icon="i-lucide-search"
+                  placeholder="Keyword Search"
+                />
+              </div>
               <div class="overflow-x-auto rounded-lg border border-surface-200 dark:border-surface-800">
-                <DataTable :value="selectedCategoryParts" :loading="partsLoading" data-key="id">
+                <DataTable
+                  v-model:filters="partFilters"
+                  :value="selectedCategoryParts"
+                  :loading="partsLoading"
+                  data-key="id"
+                  filterDisplay="menu"
+                  :globalFilterFields="['name', 'description']"
+                >
                   <template #empty>No item parts in this category yet.</template>
-                  <Column field="name" header="Name" />
-                  <Column field="description" header="Description">
+                  <Column
+                    field="name"
+                    header="Name"
+                    sortable
+                    :showFilterOperator="false"
+                    :showAddButton="false"
+                  >
+                    <template #filter="{ filterModel }">
+                      <UInput v-model="filterModel.value" type="text" placeholder="Search by name" />
+                    </template>
+                  </Column>
+                  <Column
+                    field="description"
+                    header="Description"
+                    sortable
+                    :showFilterOperator="false"
+                    :showAddButton="false"
+                  >
                     <template #body="{ data }">{{ data.description ?? '—' }}</template>
+                    <template #filter="{ filterModel }">
+                      <UInput v-model="filterModel.value" type="text" placeholder="Search by description" />
+                    </template>
                   </Column>
                   <Column header="" style="width: 6rem">
                     <template #body="{ data }">

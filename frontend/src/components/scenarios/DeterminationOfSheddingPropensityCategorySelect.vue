@@ -178,10 +178,10 @@ const saveNewOption = handleSubmit(async (values) => {
             <UInput v-model="doi" class="w-full" />
           </UFormField>
           <UFormField label="Restrictions prior to sampling" hint="Optional">
-            <UTextarea v-model="restrictionsPriorToSampling" rows="2" class="w-full" />
+            <UTextarea v-model="restrictionsPriorToSampling" :rows="2" class="w-full" />
           </UFormField>
           <UFormField label="Monitored transfer factors" hint="Optional">
-            <UTextarea v-model="monitoredTransferFactors" rows="2" class="w-full" />
+            <UTextarea v-model="monitoredTransferFactors" :rows="2" class="w-full" />
           </UFormField>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <UFormField label="Number of participants" hint="Optional">
@@ -192,16 +192,16 @@ const saveNewOption = handleSubmit(async (values) => {
             </UFormField>
           </div>
           <UFormField label="Shedder test" hint="Optional">
-            <UTextarea v-model="shedderTest" rows="2" class="w-full" />
+            <UTextarea v-model="shedderTest" :rows="2" class="w-full" />
           </UFormField>
           <UFormField label="Classification criteria" hint="Optional">
-            <UTextarea v-model="classificationCriteria" rows="2" class="w-full" />
+            <UTextarea v-model="classificationCriteria" :rows="2" class="w-full" />
           </UFormField>
           <UFormField label="Classification scheme" hint="Optional">
-            <UTextarea v-model="classificationScheme" rows="2" class="w-full" />
+            <UTextarea v-model="classificationScheme" :rows="2" class="w-full" />
           </UFormField>
           <UFormField label="Classification outcome" hint="Optional">
-            <UTextarea v-model="classificationOutcome" rows="2" class="w-full" />
+            <UTextarea v-model="classificationOutcome" :rows="2" class="w-full" />
           </UFormField>
           <p v-if="saveError" class="text-sm text-red-500">{{ saveError }}</p>
         </div>

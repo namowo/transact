@@ -4,6 +4,7 @@ import { useForm } from 'vee-validate'
 import * as yup from 'yup'
 import DataTable from 'openvue/datatable'
 import Column from 'openvue/column'
+import { FilterMatchMode } from '@openvue/core/api'
 import EntitySelect from '@/components/scenarios/EntitySelect.vue'
 import {
   resultApi,
@@ -70,6 +71,22 @@ onMounted(async () => {
 
 function recoveryLabel(recovery: Recovery): string {
   return recovery.surface ? `Recovery #${recovery.id}` : `Recovery #${recovery.id}`
+}
+
+function initFilters() {
+  return {
+    global: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    'recovery.id': { value: null, matchMode: FilterMatchMode.CONTAINS },
+    dna_concentration: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    dna_quantity: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    no_of_contributors: { value: null, matchMode: FilterMatchMode.CONTAINS },
+  }
+}
+
+const filters = ref(initFilters())
+
+function clearFilters() {
+  filters.value = initFilters()
 }
 
 function methodLabel(
@@ -277,13 +294,72 @@ async function deleteRow(row: Result) {
     <UAlert v-if="loadError" color="error" variant="outline" :description="loadError" />
 
     <div class="overflow-x-auto">
-      <DataTable :value="results" :loading="loading" data-key="id">
-        <Column header="Recovery">
+      <div class="mb-3 flex items-center justify-between gap-3">
+        <UButton type="button" icon="i-lucide-filter-x" variant="outline" size="sm" @click="clearFilters()">
+          Clear Filters
+        </UButton>
+        <UInput
+          v-model="filters['global'].value"
+          type="text"
+          icon="i-lucide-search"
+          placeholder="Keyword Search"
+        />
+      </div>
+
+      <DataTable
+        v-model:filters="filters"
+        :value="results"
+        :loading="loading"
+        data-key="id"
+        filterDisplay="menu"
+        removableSort
+        :globalFilterFields="['recovery.id', 'dna_concentration', 'dna_quantity', 'no_of_contributors']"
+      >
+        <Column
+          field="recovery.id"
+          header="Recovery"
+          sortable
+          :showFilterOperator="false"
+          :showAddButton="false"
+        >
           <template #body="{ data }">{{ data.recovery ? recoveryLabel(data.recovery) : '—' }}</template>
+          <template #filter="{ filterModel }">
+            <UInput v-model="filterModel.value" type="text" placeholder="Search by recovery" />
+          </template>
         </Column>
-        <Column field="dna_concentration" header="DNA concentration" />
-        <Column field="dna_quantity" header="DNA quantity" />
-        <Column field="no_of_contributors" header="No. of contributors" />
+        <Column
+          field="dna_concentration"
+          header="DNA concentration"
+          sortable
+          :showFilterOperator="false"
+          :showAddButton="false"
+        >
+          <template #filter="{ filterModel }">
+            <UInput v-model="filterModel.value" type="text" placeholder="Search by DNA concentration" />
+          </template>
+        </Column>
+        <Column
+          field="dna_quantity"
+          header="DNA quantity"
+          sortable
+          :showFilterOperator="false"
+          :showAddButton="false"
+        >
+          <template #filter="{ filterModel }">
+            <UInput v-model="filterModel.value" type="text" placeholder="Search by DNA quantity" />
+          </template>
+        </Column>
+        <Column
+          field="no_of_contributors"
+          header="No. of contributors"
+          sortable
+          :showFilterOperator="false"
+          :showAddButton="false"
+        >
+          <template #filter="{ filterModel }">
+            <UInput v-model="filterModel.value" type="text" placeholder="Search by no. of contributors" />
+          </template>
+        </Column>
         <Column header="" style="width: 6rem">
           <template #body="{ data }">
             <div class="flex gap-1 justify-end">

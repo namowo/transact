@@ -123,7 +123,7 @@ async function deleteSurfaceTemplateSlot(which: 'donor' | 'recipient') {
       />
 
       <UFormField label="Description of contact" hint="Optional">
-        <UTextarea v-model="draft.descriptionOfContact" rows="2" class="w-full" />
+        <UTextarea v-model="draft.descriptionOfContact" :rows="2" class="w-full" />
       </UFormField>
 
       <USeparator />

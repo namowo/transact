@@ -4,6 +4,7 @@ import { useForm } from 'vee-validate'
 import * as yup from 'yup'
 import DataTable from 'openvue/datatable'
 import Column from 'openvue/column'
+import { FilterMatchMode } from '@openvue/core/api'
 import ItemCategoryFields from './ItemCategoryFields.vue'
 import { createItem, listItemsGrouped, updateItem } from '@/api/items'
 import type { Item, ItemGroup } from '@/api/types'
@@ -55,7 +56,21 @@ function describeItem(item: Item): string {
 // those - so picking from a flat dropdown risks indistinguishable duplicate
 // labels. A filterable table makes every row's full detail visible instead.
 const pickerVisible = ref(false)
-const pickerFilter = ref('')
+
+function initFilters() {
+  return {
+    global: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    'item_category.name': { value: null, matchMode: FilterMatchMode.CONTAINS },
+    'item_subcategory.name': { value: null, matchMode: FilterMatchMode.CONTAINS },
+    description: { value: null, matchMode: FilterMatchMode.CONTAINS },
+  }
+}
+
+const filters = ref(initFilters())
+
+function clearFilters() {
+  filters.value = initFilters()
+}
 
 interface FormState {
   itemCategoryId: string | null
@@ -172,19 +187,25 @@ const saveItem = handleSubmit(async (values) => {
     >
       <template #body>
         <div class="flex flex-col gap-3">
-          <UInput
-            v-model="pickerFilter"
-            type="text"
-            icon="i-lucide-search"
-            placeholder="Search items"
-            class="w-full"
-          />
+          <div class="flex items-center justify-between gap-3">
+            <UButton type="button" icon="i-lucide-filter-x" variant="outline" size="sm" @click="clearFilters()">
+              Clear Filters
+            </UButton>
+            <UInput
+              v-model="filters['global'].value"
+              type="text"
+              icon="i-lucide-search"
+              placeholder="Keyword Search"
+              class="w-full"
+            />
+          </div>
 
           <DataTable
+            v-model:filters="filters"
             :value="items"
             :globalFilterFields="['item_category.name', 'item_subcategory.name', 'description']"
-            :filters="{ global: { value: pickerFilter, matchMode: 'contains' } }"
             dataKey="id"
+            filterDisplay="menu"
             scrollable
             scrollHeight="28rem"
             selectionMode="single"
@@ -192,13 +213,41 @@ const saveItem = handleSubmit(async (values) => {
             @row-click="({ data }) => { itemId = data.id; pickerVisible = false }"
           >
             <template #empty>No items found.</template>
-            <Column field="item_category.name" header="Category">
+            <Column
+              field="item_category.name"
+              header="Category"
+              sortable
+              :showFilterOperator="false"
+              :showAddButton="false"
+            >
               <template #body="{ data }">{{ data.item_category?.name ?? 'Uncategorized' }}</template>
+              <template #filter="{ filterModel }">
+                <UInput v-model="filterModel.value" type="text" placeholder="Search by category" />
+              </template>
             </Column>
-            <Column field="item_subcategory.name" header="Subcategory">
+            <Column
+              field="item_subcategory.name"
+              header="Subcategory"
+              sortable
+              :showFilterOperator="false"
+              :showAddButton="false"
+            >
               <template #body="{ data }">{{ data.item_subcategory?.name ?? '—' }}</template>
+              <template #filter="{ filterModel }">
+                <UInput v-model="filterModel.value" type="text" placeholder="Search by subcategory" />
+              </template>
             </Column>
-            <Column field="description" header="Description" />
+            <Column
+              field="description"
+              header="Description"
+              sortable
+              :showFilterOperator="false"
+              :showAddButton="false"
+            >
+              <template #filter="{ filterModel }">
+                <UInput v-model="filterModel.value" type="text" placeholder="Search by description" />
+              </template>
+            </Column>
           </DataTable>
         </div>
       </template>

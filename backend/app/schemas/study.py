@@ -48,6 +48,7 @@ class StudyReadNested(StudyBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
+    created_at: datetime
     laboratory: Optional["LaboratoryRead"] = None
     authors: List["AuthorRead"] = []
     quality_checked_by_id: Optional[UUID] = None

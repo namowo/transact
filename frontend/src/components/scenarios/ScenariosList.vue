@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import DataView from 'openvue/dataview'
 import DataTable from 'openvue/datatable'
 import Column from 'openvue/column'
+import { FilterMatchMode } from '@openvue/core/api'
 import { useConfirm } from '@/composables/useConfirm'
 import ScenarioViewDialog from './ScenarioViewDialog.vue'
 import ScenarioFormDialog from './ScenarioFormDialog.vue'
@@ -21,6 +21,20 @@ const loading = ref(false)
 const scenarios = computed(() =>
   allScenarios.value.filter((scenario) => scenario.studies.some((s) => s.id === props.studyId)),
 )
+
+function initFilters() {
+  return {
+    global: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    'scenario_category.name': { value: null, matchMode: FilterMatchMode.CONTAINS },
+    realistic: { value: null, matchMode: FilterMatchMode.EQUALS },
+  }
+}
+
+const filters = ref(initFilters())
+
+function clearFilters() {
+  filters.value = initFilters()
+}
 
 async function load() {
   loading.value = true
@@ -277,79 +291,133 @@ defineExpose({ load })
       <UProgress class="w-12" />
     </div>
 
-    <DataView v-else :value="scenarios" data-key="id">
-      <template #empty>
-        <div class="text-center text-surface-500 dark:text-surface-400 py-8">No scenarios yet.</div>
-      </template>
+    <div v-else class="overflow-x-auto">
+      <div class="mb-3 flex items-center justify-between gap-3">
+        <UButton type="button" icon="i-lucide-filter-x" variant="outline" size="sm" @click="clearFilters()">
+          Clear Filters
+        </UButton>
+        <UInput
+          v-model="filters['global'].value"
+          type="text"
+          icon="i-lucide-search"
+          placeholder="Keyword Search"
+        />
+      </div>
 
-      <template #list="slotProps">
-        <div class="flex flex-col">
-          <div
-            v-for="(item, index) in slotProps.items as Scenario[]"
-            :key="item.id"
-            class="flex flex-col sm:flex-row sm:items-start p-6 gap-4"
-            :class="{ 'border-t border-surface-200 dark:border-surface-700': index !== 0 }"
-          >
-            <div class="flex-1 flex flex-col gap-2">
-              <div class="flex flex-wrap items-center gap-2">
-                <UBadge
-                  :label="item.scenario_category?.name ?? 'Uncategorized'"
-                  color="neutral"
-                />
-                <UBadge
-                  :label="item.realistic ? 'Realistic' : 'Not realistic'"
-                  :color="item.realistic ? 'success' : 'warning'"
-                />
-                <UBadge
-                  v-if="item.studies.length > 1"
-                  :label="`Shared across ${item.studies.length} studies`"
-                  color="info"
-                />
-              </div>
-              <div class="text-sm text-surface-500 dark:text-surface-400">
-                {{ item.contact_templates.length }} contact template{{
-                  item.contact_templates.length === 1 ? '' : 's'
-                }}
-              </div>
-            </div>
-            <div class="flex flex-row sm:flex-col gap-2 shrink-0">
+      <DataTable
+        v-model:filters="filters"
+        :value="scenarios"
+        data-key="id"
+        filterDisplay="menu"
+        removableSort
+        :globalFilterFields="['scenario_category.name']"
+      >
+        <template #empty>
+          <div class="text-center text-surface-500 dark:text-surface-400 py-8">No scenarios yet.</div>
+        </template>
+
+        <Column
+          field="scenario_category.name"
+          header="Category"
+          sortable
+          :showFilterOperator="false"
+          :showAddButton="false"
+        >
+          <template #body="{ data }">
+            <UBadge :label="data.scenario_category?.name ?? 'Uncategorized'" color="neutral" />
+          </template>
+          <template #filter="{ filterModel }">
+            <UInput v-model="filterModel.value" type="text" placeholder="Search by category" />
+          </template>
+        </Column>
+
+        <Column
+          field="realistic"
+          header="Realistic"
+          sortable
+          :showFilterOperator="false"
+          :showAddButton="false"
+          :showFilterMatchModes="false"
+        >
+          <template #body="{ data }">
+            <UBadge
+              :label="data.realistic ? 'Realistic' : 'Not realistic'"
+              :color="data.realistic ? 'success' : 'warning'"
+            />
+          </template>
+          <template #filter="{ filterModel }">
+            <USelectMenu
+              v-model="filterModel.value"
+              :items="[
+                { label: 'Realistic', value: true },
+                { label: 'Not realistic', value: false },
+              ]"
+              label-key="label"
+              value-key="value"
+              placeholder="Any"
+              clear
+              class="w-full"
+            />
+          </template>
+        </Column>
+
+        <Column header="Shared">
+          <template #body="{ data }">
+            <UBadge
+              v-if="data.studies.length > 1"
+              :label="`${data.studies.length} studies`"
+              color="info"
+            />
+            <span v-else class="text-sm text-surface-400 dark:text-surface-500">—</span>
+          </template>
+        </Column>
+
+        <Column header="Contact templates">
+          <template #body="{ data }">
+            {{ data.contact_templates.length }}
+          </template>
+        </Column>
+
+        <Column header="" style="width: 1%">
+          <template #body="{ data }">
+            <div class="flex items-center justify-end gap-2">
               <UButton
-                v-if="isScenarioEditable(item)"
-                label="Edit"
+                v-if="isScenarioEditable(data)"
                 icon="i-lucide-pencil"
+                aria-label="Edit"
                 color="neutral"
-                variant="outline"
-                @click="openEditDialog(item)"
+                variant="ghost"
+                @click="openEditDialog(data)"
               />
               <UButton
                 v-else
-                label="View"
                 icon="i-lucide-eye"
+                aria-label="View"
                 color="neutral"
-                variant="outline"
-                @click="openViewDialog(item)"
+                variant="ghost"
+                @click="openViewDialog(data)"
               />
               <UButton
-                v-if="item.studies.length > 1"
-                label="Remove from this study"
+                v-if="data.studies.length > 1"
                 icon="i-lucide-x"
+                aria-label="Remove from this study"
                 color="warning"
-                variant="outline"
-                @click="unlinkScenario(item)"
+                variant="ghost"
+                @click="unlinkScenario(data)"
               />
               <UButton
-                v-if="isScenarioDeletable(item)"
-                label="Delete"
+                v-if="isScenarioDeletable(data)"
                 icon="i-lucide-trash-2"
+                aria-label="Delete"
                 color="error"
-                variant="outline"
-                @click="confirmDelete(item)"
+                variant="ghost"
+                @click="confirmDelete(data)"
               />
             </div>
-          </div>
-        </div>
-      </template>
-    </DataView>
+          </template>
+        </Column>
+      </DataTable>
+    </div>
 
     <ScenarioViewDialog
       v-model:open="viewDialogVisible"

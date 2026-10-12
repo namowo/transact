@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import DataView from 'openvue/dataview'
-import SelectButton from 'openvue/selectbutton'
+import DataTable from 'openvue/datatable'
+import Column from 'openvue/column'
+import ContextMenu from 'openvue/contextmenu'
+import { FilterMatchMode } from '@openvue/core/api'
 import { useToast } from '@nuxt/ui/composables'
 import { listStudies } from '@/api/studies'
 import { useAuthStore } from '@/stores/auth'
 import type { Study } from '@/api/types'
+import type { MenuItem } from 'openvue/menuitem'
 
 const props = defineProps<{ scope: 'laboratory' | 'all' }>()
 
@@ -16,15 +19,6 @@ const toast = useToast()
 
 const studies = ref<Study[]>([])
 const loading = ref(false)
-
-const searchQuery = ref('')
-const sortKey = ref('year_desc')
-const sortOptions = [
-  { label: 'Newest first', value: 'year_desc' },
-  { label: 'Oldest first', value: 'year_asc' },
-  { label: 'Title A-Z', value: 'title_asc' },
-  { label: 'Title Z-A', value: 'title_desc' },
-]
 
 function formatAuthors(authors: Study['authors']): string {
   return authors
@@ -49,35 +43,26 @@ const scopedStudies = computed(() =>
     : studies.value,
 )
 
-const filteredStudies = computed(() => {
-  const query = searchQuery.value.trim().toLowerCase()
-  let items = scopedStudies.value
+const qcStatusOptions = [
+  { label: 'Passed', value: true },
+  { label: 'Not checked', value: false },
+]
 
-  if (query) {
-    items = items.filter((study) =>
-      [study.title, formatAuthors(study.authors), study.journal, study.doi]
-        .filter((field): field is string => !!field)
-        .some((field) => field.toLowerCase().includes(query)),
-    )
+function initFilters() {
+  return {
+    global: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    title: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    year: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    'laboratory.laboratory_name': { value: null, matchMode: FilterMatchMode.CONTAINS },
+    quality_check_passed: { value: null, matchMode: FilterMatchMode.EQUALS },
   }
+}
 
-  const sorted = [...items]
-  switch (sortKey.value) {
-    case 'year_asc':
-      sorted.sort((a, b) => (a.year ?? '').localeCompare(b.year ?? ''))
-      break
-    case 'year_desc':
-      sorted.sort((a, b) => (b.year ?? '').localeCompare(a.year ?? ''))
-      break
-    case 'title_asc':
-      sorted.sort((a, b) => (a.title ?? '').localeCompare(b.title ?? ''))
-      break
-    case 'title_desc':
-      sorted.sort((a, b) => (b.title ?? '').localeCompare(a.title ?? ''))
-      break
-  }
-  return sorted
-})
+const filters = ref(initFilters())
+
+function clearFilters() {
+  filters.value = initFilters()
+}
 
 function isOwnLab(study: Study) {
   return study.laboratory_id === auth.user?.laboratory_id
@@ -96,11 +81,70 @@ function downloadStudy(study: Study) {
   })
 }
 
+function openStep(study: Study, step: 'details' | 'planning' | 'data-entry') {
+  router.push({ name: 'studies-edit', params: { id: study.id }, query: { step } })
+}
+
 const showPurposeDialog = ref(false)
 
 function choosePurpose(purpose: 'transfer' | 'repository') {
   showPurposeDialog.value = false
   router.push({ name: 'studies-new', query: { purpose } })
+}
+
+const contextMenu = ref<InstanceType<typeof ContextMenu>>()
+const selectedStudy = ref<Study>()
+
+const contextMenuItems = computed<MenuItem[]>(() => {
+  const study = selectedStudy.value
+  if (!study) return []
+
+  const editable = canEdit(study)
+
+  return [
+    {
+      label: 'Details',
+      icon: 'i-lucide-pencil',
+      disabled: !editable,
+      command: () => openStep(study, 'details'),
+    },
+    {
+      label: 'Planning',
+      icon: 'i-lucide-network',
+      disabled: !editable,
+      command: () => openStep(study, 'planning'),
+    },
+    {
+      label: 'Add data',
+      icon: 'i-lucide-database',
+      visible: !!study.add_data_to_repository,
+      disabled: !editable,
+      command: () => openStep(study, 'data-entry'),
+    },
+    {
+      separator: true,
+    },
+    {
+      label: 'Download',
+      icon: 'i-lucide-download',
+      command: () => downloadStudy(study),
+    },
+  ]
+})
+
+function onRowContextMenu(event: { originalEvent: Event; data: Study }) {
+  selectedStudy.value = event.data
+  contextMenu.value?.show(event.originalEvent)
+}
+
+function openContextMenu(event: Event, study: Study) {
+  selectedStudy.value = study
+  contextMenu.value?.show(event)
+}
+
+function onRowClick(event: { data: Study }) {
+  if (!canEdit(event.data)) return
+  openStep(event.data, 'details')
 }
 </script>
 
@@ -129,135 +173,167 @@ function choosePurpose(purpose: 'transfer' | 'repository') {
       />
     </div>
 
-    <DataView :value="filteredStudies" :loading="loading" data-key="id" paginator :rows="10">
-      <template #header>
-        <div class="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
-          <UInput
-            v-model="searchQuery"
-            icon="i-lucide-search"
-            placeholder="Search title, author, journal, DOI…"
-            class="sm:max-w-sm w-full"
-          />
-          <SelectButton
-            v-model="sortKey"
-            :options="sortOptions"
-            optionLabel="label"
-            optionValue="value"
-            :allowEmpty="false"
-          />
-        </div>
-      </template>
+    <div class="flex flex-col gap-3">
+      <div class="flex items-center justify-between gap-3">
+        <UButton type="button" icon="i-lucide-filter-x" variant="outline" size="sm" @click="clearFilters()">
+          Clear Filters
+        </UButton>
+        <UInput
+          v-model="filters['global'].value"
+          type="text"
+          icon="i-lucide-search"
+          placeholder="Search title, author, journal, DOI…"
+          class="sm:max-w-sm w-full"
+        />
+      </div>
 
-      <template #empty>
-        <div class="text-center text-surface-500 dark:text-surface-400 py-8">
-          No studies found.
-        </div>
-      </template>
+      <ContextMenu ref="contextMenu" :model="contextMenuItems" />
 
-      <template #list="slotProps">
-        <div class="flex flex-col">
-          <div
-            v-for="(item, index) in slotProps.items as Study[]"
-            :key="item.id"
-            class="flex flex-col sm:flex-row sm:items-start p-6 gap-4"
-            :class="{ 'border-t border-surface-200 dark:border-surface-700': index !== 0 }"
-          >
-            <div class="flex-1 flex flex-col gap-2">
-              <div class="flex flex-wrap items-center gap-2">
-                <UBadge
-                  :label="item.laboratory?.laboratory_name ?? 'Unknown laboratory'"
-                  :color="isOwnLab(item) ? 'success' : 'neutral'"
-                />
-                <UBadge v-if="item.quality_check_passed" label="QC passed" color="info" />
-                <span v-if="item.year" class="text-surface-500 dark:text-surface-400 text-sm">{{
-                  item.year
-                }}</span>
-              </div>
-              <div class="text-lg font-medium">{{ item.title }}</div>
-              <div v-if="item.authors.length" class="text-sm text-surface-500 dark:text-surface-400">
-                {{ formatAuthors(item.authors) }}
-              </div>
-              <div v-if="item.journal" class="text-sm text-surface-500 dark:text-surface-400">
-                {{ item.journal }}
-              </div>
-              <p v-if="item.abstract" class="text-sm mt-1 line-clamp-3">{{ item.abstract }}</p>
-              <a
-                v-if="item.doi"
-                :href="`https://doi.org/${item.doi}`"
-                target="_blank"
-                rel="noopener"
-                class="text-sm text-primary w-fit"
-                >DOI: {{ item.doi }}</a
-              >
-            </div>
-            <div v-if="auth.isAuthenticated" class="flex flex-row items-start gap-4 shrink-0">
-              <div class="flex flex-col gap-2">
-                <span
-                  class="text-xs font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-400"
-                >
-                  Edit
-                </span>
-                <div class="flex flex-row sm:flex-col gap-2">
-                  <UButton
-                    label="Details"
-                    icon="i-lucide-pencil"
-                    color="neutral"
-                    size="sm"
-                    variant="outline"
-                    :disabled="!canEdit(item)"
-                    @click="
-                      router.push({
-                        name: 'studies-edit',
-                        params: { id: item.id },
-                        query: { step: 'details' },
-                      })
-                    "
-                  />
-                  <UButton
-                    label="Planning"
-                    icon="i-lucide-network"
-                    color="neutral"
-                    size="sm"
-                    variant="outline"
-                    :disabled="!canEdit(item)"
-                    @click="
-                      router.push({
-                        name: 'studies-edit',
-                        params: { id: item.id },
-                        query: { step: 'planning' },
-                      })
-                    "
-                  />
-                  <UButton
-                    v-if="item.add_data_to_repository"
-                    label="Add data"
-                    icon="i-lucide-database"
-                    color="neutral"
-                    size="sm"
-                    variant="outline"
-                    :disabled="!canEdit(item)"
-                    @click="
-                      router.push({
-                        name: 'studies-edit',
-                        params: { id: item.id },
-                        query: { step: 'data-entry' },
-                      })
-                    "
-                  />
-                </div>
-              </div>
-              <UButton
-                label="Download"
-                icon="i-lucide-download"
-                size="sm"
-                variant="outline"
-                @click="downloadStudy(item)"
-              />
-            </div>
-          </div>
-        </div>
-      </template>
-    </DataView>
+      <div class="overflow-x-auto">
+      <DataTable
+        v-model:filters="filters"
+        v-model:context-menu-selection="selectedStudy"
+        :value="scopedStudies"
+        :loading="loading"
+        data-key="id"
+        context-menu
+        removableSort
+        paginator
+        :rows="10"
+        :rows-per-page-options="[10, 25, 50]"
+        :global-filter-fields="['title', 'journal', 'doi', 'year']"
+        filter-display="menu"
+        sort-field="created_at"
+        :sort-order="-1"
+        :row-class="(data: Study) => (canEdit(data) ? 'cursor-pointer' : '')"
+        @row-contextmenu="onRowContextMenu"
+        @row-click="onRowClick"
+      >
+        <template #empty>No studies found.</template>
+
+        <Column
+          field="title"
+          header="Title"
+          sortable
+          :show-filter-operator="false"
+          :show-add-button="false"
+        >
+          <template #body="{ data }: { data: Study }">
+            <span v-if="data.title" class="font-medium">{{ data.title }}</span>
+            <UBadge v-else label="Not set" color="neutral" variant="subtle" size="sm" />
+          </template>
+          <template #filter="{ filterModel }">
+            <UInput v-model="filterModel.value" type="text" placeholder="Search by title" />
+          </template>
+        </Column>
+
+        <Column header="Authors">
+          <template #body="{ data }: { data: Study }">
+            <span v-if="data.authors.length" class="text-sm">{{ formatAuthors(data.authors) }}</span>
+            <UBadge v-else label="Not set" color="neutral" variant="subtle" size="sm" />
+          </template>
+        </Column>
+
+        <Column header="DOI" style="width: 10rem">
+          <template #body="{ data }: { data: Study }">
+            <a
+              v-if="data.doi"
+              :href="`https://doi.org/${data.doi}`"
+              target="_blank"
+              rel="noopener"
+              class="text-sm text-primary"
+              @click.stop
+              >{{ data.doi }}</a
+            >
+            <UBadge v-else label="Not set" color="neutral" variant="subtle" size="sm" />
+          </template>
+        </Column>
+
+        <Column
+          field="year"
+          header="Year"
+          sortable
+          style="width: 6rem"
+          :show-filter-operator="false"
+          :show-add-button="false"
+        >
+          <template #body="{ data }: { data: Study }">
+            <span v-if="data.year" class="text-sm">{{ data.year }}</span>
+            <UBadge v-else label="Not set" color="neutral" variant="subtle" size="sm" />
+          </template>
+          <template #filter="{ filterModel }">
+            <UInput v-model="filterModel.value" type="text" placeholder="Search by year" />
+          </template>
+        </Column>
+
+        <Column
+          field="laboratory.laboratory_name"
+          header="Laboratory"
+          sortable
+          style="width: 12rem"
+          :show-filter-operator="false"
+          :show-add-button="false"
+        >
+          <template #body="{ data }: { data: Study }">
+            <UBadge
+              :label="data.laboratory?.laboratory_name ?? 'Unknown laboratory'"
+              :color="isOwnLab(data) ? 'success' : 'neutral'"
+              size="sm"
+            />
+          </template>
+          <template #filter="{ filterModel }">
+            <UInput v-model="filterModel.value" type="text" placeholder="Search by laboratory" />
+          </template>
+        </Column>
+
+        <Column
+          field="quality_check_passed"
+          header="QC"
+          style="width: 8rem"
+          :show-filter-match-modes="false"
+          :show-filter-operator="false"
+          :show-add-button="false"
+        >
+          <template #body="{ data }: { data: Study }">
+            <UBadge
+              :label="data.quality_check_passed ? 'Passed' : 'Not checked'"
+              :color="data.quality_check_passed ? 'info' : 'neutral'"
+              :variant="data.quality_check_passed ? 'solid' : 'subtle'"
+              size="sm"
+            />
+          </template>
+          <template #filter="{ filterModel }">
+            <USelectMenu
+              v-model="filterModel.value"
+              :items="qcStatusOptions"
+              value-key="value"
+              placeholder="Any status"
+              clear
+              class="w-full"
+            />
+          </template>
+        </Column>
+
+        <Column field="created_at" header="Created" sortable style="width: 8rem">
+          <template #body="{ data }: { data: Study }">
+            <span class="text-sm">{{ new Date(data.created_at).toLocaleDateString() }}</span>
+          </template>
+        </Column>
+
+        <Column v-if="auth.isAuthenticated" header="" style="width: 3rem">
+          <template #body="{ data }: { data: Study }">
+            <UButton
+              icon="i-lucide-more-vertical"
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              @click.stop="openContextMenu($event, data)"
+            />
+          </template>
+        </Column>
+      </DataTable>
+      </div>
+    </div>
 
     <UModal
       v-model:open="showPurposeDialog"

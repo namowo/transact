@@ -4,6 +4,7 @@ import { useForm } from 'vee-validate'
 import * as yup from 'yup'
 import DataTable from 'openvue/datatable'
 import Column from 'openvue/column'
+import { FilterMatchMode } from '@openvue/core/api'
 import CategorySelect from '@/components/scenarios/CategorySelect.vue'
 import SkinDiseaseCategorySelect from '@/components/scenarios/SkinDiseaseCategorySelect.vue'
 import DeterminationOfSheddingPropensityCategorySelect from '@/components/scenarios/DeterminationOfSheddingPropensityCategorySelect.vue'
@@ -33,6 +34,36 @@ async function load() {
 }
 
 onMounted(load)
+
+function initIndividualFilters() {
+  return {
+    global: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    'sex.name': { value: null, matchMode: FilterMatchMode.CONTAINS },
+    age: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    'skin_disease_category.name': { value: null, matchMode: FilterMatchMode.CONTAINS },
+  }
+}
+
+const individualFilters = ref(initIndividualFilters())
+
+function clearIndividualFilters() {
+  individualFilters.value = initIndividualFilters()
+}
+
+function initItemFilters() {
+  return {
+    global: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    'item_category.name': { value: null, matchMode: FilterMatchMode.CONTAINS },
+    'item_subcategory.name': { value: null, matchMode: FilterMatchMode.CONTAINS },
+    description: { value: null, matchMode: FilterMatchMode.CONTAINS },
+  }
+}
+
+const itemFilters = ref(initItemFilters())
+
+function clearItemFilters() {
+  itemFilters.value = initItemFilters()
+}
 
 function individualLabel(individual: Individual): string {
   const position = individuals.value.findIndex((candidate) => candidate.id === individual.id)
@@ -232,16 +263,69 @@ const saveItemForm = handleItemSubmit(async (values) => {
         />
       </div>
       <div class="overflow-x-auto">
-        <DataTable :value="individuals" :loading="loading" data-key="id">
+        <div class="mb-3 flex items-center justify-between gap-3">
+          <UButton
+            type="button"
+            icon="i-lucide-filter-x"
+            variant="outline"
+            size="sm"
+            @click="clearIndividualFilters()"
+          >
+            Clear Filters
+          </UButton>
+          <UInput
+            v-model="individualFilters['global'].value"
+            type="text"
+            icon="i-lucide-search"
+            placeholder="Keyword Search"
+          />
+        </div>
+
+        <DataTable
+          v-model:filters="individualFilters"
+          :value="individuals"
+          :loading="loading"
+          data-key="id"
+          filterDisplay="menu"
+          :globalFilterFields="['sex.name', 'age', 'skin_disease_category.name']"
+        >
           <Column header="Name">
             <template #body="{ data }">{{ individualLabel(data) }}</template>
           </Column>
-          <Column header="Sex">
+          <Column
+            field="sex.name"
+            header="Sex"
+            sortable
+            :showFilterOperator="false"
+            :showAddButton="false"
+          >
             <template #body="{ data }">{{ data.sex?.name ?? '—' }}</template>
+            <template #filter="{ filterModel }">
+              <UInput v-model="filterModel.value" type="text" placeholder="Search by sex" />
+            </template>
           </Column>
-          <Column field="age" header="Age" />
-          <Column header="Skin disease">
+          <Column
+            field="age"
+            header="Age"
+            sortable
+            :showFilterOperator="false"
+            :showAddButton="false"
+          >
+            <template #filter="{ filterModel }">
+              <UInput v-model="filterModel.value" type="text" placeholder="Search by age" />
+            </template>
+          </Column>
+          <Column
+            field="skin_disease_category.name"
+            header="Skin disease"
+            sortable
+            :showFilterOperator="false"
+            :showAddButton="false"
+          >
             <template #body="{ data }">{{ data.skin_disease_category?.name ?? '—' }}</template>
+            <template #filter="{ filterModel }">
+              <UInput v-model="filterModel.value" type="text" placeholder="Search by skin disease" />
+            </template>
           </Column>
           <Column header="" style="width: 4rem">
             <template #body="{ data }">
@@ -266,17 +350,70 @@ const saveItemForm = handleItemSubmit(async (values) => {
         <UButton label="Add item" icon="i-lucide-plus" variant="outline" @click="openCreateItemDialog" />
       </div>
       <div class="overflow-x-auto">
-        <DataTable :value="items" :loading="loading" data-key="id">
+        <div class="mb-3 flex items-center justify-between gap-3">
+          <UButton
+            type="button"
+            icon="i-lucide-filter-x"
+            variant="outline"
+            size="sm"
+            @click="clearItemFilters()"
+          >
+            Clear Filters
+          </UButton>
+          <UInput
+            v-model="itemFilters['global'].value"
+            type="text"
+            icon="i-lucide-search"
+            placeholder="Keyword Search"
+          />
+        </div>
+
+        <DataTable
+          v-model:filters="itemFilters"
+          :value="items"
+          :loading="loading"
+          data-key="id"
+          filterDisplay="menu"
+          :globalFilterFields="['item_category.name', 'item_subcategory.name', 'description']"
+        >
           <Column header="Name">
             <template #body="{ data }">{{ itemLabel(data) }}</template>
           </Column>
-          <Column header="Category">
+          <Column
+            field="item_category.name"
+            header="Category"
+            sortable
+            :showFilterOperator="false"
+            :showAddButton="false"
+          >
             <template #body="{ data }">{{ data.item_category?.name ?? '—' }}</template>
+            <template #filter="{ filterModel }">
+              <UInput v-model="filterModel.value" type="text" placeholder="Search by category" />
+            </template>
           </Column>
-          <Column header="Subcategory">
+          <Column
+            field="item_subcategory.name"
+            header="Subcategory"
+            sortable
+            :showFilterOperator="false"
+            :showAddButton="false"
+          >
             <template #body="{ data }">{{ data.item_subcategory?.name ?? '—' }}</template>
+            <template #filter="{ filterModel }">
+              <UInput v-model="filterModel.value" type="text" placeholder="Search by subcategory" />
+            </template>
           </Column>
-          <Column field="description" header="Description" />
+          <Column
+            field="description"
+            header="Description"
+            sortable
+            :showFilterOperator="false"
+            :showAddButton="false"
+          >
+            <template #filter="{ filterModel }">
+              <UInput v-model="filterModel.value" type="text" placeholder="Search by description" />
+            </template>
+          </Column>
           <Column header="" style="width: 4rem">
             <template #body="{ data }">
               <UButton
