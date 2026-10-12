@@ -16,3 +16,7 @@ export function createItem(payload: ItemInput) {
 export function updateItem(id: string, payload: ItemInput) {
   return apiClient.patch<Item>(`/items/${id}`, payload).then((r) => r.data)
 }
+
+export function deleteItem(id: string) {
+  return apiClient.delete(`/items/${id}`).then(() => undefined)
+}

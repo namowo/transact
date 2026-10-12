@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 import DataTable from 'openvue/datatable'
 import Column from 'openvue/column'
+import type { DropdownMenuItem } from '@nuxt/ui'
 import { useConfirm } from '@/composables/useConfirm'
 import { FilterMatchMode } from '@openvue/core/api'
 import { grantLabAdmin, listLabUsers, removeFromLaboratory, revokeLabAdmin } from '@/api/users'
@@ -20,16 +21,14 @@ const loading = ref(false)
 const loadError = ref('')
 const actionError = ref('')
 
+const accessDialogVisible = ref(false)
+const accessDialogUser = ref<User | null>(null)
+
 function canRemove(target: User) {
   if (target.id === auth.user?.id) return false
   if (target.can_manage_lab_users && !auth.isSuperuser) return false
   return true
 }
-
-const booleanOptions = [
-  { label: 'Yes', value: true },
-  { label: 'No', value: false },
-]
 
 function initFilters() {
   return {
@@ -37,9 +36,6 @@ function initFilters() {
     first_name: { value: null, matchMode: FilterMatchMode.CONTAINS },
     last_name: { value: null, matchMode: FilterMatchMode.CONTAINS },
     email: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    can_manage_lab_users: { value: null, matchMode: FilterMatchMode.EQUALS },
-    can_quality_check: { value: null, matchMode: FilterMatchMode.EQUALS },
-    is_superuser: { value: null, matchMode: FilterMatchMode.EQUALS },
   }
 }
 
@@ -92,6 +88,7 @@ async function applyLabAdmin(user: User) {
       ? await revokeLabAdmin(user.id)
       : await grantLabAdmin(user.id)
     users.value = users.value.map((u) => (u.id === updated.id ? updated : u))
+    if (accessDialogUser.value?.id === updated.id) accessDialogUser.value = updated
   } catch {
     actionError.value = 'Could not update this user. Please try again.'
   }
@@ -107,6 +104,31 @@ function toggleLabAdmin(user: User) {
     acceptColor: user.can_manage_lab_users ? 'error' : 'primary',
     accept: () => applyLabAdmin(user),
   })
+}
+
+function openAccessDialog(user: User) {
+  actionError.value = ''
+  accessDialogUser.value = user
+  accessDialogVisible.value = true
+}
+
+function rowMenuItems(user: User): DropdownMenuItem[] {
+  const items: DropdownMenuItem[] = [
+    {
+      label: 'Manage access',
+      icon: 'i-lucide-shield',
+      onSelect: () => openAccessDialog(user),
+    },
+  ]
+  if (canRemove(user)) {
+    items.push({ type: 'separator' }, {
+      label: 'Remove from laboratory',
+      icon: 'i-lucide-user-minus',
+      color: 'error',
+      onSelect: () => confirmRemoveUser(user),
+    })
+  }
+  return items
 }
 
 async function removeUser(user: User) {
@@ -200,12 +222,14 @@ async function deny(request: LabMembershipRequest) {
               <div class="flex gap-1 justify-end">
                 <UButton
                   label="Approve"
+                  icon="i-lucide-check"
                   size="sm"
                   :loading="actingOnId === data.id"
                   @click="approve(data)"
                 />
                 <UButton
                   label="Deny"
+                  icon="i-lucide-x"
                   color="error"
                   variant="ghost"
                   size="sm"
@@ -288,93 +312,77 @@ async function deny(request: LabMembershipRequest) {
             </template>
           </Column>
 
-          <Column
-            field="can_manage_lab_users"
-            header="Lab admin"
-            dataType="boolean"
-            sortable
-            :showFilterMatchModes="false"
-            :showFilterOperator="false"
-            :showAddButton="false"
-          >
+          <Column header="Access" style="width: 12rem">
             <template #body="{ data }">
-              <USwitch
-                :model-value="data.can_manage_lab_users"
-                @update:model-value="toggleLabAdmin(data)"
-              />
-            </template>
-            <template #filter="{ filterModel }">
-              <USelectMenu
-                v-model="filterModel.value"
-                :items="booleanOptions"
-                placeholder="Any"
-                clear
-                class="w-full"
-              />
+              <div class="flex flex-wrap gap-1">
+                <UBadge v-if="data.is_superuser" label="Superuser" color="primary" variant="subtle" size="sm" />
+                <UBadge v-if="data.can_manage_lab_users" label="Lab admin" color="neutral" variant="subtle" size="sm" />
+                <UBadge v-if="data.can_quality_check" label="Quality check" color="neutral" variant="subtle" size="sm" />
+              </div>
             </template>
           </Column>
 
-          <Column
-            field="can_quality_check"
-            header="Quality check"
-            dataType="boolean"
-            sortable
-            :showFilterMatchModes="false"
-            :showFilterOperator="false"
-            :showAddButton="false"
-          >
+          <Column header="" style="width: 3rem">
             <template #body="{ data }">
-              <USwitch :model-value="data.can_quality_check" disabled />
-            </template>
-            <template #filter="{ filterModel }">
-              <USelectMenu
-                v-model="filterModel.value"
-                :items="booleanOptions"
-                placeholder="Any"
-                clear
-                class="w-full"
-              />
-            </template>
-          </Column>
-
-          <Column
-            field="is_superuser"
-            header="Superuser"
-            dataType="boolean"
-            sortable
-            :showFilterMatchModes="false"
-            :showFilterOperator="false"
-            :showAddButton="false"
-          >
-            <template #body="{ data }">
-              <USwitch :model-value="data.is_superuser" disabled />
-            </template>
-            <template #filter="{ filterModel }">
-              <USelectMenu
-                v-model="filterModel.value"
-                :items="booleanOptions"
-                placeholder="Any"
-                clear
-                class="w-full"
-              />
-            </template>
-          </Column>
-
-          <Column header="" style="width: 6rem">
-            <template #body="{ data }">
-              <UButton
-                v-if="canRemove(data)"
-                icon="i-lucide-user-minus"
-                variant="ghost"
-                square
-                color="error"
-                aria-label="Remove from laboratory"
-                @click="confirmRemoveUser(data)"
-              />
+              <div class="flex justify-end">
+                <UDropdownMenu :items="rowMenuItems(data)" :content="{ align: 'end' }">
+                  <UButton
+                    icon="i-lucide-ellipsis-vertical"
+                    variant="ghost"
+                    color="neutral"
+                    square
+                    aria-label="User actions"
+                  />
+                </UDropdownMenu>
+              </div>
             </template>
           </Column>
         </DataTable>
       </div>
     </div>
+
+    <UModal
+      v-model:open="accessDialogVisible"
+      title="Manage access"
+      :ui="{ content: 'max-w-md' }"
+    >
+      <template #body>
+        <div v-if="accessDialogUser" class="flex flex-col gap-4">
+          <p class="text-sm text-surface-600 dark:text-surface-300">
+            {{ accessDialogUser.first_name }} {{ accessDialogUser.last_name }} ({{ accessDialogUser.email }})
+          </p>
+
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <p class="text-sm font-medium text-surface-900 dark:text-surface-0">Lab admin</p>
+              <p class="text-xs text-surface-500 dark:text-surface-400">Manage users within this laboratory</p>
+            </div>
+            <USwitch
+              :model-value="accessDialogUser.can_manage_lab_users"
+              @update:model-value="toggleLabAdmin(accessDialogUser)"
+            />
+          </div>
+
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <p class="text-sm font-medium text-surface-900 dark:text-surface-0">Quality check</p>
+              <p class="text-xs text-surface-500 dark:text-surface-400">Managed by a system administrator</p>
+            </div>
+            <USwitch :model-value="accessDialogUser.can_quality_check" disabled />
+          </div>
+
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <p class="text-sm font-medium text-surface-900 dark:text-surface-0">Superuser</p>
+              <p class="text-xs text-surface-500 dark:text-surface-400">Managed by a system administrator</p>
+            </div>
+            <USwitch :model-value="accessDialogUser.is_superuser" disabled />
+          </div>
+        </div>
+      </template>
+      <template #footer>
+        <UButton label="Close" variant="ghost" @click="accessDialogVisible = false" />
+      </template>
+    </UModal>
   </div>
 </template>

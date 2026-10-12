@@ -19,6 +19,6 @@ export interface ItemInput {
 
 export interface ItemGroup {
   label: string
-  value: number | null
+  value: string | null
   items: Item[]
 }

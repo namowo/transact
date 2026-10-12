@@ -8,6 +8,7 @@ const props = defineProps<{
   optionLabel: (option: T) => string
   placeholder?: string
   loading?: boolean
+  error?: string
 }>()
 
 const emit = defineEmits<{
@@ -20,8 +21,7 @@ const items = computed(() => props.options.map((option) => ({ ...option, label: 
 </script>
 
 <template>
-  <div class="flex flex-col gap-2">
-    <label class="font-medium text-sm">{{ label }}</label>
+  <UFormField :label="label" :error="error">
     <USelectMenu
       :model-value="modelValue"
       :items="items"
@@ -32,5 +32,5 @@ const items = computed(() => props.options.map((option) => ({ ...option, label: 
       class="w-full"
       @update:model-value="emit('update:modelValue', $event)"
     />
-  </div>
+  </UFormField>
 </template>

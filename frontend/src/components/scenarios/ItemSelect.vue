@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useForm } from 'vee-validate'
 import * as yup from 'yup'
+import DataTable from 'openvue/datatable'
+import Column from 'openvue/column'
 import ItemCategoryFields from './ItemCategoryFields.vue'
 import { createItem, listItemsGrouped, updateItem } from '@/api/items'
 import type { Item, ItemGroup } from '@/api/types'
@@ -11,28 +13,15 @@ import type { Item, ItemGroup } from '@/api/types'
 // component's dialog too, so they aren't duplicated in SurfaceForm.
 const itemId = defineModel<string | null>({ default: null })
 
+// Exposes the selected item's category so a parent form (SurfaceTemplateForm)
+// can scope an item-part picker to it, without storing the category on the
+// draft itself - it's derived from the item, not persisted independently.
+const itemCategoryId = defineModel<string | null>('itemCategoryId', { default: null })
+
 const groups = ref<ItemGroup[]>([])
 const loading = ref(false)
 
 const items = computed(() => groups.value.flatMap((group) => group.items))
-
-// Items have no name of their own, so label them by creation order within
-// their category (not their database id, which is an implementation
-// detail), e.g. "Item 3" grouped under its category's optgroup label.
-function describeItem(item: Item): string {
-  const group = groups.value.find((candidate) => candidate.value === (item.item_category_id ?? null))
-  const position = group?.items.findIndex((candidate) => candidate.id === item.id) ?? 0
-  return `Item ${position + 1}`
-}
-
-// USelect groups items via a nested array (T[][]), with a leading
-// `{ type: 'label' }` entry as each group's heading.
-const groupOptions = computed(() =>
-  groups.value.map((group) => [
-    { type: 'label' as const, label: group.label },
-    ...group.items.map((item) => ({ ...item, label: describeItem(item) })),
-  ]),
-)
 
 async function load() {
   loading.value = true
@@ -48,6 +37,25 @@ onMounted(load)
 const selectedItem = computed(
   () => items.value.find((candidate) => candidate.id === itemId.value) ?? null,
 )
+
+watch(
+  selectedItem,
+  (item) => {
+    itemCategoryId.value = item?.item_category_id ?? null
+  },
+  { immediate: true },
+)
+
+function describeItem(item: Item): string {
+  return [item.item_category?.name, item.item_subcategory?.name].filter(Boolean).join(' — ') || 'Uncategorized'
+}
+
+// Items are only distinguished by category/subcategory/description (they
+// have no name of their own), and two items can legitimately share all of
+// those - so picking from a flat dropdown risks indistinguishable duplicate
+// labels. A filterable table makes every row's full detail visible instead.
+const pickerVisible = ref(false)
+const pickerFilter = ref('')
 
 interface FormState {
   itemCategoryId: string | null
@@ -126,26 +134,78 @@ const saveItem = handleSubmit(async (values) => {
 
 <template>
   <div class="flex flex-col gap-2">
-    <label class="font-medium text-sm">Item</label>
-    <div class="flex gap-2">
-      <USelectMenu
-        v-model="itemId"
-        :items="groupOptions"
-        value-key="id"
-        placeholder="Select an item"
-        :loading="loading"
-        clear
-        class="w-full"
-      />
-      <UButton
-        v-if="selectedItem"
-        icon="i-lucide-pencil"
-        variant="ghost"
-        aria-label="Edit item"
-        @click="openEditDialog"
-      />
-      <UButton icon="i-lucide-plus" variant="ghost" aria-label="Add new item" @click="openCreateDialog" />
-    </div>
+    <UFormField label="Item">
+      <div class="flex gap-2">
+        <UButton
+          :label="selectedItem ? describeItem(selectedItem) : 'Select an item'"
+          icon="i-lucide-search"
+          color="neutral"
+          variant="outline"
+          :loading="loading"
+          class="w-full justify-start"
+          :ui="{ base: 'truncate' }"
+          :title="selectedItem?.description ?? undefined"
+          @click="pickerVisible = true"
+        />
+        <UButton
+          v-if="itemId"
+          icon="i-lucide-x"
+          variant="ghost"
+          aria-label="Clear item"
+          @click="itemId = null"
+        />
+        <UButton
+          v-if="selectedItem"
+          icon="i-lucide-pencil"
+          variant="ghost"
+          aria-label="Edit item"
+          @click="openEditDialog"
+        />
+        <UButton icon="i-lucide-plus" variant="ghost" aria-label="Add new item" @click="openCreateDialog" />
+      </div>
+    </UFormField>
+
+    <UModal
+      v-model:open="pickerVisible"
+      title="Select an item"
+      :ui="{ content: 'max-w-3xl' }"
+    >
+      <template #body>
+        <div class="flex flex-col gap-3">
+          <UInput
+            v-model="pickerFilter"
+            type="text"
+            icon="i-lucide-search"
+            placeholder="Search items"
+            class="w-full"
+          />
+
+          <DataTable
+            :value="items"
+            :globalFilterFields="['item_category.name', 'item_subcategory.name', 'description']"
+            :filters="{ global: { value: pickerFilter, matchMode: 'contains' } }"
+            dataKey="id"
+            scrollable
+            scrollHeight="28rem"
+            selectionMode="single"
+            :metaKeySelection="false"
+            @row-click="({ data }) => { itemId = data.id; pickerVisible = false }"
+          >
+            <template #empty>No items found.</template>
+            <Column field="item_category.name" header="Category">
+              <template #body="{ data }">{{ data.item_category?.name ?? 'Uncategorized' }}</template>
+            </Column>
+            <Column field="item_subcategory.name" header="Subcategory">
+              <template #body="{ data }">{{ data.item_subcategory?.name ?? '—' }}</template>
+            </Column>
+            <Column field="description" header="Description" />
+          </DataTable>
+        </div>
+      </template>
+      <template #footer>
+        <UButton label="Close" variant="ghost" @click="pickerVisible = false" />
+      </template>
+    </UModal>
 
     <UModal
       v-model:open="showDialog"

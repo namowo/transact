@@ -61,6 +61,7 @@ function onPartChange() {
         v-model="parts[key]"
         :min="0"
         :color="invalid ? 'error' : undefined"
+        orientation="vertical"
         class="w-full"
         @update:model-value="onPartChange"
       />

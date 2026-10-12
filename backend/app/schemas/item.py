@@ -32,7 +32,7 @@ class ItemGroup(BaseModel):
     optionGroupLabel/optionGroupChildren."""
 
     label: str
-    value: Optional[int] = None
+    value: Optional[UUID] = None
     items: list[ItemRead]
 
 

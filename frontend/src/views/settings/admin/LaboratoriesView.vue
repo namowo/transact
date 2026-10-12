@@ -11,7 +11,7 @@ import {
   denyMembershipRequest,
   listPendingNewLabs,
 } from '@/api/labMembershipRequests'
-import type { Laboratory, LabMembershipRequest } from '@/api/types'
+import type { Laboratory, LaboratoryApprovalStatus, LabMembershipRequest } from '@/api/types'
 import { COUNTRIES } from '@/constants/countries'
 import { useAuthStore } from '@/stores/auth'
 
@@ -24,6 +24,18 @@ const approvalStatusOptions = [
   { label: 'Approved', value: 'approved' },
   { label: 'Denied', value: 'denied' },
 ]
+
+const approvalStatusLabels: Record<LaboratoryApprovalStatus, string> = {
+  pending: 'Pending',
+  approved: 'Approved',
+  denied: 'Denied',
+}
+
+const approvalStatusColors: Record<LaboratoryApprovalStatus, 'warning' | 'success' | 'error'> = {
+  pending: 'warning',
+  approved: 'success',
+  denied: 'error',
+}
 
 function initFilters() {
   return {
@@ -237,12 +249,14 @@ const submitNewLaboratory = handleSubmit(async (values) => {
               <div class="flex gap-1 justify-end">
                 <UButton
                   label="Approve"
+                  icon="i-lucide-check"
                   size="sm"
                   :loading="actingOnId === data.id"
                   @click="approve(data)"
                 />
                 <UButton
                   label="Deny"
+                  icon="i-lucide-x"
                   color="error"
                   variant="ghost"
                   size="sm"
@@ -339,6 +353,14 @@ const submitNewLaboratory = handleSubmit(async (values) => {
           :showFilterOperator="false"
           :showAddButton="false"
         >
+          <template #body="{ data }: { data: Laboratory }">
+            <UBadge
+              :label="approvalStatusLabels[data.approval_status]"
+              :color="approvalStatusColors[data.approval_status]"
+              variant="subtle"
+              size="sm"
+            />
+          </template>
           <template #filter="{ filterModel }">
             <USelectMenu
               v-model="filterModel.value"

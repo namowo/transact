@@ -22,8 +22,8 @@ const router = createRouter({
         {
           path: '',
           name: 'dashboard',
-          component: () => import('@/views/DashboardView.vue'),
-          meta: { requiresAuth: true, breadcrumb: 'Dashboard' },
+          component: () => import('@/views/HomeView.vue'),
+          meta: { breadcrumb: 'Dashboard' },
         },
         {
           path: 'studies',
@@ -364,6 +364,26 @@ const router = createRouter({
                     breadcrumb: 'Laboratories',
                   },
                 },
+                {
+                  path: 'item-catalog',
+                  name: 'admin-item-catalog',
+                  component: () => import('@/views/settings/admin/ItemCatalogView.vue'),
+                  meta: {
+                    requiresAuth: true,
+                    requiresSuperuser: true,
+                    breadcrumb: 'Item Catalog',
+                  },
+                },
+                {
+                  path: 'legal',
+                  name: 'admin-legal',
+                  component: () => import('@/views/settings/admin/LegalSettingsView.vue'),
+                  meta: {
+                    requiresAuth: true,
+                    requiresSuperuser: true,
+                    breadcrumb: 'Legal Pages',
+                  },
+                },
               ],
             },
           ],
@@ -433,6 +453,22 @@ const router = createRouter({
         },
       ],
     },
+    {
+      path: '/',
+      component: () => import('@/layouts/LegalLayout.vue'),
+      children: [
+        {
+          path: 'site-print',
+          name: 'site-print',
+          component: () => import('@/views/legal/SitePrintView.vue'),
+        },
+        {
+          path: 'privacy-policy',
+          name: 'privacy-policy',
+          component: () => import('@/views/legal/PrivacyPolicyView.vue'),
+        },
+      ],
+    },
   ],
 })
 
@@ -461,9 +497,6 @@ router.beforeEach(async (to) => {
   await auth.ensureUserLoaded()
 
   if (to.meta.requiresAuth && !auth.isAuthenticated) {
-    if (to.name === 'dashboard') {
-      return { name: 'docs' }
-    }
     return { name: 'login', query: { redirect: to.fullPath } }
   }
 

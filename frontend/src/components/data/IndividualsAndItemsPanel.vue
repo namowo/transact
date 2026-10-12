@@ -300,25 +300,15 @@ const saveItemForm = handleItemSubmit(async (values) => {
       <template #body>
         <div class="flex flex-col gap-4">
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <CategorySelect v-model="individualSexId" label="Sex (Optional)" :api="sexApi" />
-            <div class="flex flex-col gap-2">
-              <label class="font-medium text-sm">Age (Optional)</label>
-              <UInputNumber
-                v-model="individualAge"
-                :color="individualErrors.age ? 'error' : undefined"
-                class="w-full"
-              />
-              <UAlert
-                v-if="individualErrors.age"
-                color="error"
-                variant="subtle"
-                :description="individualErrors.age"
-              />
-            </div>
+            <CategorySelect v-model="individualSexId" label="Sex" hint="Optional" :api="sexApi" />
+            <UFormField label="Age" hint="Optional" :error="individualErrors.age">
+              <UInputNumber v-model="individualAge" orientation="vertical" class="w-full" />
+            </UFormField>
           </div>
           <CategorySelect
             v-model="individualDnaSheddingPropensityCategoryId"
-            label="DNA shedding propensity (Optional)"
+            label="DNA shedding propensity"
+            hint="Optional"
             :api="dnaSheddingPropensityCategoryApi"
           />
           <SkinDiseaseCategorySelect v-model="individualSkinDiseaseCategoryId" />

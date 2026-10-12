@@ -2,15 +2,20 @@
 import { computed } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import type { NavigationMenuItem } from '@nuxt/ui'
+import NotificationCenter from '@/components/NotificationCenter.vue'
 import ThemeToggle from '@/components/ThemeToggle.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useUiStore } from '@/stores/ui'
 import { defaultDocSlug, docPages } from '@/data/docs'
+import { usePendingRequests } from '@/composables/usePendingRequests'
 
 const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
 const ui = useUiStore()
+const { labRequestCount, newLabRequestCount, load: loadPendingRequests } = usePendingRequests()
+
+if (auth.isAuthenticated) loadPendingRequests()
 
 const navGroups = computed<NavigationMenuItem[][]>(() =>
   auth.isAuthenticated
@@ -43,9 +48,18 @@ const navGroups = computed<NavigationMenuItem[][]>(() =>
             icon: 'i-lucide-building-2',
             type: 'trigger',
             defaultOpen: route.name?.toString().startsWith('settings-methods-') || route.name === 'lab-users',
+            badge: labRequestCount.value > 0 ? labRequestCount.value : undefined,
             children: [
               { label: 'Methods', to: { name: 'settings-methods-extraction' } },
-              ...(auth.isLabAdmin ? [{ label: 'Users', to: { name: 'lab-users' } }] : []),
+              ...(auth.isLabAdmin
+                ? [
+                    {
+                      label: 'Users',
+                      to: { name: 'lab-users' },
+                      badge: labRequestCount.value > 0 ? labRequestCount.value : undefined,
+                    },
+                  ]
+                : []),
             ],
           },
           ...(auth.isSuperuser
@@ -54,10 +68,21 @@ const navGroups = computed<NavigationMenuItem[][]>(() =>
                   label: 'Admin',
                   icon: 'i-lucide-shield',
                   type: 'trigger' as const,
-                  defaultOpen: route.name === 'admin-users' || route.name === 'laboratories',
+                  defaultOpen:
+                    route.name === 'admin-users' ||
+                    route.name === 'laboratories' ||
+                    route.name === 'admin-item-catalog' ||
+                    route.name === 'admin-legal',
+                  badge: newLabRequestCount.value > 0 ? newLabRequestCount.value : undefined,
                   children: [
                     { label: 'User Permissions', to: { name: 'admin-users' } },
-                    { label: 'Laboratories', to: { name: 'laboratories' } },
+                    {
+                      label: 'Laboratories',
+                      to: { name: 'laboratories' },
+                      badge: newLabRequestCount.value > 0 ? newLabRequestCount.value : undefined,
+                    },
+                    { label: 'Item Catalog', to: { name: 'admin-item-catalog' } },
+                    { label: 'Legal Pages', to: { name: 'admin-legal' } },
                   ],
                 },
               ]
@@ -118,6 +143,10 @@ const breadcrumbItems = computed(() => {
     if (page) items[items.length - 1] = { label: page.title, name: 'docs' }
   }
 
+  if (route.name === 'dashboard' && !auth.isAuthenticated) {
+    items[items.length - 1] = { label: 'Startpage', name: 'dashboard' }
+  }
+
   return [
     { label: '', icon: 'i-lucide-house', to: { name: 'dashboard' } },
     ...items.map((item) => ({
@@ -126,6 +155,28 @@ const breadcrumbItems = computed(() => {
     })),
   ]
 })
+
+const secondaryNavGroup = [
+  {
+    label: 'Report a bug',
+    icon: 'i-lucide-message-circle',
+    to: 'https://github.com/namowo/transact/issues',
+    target: '_blank',
+  },
+]
+
+const appVersion = __APP_VERSION__
+
+const footerLinks = [
+  {
+    label: 'Site Print',
+    to: { name: 'site-print' },
+  },
+  {
+    label: 'Privacy Policy',
+    to: { name: 'privacy-policy' },
+  },
+]
 </script>
 
 <template>
@@ -167,6 +218,15 @@ const breadcrumbItems = computed(() => {
           tooltip
           popover
           :class="index > 0 && 'mt-4'"
+        />
+
+        <UNavigationMenu
+          :collapsed="collapsed"
+          :items="[secondaryNavGroup]"
+          orientation="vertical"
+          tooltip
+          popover
+          class="mt-auto"
         />
       </template>
 
@@ -210,15 +270,28 @@ const breadcrumbItems = computed(() => {
           </template>
 
           <template #right>
+            <NotificationCenter v-if="auth.isAuthenticated" />
             <ThemeToggle />
           </template>
         </UDashboardNavbar>
       </template>
 
       <template #body>
-        <div class="max-w-6xl w-full mx-auto">
+        <div class="max-w-6xl w-full mx-auto flex flex-col flex-1">
           <RouterView />
         </div>
+
+        <UFooter :ui="{ root: 'border-t border-default mt-8' }">
+          <template #left>
+            <span class="text-sm text-muted">&copy; {{ new Date().getFullYear() }} namowo GmbH</span>
+          </template>
+
+          <UNavigationMenu :items="footerLinks" variant="link" />
+
+          <template #right>
+            <span class="text-sm text-muted">v{{ appVersion }}</span>
+          </template>
+        </UFooter>
       </template>
     </UDashboardPanel>
   </UDashboardGroup>

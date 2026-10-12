@@ -5,7 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import current_superuser, get_async_session
+from app.core.deps import current_active_user, current_superuser, get_async_session
 from app.crud.item_parts_category import crud_item_parts_category as crud
 from app.schemas.item_parts_category import (
     ItemPartsCategoryRead as ReadSchema,
@@ -29,7 +29,10 @@ async def get_by_id(id: UUID, db: AsyncSession = Depends(get_async_session)):
 @router.post(
     "",
     response_model=ReadSchema,
-    dependencies=[Depends(current_superuser)],
+    # Item parts are freely extensible lookups scoped to an item category -
+    # any active user may add new ones while planning, unlike other category
+    # tables that stay superuser-managed.
+    dependencies=[Depends(current_active_user)],
     status_code=status.HTTP_201_CREATED,
 )
 async def create(obj_in: CreateSchema, db: AsyncSession = Depends(get_async_session)):

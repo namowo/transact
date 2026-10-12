@@ -140,26 +140,27 @@ const saveIndividual = handleSubmit(async (values) => {
 
 <template>
   <div class="flex flex-col gap-2">
-    <label class="font-medium text-sm">Individual</label>
-    <div class="flex gap-2">
-      <USelectMenu
-        v-model="individualId"
-        :items="individualOptions"
-        value-key="id"
-        placeholder="Select an individual"
-        :loading="loading"
-        clear
-        class="w-full"
-      />
-      <UButton
-        v-if="selectedIndividual"
-        icon="i-lucide-pencil"
-        variant="ghost"
-        aria-label="Edit individual"
-        @click="openEditDialog"
-      />
-      <UButton icon="i-lucide-plus" variant="ghost" aria-label="Add new individual" @click="openCreateDialog" />
-    </div>
+    <UFormField label="Individual">
+      <div class="flex gap-2">
+        <USelectMenu
+          v-model="individualId"
+          :items="individualOptions"
+          value-key="id"
+          placeholder="Select an individual"
+          :loading="loading"
+          clear
+          class="w-full"
+        />
+        <UButton
+          v-if="selectedIndividual"
+          icon="i-lucide-pencil"
+          variant="ghost"
+          aria-label="Edit individual"
+          @click="openEditDialog"
+        />
+        <UButton icon="i-lucide-plus" variant="ghost" aria-label="Add new individual" @click="openCreateDialog" />
+      </div>
+    </UFormField>
 
     <UModal
       v-model:open="showDialog"
@@ -171,23 +172,18 @@ const saveIndividual = handleSubmit(async (values) => {
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <CategorySelect
               v-model="formSexId"
-              label="Sex (Optional)"
+              label="Sex"
+              hint="Optional"
               :api="sexApi"
             />
-            <div class="flex flex-col gap-2">
-              <label class="font-medium text-sm">Age (Optional)</label>
-              <UInputNumber v-model="formAge" :color="errors.age ? 'error' : undefined" class="w-full" />
-              <UAlert
-                v-if="errors.age"
-                color="error"
-                variant="subtle"
-                :description="errors.age"
-              />
-            </div>
+            <UFormField label="Age" hint="Optional" :error="errors.age">
+              <UInputNumber v-model="formAge" orientation="vertical" class="w-full" />
+            </UFormField>
           </div>
           <CategorySelect
             v-model="formDnaSheddingPropensityCategoryId"
-            label="DNA shedding propensity (Optional)"
+            label="DNA shedding propensity"
+            hint="Optional"
             :api="dnaSheddingPropensityCategoryApi"
           />
           <SkinDiseaseCategorySelect v-model="formSkinDiseaseCategoryId" />

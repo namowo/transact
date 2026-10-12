@@ -82,6 +82,7 @@ from app.api.routers import vacuum_device
 from app.api.routers import picking_device
 from app.api.routers import type_of_tape
 from app.api.routers import friction_applied_estimate
+from app.api.routers import site_settings
 from app.api.routers import pressure_estimate
 from app.api.routers import experience_level
 from app.api.routers import wetting_agent
@@ -171,6 +172,7 @@ api_router.include_router(scraping_device.router, prefix="/scraping-devices", ta
 api_router.include_router(cutting_device.router, prefix="/cutting-devices", tags=["Devices"])
 api_router.include_router(vacuum_device.router, prefix="/vacuum-devices", tags=["Devices"])
 api_router.include_router(picking_device.router, prefix="/picking-devices", tags=["Devices"])
+api_router.include_router(site_settings.router, prefix="/site-settings", tags=["Site Settings"])
 
 # Studies
 api_router.include_router(study.router, prefix="/studies", tags=["Studies"])

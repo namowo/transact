@@ -1,0 +1,4 @@
+- I am already running a local dev backend and frontend server. Don't stop them or start own dev servers.
+- Don't delete frontend/dist, because this let's the backend fail.
+- Use Nuxt UI compnents as much as possible
+- this project uses an axios snake case to camel case converter

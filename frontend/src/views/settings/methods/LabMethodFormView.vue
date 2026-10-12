@@ -138,6 +138,7 @@ function onCancel() {
           v-else-if="field.type === 'number'"
           :model-value="values[field.key]"
           :color="errors[field.key] ? 'error' : undefined"
+          orientation="vertical"
           class="w-full"
           @update:model-value="setFieldValue(field.key, $event)"
         />

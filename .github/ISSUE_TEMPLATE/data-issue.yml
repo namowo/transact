@@ -1,0 +1,36 @@
+name: "Data issue"
+description: "A recorded study, scenario, or dataset looks incorrect, implausible, or inconsistent."
+labels: ["bug", "data"]
+body:
+  - type: input
+    id: reference
+    attributes:
+      label: Study / scenario / laboratory
+      description: Name or ID of the affected study, scenario, or laboratory.
+    validations:
+      required: true
+  - type: input
+    id: url
+    attributes:
+      label: Link
+      description: Direct link to the affected record, if available.
+      placeholder: "https://..."
+  - type: textarea
+    id: issue
+    attributes:
+      label: What is wrong with the data?
+      description: Describe the inconsistency, e.g. unexpected values, missing fields, a quality-check mismatch, or an incorrect method/parameter attribution.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected data
+      description: What should the data look like instead, and why?
+    validations:
+      required: true
+  - type: textarea
+    id: other
+    attributes:
+      label: Anything else
+      description: Suspected cause, related records, screenshots, etc.

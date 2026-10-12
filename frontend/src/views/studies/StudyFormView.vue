@@ -259,6 +259,8 @@ onMounted(async () => {
 const submitting = ref(false)
 const submitError = ref('')
 
+const continueAfterSubmit = ref(false)
+
 const onSubmit = handleSubmit(async (values) => {
   submitting.value = true
   submitError.value = ''
@@ -297,14 +299,24 @@ const onSubmit = handleSubmit(async (values) => {
     } else {
       const payload: StudyUpdate = shared
       await updateStudy(editingId.value, payload)
-      router.push({ name: 'studies-laboratory' })
+      if (continueAfterSubmit.value) {
+        activeStep.value = '2'
+      } else {
+        router.push({ name: 'studies-laboratory' })
+      }
     }
   } catch {
     submitError.value = 'Could not save the study. Please try again.'
   } finally {
     submitting.value = false
+    continueAfterSubmit.value = false
   }
 })
+
+function onSaveAndContinue() {
+  continueAfterSubmit.value = true
+  onSubmit()
+}
 
 function onCancel() {
   router.push({ name: 'studies-laboratory' })
@@ -397,23 +409,17 @@ function confirmDeleteStudy() {
     >
         <template #1>
           <form class="flex flex-col gap-4 max-w-2xl" @submit.prevent="onSubmit">
-            <div class="flex flex-col gap-2">
-              <label for="study-title" class="font-medium text-sm">Title</label>
+            <UFormField label="Title" :error="errors.title">
               <UInput
                 id="study-title"
                 v-model="title"
                 v-bind="titleAttrs"
-                :color="errors.title ? 'error' : undefined"
                 class="w-full"
                 autofocus
               />
-              <UAlert v-if="errors.title" color="error" variant="subtle" :description="errors.title" />
-            </div>
+            </UFormField>
 
-            <div class="flex flex-col gap-2">
-              <label for="study-description" class="font-medium text-sm"
-                >Description (Optional)</label
-              >
+            <UFormField label="Description" hint="Optional">
               <UTextarea
                 id="study-description"
                 v-model="description"
@@ -421,7 +427,7 @@ function confirmDeleteStudy() {
                 :rows="3"
                 class="w-full"
               />
-            </div>
+            </UFormField>
 
             <div class="flex flex-col gap-2">
               <div class="flex items-center justify-between">
@@ -440,34 +446,20 @@ function confirmDeleteStudy() {
                   clear
                   class="w-full sm:w-28 sm:shrink-0"
                 />
-                <div class="flex-1 flex flex-col gap-1">
+                <UFormField class="flex-1" :error="showAuthorError(index, 'first_name')">
                   <UInput
                     v-model="field.value.first_name"
                     placeholder="First name"
-                    :color="showAuthorError(index, 'first_name') ? 'error' : undefined"
                     class="w-full"
                   />
-                  <UAlert
-                    v-if="showAuthorError(index, 'first_name')"
-                    color="error"
-                    variant="subtle"
-                    :description="showAuthorError(index, 'first_name')"
-                  />
-                </div>
-                <div class="flex-1 flex flex-col gap-1">
+                </UFormField>
+                <UFormField class="flex-1" :error="showAuthorError(index, 'last_name')">
                   <UInput
                     v-model="field.value.last_name"
                     placeholder="Last name"
-                    :color="showAuthorError(index, 'last_name') ? 'error' : undefined"
                     class="w-full"
                   />
-                  <UAlert
-                    v-if="showAuthorError(index, 'last_name')"
-                    color="error"
-                    variant="subtle"
-                    :description="showAuthorError(index, 'last_name')"
-                  />
-                </div>
+                </UFormField>
                 <UButton
                   icon="i-lucide-trash-2"
                   color="error"
@@ -480,34 +472,29 @@ function confirmDeleteStudy() {
             </div>
 
             <template v-if="purpose === 'repository'">
-              <div class="flex flex-col gap-2">
-                <label for="study-journal" class="font-medium text-sm">Journal (Optional)</label>
+              <UFormField label="Journal" hint="Optional">
                 <UInput id="study-journal" v-model="journal" v-bind="journalAttrs" class="w-full" />
-              </div>
+              </UFormField>
 
               <div class="grid grid-cols-2 gap-4">
-                <div class="flex flex-col gap-2">
-                  <label for="study-year" class="font-medium text-sm">Year (Optional)</label>
+                <UFormField label="Year" hint="Optional" :error="errors.year">
                   <!-- TODO: number formatting (was :use-grouping="false") -->
                   <UInputNumber
                     id="study-year"
                     v-model="year"
                     v-bind="yearAttrs"
-                    :color="errors.year ? 'error' : undefined"
                     :min="1000"
                     :max="9999"
+                    orientation="vertical"
                     class="w-full"
                   />
-                  <UAlert v-if="errors.year" color="error" variant="subtle" :description="errors.year" />
-                </div>
-                <div class="flex flex-col gap-2">
-                  <label for="study-doi" class="font-medium text-sm">DOI (Optional)</label>
+                </UFormField>
+                <UFormField label="DOI" hint="Optional">
                   <UInput id="study-doi" v-model="doi" v-bind="doiAttrs" class="w-full" />
-                </div>
+                </UFormField>
               </div>
 
-              <div class="flex flex-col gap-2">
-                <label for="study-abstract" class="font-medium text-sm">Abstract (Optional)</label>
+              <UFormField label="Abstract" hint="Optional">
                 <UTextarea
                   id="study-abstract"
                   v-model="abstractField"
@@ -515,13 +502,10 @@ function confirmDeleteStudy() {
                   :rows="3"
                   class="w-full"
                 />
-              </div>
+              </UFormField>
             </template>
 
-            <div class="flex flex-col gap-2">
-              <label for="study-contact-author" class="font-medium text-sm"
-                >Corresponding author contact (Optional)</label
-              >
+            <UFormField label="Corresponding author contact" hint="Optional">
               <USelectMenu
                 id="study-contact-author"
                 v-model="correspondingAuthorIndex"
@@ -536,33 +520,20 @@ function confirmDeleteStudy() {
                 class="w-full"
                 @update:model-value="onCorrespondingAuthorChange"
               />
-            </div>
+            </UFormField>
 
             <div class="grid grid-cols-2 gap-4">
-              <div class="flex flex-col gap-2">
-                <label for="study-contact-email" class="font-medium text-sm"
-                  >Email (Optional)</label
-                >
+              <UFormField label="Email" hint="Optional" :error="errors.corresponding_author_email">
                 <UInput
                   id="study-contact-email"
                   v-model="correspondingEmail"
                   v-bind="correspondingEmailAttrs"
-                  :color="errors.corresponding_author_email ? 'error' : undefined"
                   :disabled="correspondingAuthorIndex == null"
                   type="email"
                   class="w-full"
                 />
-                <UAlert
-                  v-if="errors.corresponding_author_email"
-                  color="error"
-                  variant="subtle"
-                  :description="errors.corresponding_author_email"
-                />
-              </div>
-              <div class="flex flex-col gap-2">
-                <label for="study-contact-phone" class="font-medium text-sm"
-                  >Phone number (Optional)</label
-                >
+              </UFormField>
+              <UFormField label="Phone number" hint="Optional">
                 <UInput
                   id="study-contact-phone"
                   v-model="correspondingPhone"
@@ -570,86 +541,101 @@ function confirmDeleteStudy() {
                   :disabled="correspondingAuthorIndex == null"
                   class="w-full"
                 />
-              </div>
+              </UFormField>
             </div>
 
             <UAlert v-if="submitError" color="error" variant="outline" :description="submitError" />
 
-            <div class="flex justify-between items-center gap-2 mt-2">
-              <div class="flex gap-2">
-                <UButton
-                  type="submit"
-                  :label="editingId === null ? 'Add study & continue' : 'Save changes'"
-                  :loading="submitting"
-                />
-                <UButton label="Cancel" variant="ghost" type="button" @click="onCancel" />
-              </div>
+            <div v-if="editingId !== null" class="flex justify-end mt-2">
               <UButton
-                v-if="editingId !== null"
-                label="Continue"
+                label="Save & continue"
                 trailing-icon="i-lucide-arrow-right"
                 variant="ghost"
                 type="button"
-                @click="activeStep = '2'"
+                :loading="submitting && continueAfterSubmit"
+                @click="onSaveAndContinue"
+              />
+            </div>
+
+            <div class="flex gap-2 mt-4">
+              <UButton
+                type="submit"
+                :icon="editingId === null ? undefined : 'i-lucide-save'"
+                :trailing-icon="editingId === null ? 'i-lucide-arrow-right' : undefined"
+                :label="editingId === null ? 'Add study & continue' : 'Save changes'"
+                :loading="submitting"
+              />
+              <UButton
+                label="Cancel"
+                icon="i-lucide-x"
+                variant="ghost"
+                type="button"
+                @click="onCancel"
               />
             </div>
           </form>
 
           <template v-if="editingId !== null">
             <div class="max-w-2xl pt-16">
-              <USeparator />
-            </div>
-
-            <div class="max-w-2xl flex flex-col gap-4">
-              <div>
-                <h2 class="text-lg font-semibold text-red-700 dark:text-red-400">Danger zone</h2>
-                <p class="text-sm text-surface-500 dark:text-surface-400">
-                  These actions are irreversible or affect how this study is used elsewhere.
-                </p>
+              <div class="flex items-center gap-2 mb-3">
+                <UIcon name="i-lucide-triangle-alert" class="text-error size-4" />
+                <h2 class="text-sm font-semibold text-error">Danger zone</h2>
               </div>
 
-              <div class="flex flex-col gap-2">
-                <label class="font-medium text-sm">Switch study purpose</label>
-                <p class="text-sm text-surface-500 dark:text-surface-400">
-                  Currently:
-                  <span class="font-medium text-surface-700 dark:text-surface-200">{{
-                    purposeOptions.find((option) => option.value === purpose)?.label
-                  }}</span>
-                </p>
-                <UButton
-                  v-if="otherPurposeOption"
-                  type="button"
-                  :label="`Switch to: ${otherPurposeOption.label}`"
-                  color="neutral"
-                  variant="outline"
-                  class="w-fit"
-                  :loading="switchingPurpose"
-                  @click="confirmSwitchPurpose(otherPurposeOption.value)"
-                />
-                <UAlert
-                  v-if="switchPurposeError"
-                  color="error"
-                  variant="subtle"
-                  :description="switchPurposeError"
-                />
-              </div>
+              <div class="rounded-lg border border-error/30 divide-y divide-error/20">
+                <div class="flex items-center justify-between gap-4 p-4">
+                  <div class="flex flex-col gap-1">
+                    <span class="font-medium text-sm">Switch study purpose</span>
+                    <p class="text-sm text-surface-500 dark:text-surface-400">
+                      Currently
+                      <span class="font-medium text-surface-700 dark:text-surface-200">{{
+                        purposeOptions.find((option) => option.value === purpose)?.label
+                      }}</span>. This affects how this study is used elsewhere.
+                    </p>
+                    <UAlert
+                      v-if="switchPurposeError"
+                      color="error"
+                      variant="subtle"
+                      :description="switchPurposeError"
+                      class="mt-1"
+                    />
+                  </div>
+                  <UButton
+                    v-if="otherPurposeOption"
+                    type="button"
+                    icon="i-lucide-repeat"
+                    :label="`Switch to: ${otherPurposeOption.label}`"
+                    color="neutral"
+                    variant="outline"
+                    class="shrink-0"
+                    :loading="switchingPurpose"
+                    @click="confirmSwitchPurpose(otherPurposeOption.value)"
+                  />
+                </div>
 
-              <div class="flex flex-col gap-2">
-                <label class="font-medium text-sm">Delete study</label>
-                <UButton
-                  label="Delete"
-                  icon="i-lucide-trash-2"
-                  color="error"
-                  class="w-fit"
-                  :loading="deleting"
-                  @click="confirmDeleteStudy"
-                />
-                <UAlert
-                  v-if="deleteError"
-                  color="error"
-                  variant="subtle"
-                  :description="deleteError"
-                />
+                <div class="flex items-center justify-between gap-4 p-4">
+                  <div class="flex flex-col gap-1">
+                    <span class="font-medium text-sm">Delete study</span>
+                    <p class="text-sm text-surface-500 dark:text-surface-400">
+                      This action is permanent and cannot be undone.
+                    </p>
+                    <UAlert
+                      v-if="deleteError"
+                      color="error"
+                      variant="subtle"
+                      :description="deleteError"
+                      class="mt-1"
+                    />
+                  </div>
+                  <UButton
+                    label="Delete"
+                    icon="i-lucide-trash-2"
+                    color="error"
+                    class="shrink-0"
+                    :loading="deleting"
+                    @click="confirmDeleteStudy"
+                  />
+                </div>
               </div>
             </div>
           </template>

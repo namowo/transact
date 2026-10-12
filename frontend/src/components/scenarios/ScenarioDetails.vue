@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { persistenceLabel } from './persistenceDraft'
+import { formatPercent } from './percent'
 import type { Scenario } from '@/api/types'
 
 const props = defineProps<{
@@ -69,7 +70,7 @@ function formatDuration(seconds: number | null | undefined): string | null {
               <span class="font-medium">Temperature:</span> {{ persistence.temperature }} °C
             </div>
             <div v-if="persistence.humidity != null">
-              <span class="font-medium">Humidity:</span> {{ persistence.humidity }} %
+              <span class="font-medium">Humidity:</span> {{ formatPercent(persistence.humidity) }}
             </div>
             <div v-if="persistence.uv_irradiation != null">
               <span class="font-medium">UV irradiation:</span> {{ persistence.uv_irradiation }} mW/cm²
@@ -125,7 +126,7 @@ function formatDuration(seconds: number | null | undefined): string | null {
               <span class="font-medium">Temperature:</span> {{ contactTemplate.condition_during_contact.temperature }} °C
             </div>
             <div v-if="contactTemplate.condition_during_contact?.humidity != null">
-              <span class="font-medium">Humidity:</span> {{ contactTemplate.condition_during_contact.humidity }} %
+              <span class="font-medium">Humidity:</span> {{ formatPercent(contactTemplate.condition_during_contact.humidity) }}
             </div>
             <div v-if="contactTemplate.condition_during_contact?.uv_irradiation != null">
               <span class="font-medium">UV irradiation:</span> {{ contactTemplate.condition_during_contact.uv_irradiation }} mW/cm²

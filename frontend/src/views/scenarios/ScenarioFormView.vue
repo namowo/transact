@@ -115,8 +115,8 @@ const persistenceSchema = yup.object({
   humidity: yup
     .number()
     .nullable()
-    .min(0, 'Humidity must be between 0 and 100.')
-    .max(100, 'Humidity must be between 0 and 100.'),
+    .min(0, 'Humidity must be between 0 and 100%.')
+    .max(1, 'Humidity must be between 0 and 100%.'),
   uvIrradiation: yup.number().nullable().min(0, 'UV irradiation must be zero or greater.'),
   indoors: yup.boolean().defined(),
   changeOverTime: yup.boolean().defined(),
@@ -141,8 +141,8 @@ const schema = yup.object({
       humidity: yup
         .number()
         .nullable()
-        .min(0, 'Humidity must be between 0 and 100.')
-        .max(100, 'Humidity must be between 0 and 100.'),
+        .min(0, 'Humidity must be between 0 and 100%.')
+        .max(1, 'Humidity must be between 0 and 100%.'),
       uvIrradiation: yup.number().nullable().min(0, 'UV irradiation must be zero or greater.'),
     }),
   ),

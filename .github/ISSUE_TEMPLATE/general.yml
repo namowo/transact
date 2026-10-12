@@ -1,0 +1,15 @@
+name: "General"
+description: "Anything else that doesn't fit another category."
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What is this about?
+    validations:
+      required: true
+  - type: textarea
+    id: other
+    attributes:
+      label: Anything else
+      description: Additional notes, links, screenshots, etc.

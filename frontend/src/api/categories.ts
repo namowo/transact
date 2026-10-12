@@ -8,6 +8,8 @@ import type {
   DeterminationOfSheddingPropensityCategoryInput,
   ItemSubcategory,
   ItemSubcategoryInput,
+  ItemPartsCategory,
+  ItemPartsCategoryInput,
   Supplier,
   SupplierInput,
 } from './types'
@@ -29,17 +31,43 @@ export const bodyPartConditionCategoryApi = namedCategoryApi('/body-part-conditi
 export const conditionOfItemPartCategoryApi = namedCategoryApi('/condition-of-item-part-categories')
 export const disturbanceCategoryApi = namedCategoryApi('/disturbance-categories')
 export const geographicLocationCategoryApi = namedCategoryApi('/geographic-location-categories')
-export const itemCategoryApi = namedCategoryApi('/item-categories')
-export const itemPartsCategoryApi = namedCategoryApi('/item-parts-categories')
+
+// Not a plain namedCategoryApi: the admin item catalog screen needs to
+// rename/delete categories, so this exposes update/delete too.
+export const itemCategoryApi = {
+  list: () => apiClient.get<NamedCategory[]>('/item-categories').then((r) => r.data),
+  create: (payload: NamedCategoryInput) =>
+    apiClient.post<NamedCategory>('/item-categories', payload).then((r) => r.data),
+  update: (id: string, payload: NamedCategoryInput) =>
+    apiClient.patch<NamedCategory>(`/item-categories/${id}`, payload).then((r) => r.data),
+  delete: (id: string) => apiClient.delete(`/item-categories/${id}`).then(() => undefined),
+}
 
 // Not a plain namedCategoryApi: a subcategory belongs to one item category,
 // so callers need item_category_id both when listing (to filter client-side)
 // and when creating (to attach the new subcategory to the right category).
+// update/delete are needed by the admin item catalog screen.
 export const itemSubcategoryApi = {
   list: () => apiClient.get<ItemSubcategory[]>('/item-subcategories').then((r) => r.data),
   create: (payload: ItemSubcategoryInput) =>
     apiClient.post<ItemSubcategory>('/item-subcategories', payload).then((r) => r.data),
+  update: (id: string, payload: ItemSubcategoryInput) =>
+    apiClient.patch<ItemSubcategory>(`/item-subcategories/${id}`, payload).then((r) => r.data),
+  delete: (id: string) => apiClient.delete(`/item-subcategories/${id}`).then(() => undefined),
 }
+
+// Likewise category-scoped: an item part belongs to one item category, and
+// the inline rename dialog (ItemPartSelect) plus the admin item catalog
+// screen both need update/delete.
+export const itemPartsCategoryApi = {
+  list: () => apiClient.get<ItemPartsCategory[]>('/item-parts-categories').then((r) => r.data),
+  create: (payload: ItemPartsCategoryInput) =>
+    apiClient.post<ItemPartsCategory>('/item-parts-categories', payload).then((r) => r.data),
+  update: (id: string, payload: ItemPartsCategoryInput) =>
+    apiClient.patch<ItemPartsCategory>(`/item-parts-categories/${id}`, payload).then((r) => r.data),
+  delete: (id: string) => apiClient.delete(`/item-parts-categories/${id}`).then(() => undefined),
+}
+
 export const locationOfBodyCategoryApi = namedCategoryApi('/location-of-body-categories')
 export const scenarioCategoryApi = namedCategoryApi('/scenario-categories')
 export const sexApi = namedCategoryApi('/sexes')

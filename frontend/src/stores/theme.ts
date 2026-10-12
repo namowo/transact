@@ -1,20 +1,33 @@
-import { ref, watchEffect } from 'vue'
+import { computed, ref, watchEffect } from 'vue'
 import { defineStore } from 'pinia'
 
 const STORAGE_KEY = 'transact-theme'
 
-function getInitialIsDark() {
+type ThemeMode = 'system' | 'light' | 'dark'
+
+function getInitialMode(): ThemeMode {
   const stored = localStorage.getItem(STORAGE_KEY)
-  if (stored) return stored === 'dark'
-  return window.matchMedia('(prefers-color-scheme: dark)').matches
+  if (stored === 'light' || stored === 'dark' || stored === 'system') return stored
+  return 'system'
 }
 
+const media = window.matchMedia('(prefers-color-scheme: dark)')
+
 export const useThemeStore = defineStore('theme', () => {
-  const isDark = ref(getInitialIsDark())
+  const mode = ref<ThemeMode>(getInitialMode())
+  const systemPrefersDark = ref(media.matches)
+
+  media.addEventListener('change', (e) => {
+    systemPrefersDark.value = e.matches
+  })
+
+  const isDark = computed(() =>
+    mode.value === 'system' ? systemPrefersDark.value : mode.value === 'dark',
+  )
 
   watchEffect(() => {
     document.documentElement.classList.toggle('dark', isDark.value)
-    localStorage.setItem(STORAGE_KEY, isDark.value ? 'dark' : 'light')
+    localStorage.setItem(STORAGE_KEY, mode.value)
 
     const favicon = document.getElementById('favicon') as HTMLLinkElement | null
     if (favicon) {
@@ -22,9 +35,9 @@ export const useThemeStore = defineStore('theme', () => {
     }
   })
 
-  function toggle() {
-    isDark.value = !isDark.value
+  function setMode(next: ThemeMode) {
+    mode.value = next
   }
 
-  return { isDark, toggle }
+  return { mode, isDark, setMode }
 })

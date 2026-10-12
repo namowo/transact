@@ -4,6 +4,7 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useForm } from 'vee-validate'
 import * as yup from 'yup'
 import PasswordField from '@/components/auth/PasswordField.vue'
+import PrivacyPolicyConsent from '@/components/auth/PrivacyPolicyConsent.vue'
 import { useAuthStore } from '@/stores/auth'
 import { resendVerification } from '@/api/auth'
 import { getErrorMessage } from '@/api/errors'
@@ -33,6 +34,10 @@ const schema = yup.object({
     .matches(/\d/, 'Password must contain a number.')
     .matches(/[A-Z]/, 'Password must contain an uppercase letter.')
     .matches(/[^a-zA-Z0-9]/, 'Password must contain a special character.'),
+  privacy_policy_accepted: yup
+    .boolean()
+    .oneOf([true], 'Please agree to the Privacy Policy.')
+    .required('Please agree to the Privacy Policy.'),
 })
 
 const { defineField, errors, handleSubmit, isSubmitting } = useForm({
@@ -42,6 +47,7 @@ const { defineField, errors, handleSubmit, isSubmitting } = useForm({
     last_name: '',
     email: (route.query.email as string) || '',
     password: '',
+    privacy_policy_accepted: false,
   },
 })
 
@@ -49,6 +55,7 @@ const [firstName, firstNameAttrs] = defineField('first_name')
 const [lastName, lastNameAttrs] = defineField('last_name')
 const [emailField, emailAttrs] = defineField('email')
 const [password] = defineField('password')
+const [privacyPolicyAccepted] = defineField('privacy_policy_accepted')
 
 const onSubmit = handleSubmit(async (values) => {
   errorMessage.value = ''
@@ -158,6 +165,11 @@ async function onResend() {
       <label class="font-medium text-sm">Create a password</label>
       <PasswordField v-model="password" :invalid="!!errors.password"/>
     </div>
+
+    <PrivacyPolicyConsent
+      v-model="privacyPolicyAccepted"
+      :error-message="errors.privacy_policy_accepted"
+    />
 
     <UAlert v-if="errorMessage" color="error" variant="outline" :description="errorMessage" />
 

@@ -1,0 +1,64 @@
+name: "Bug report"
+description: "Something in the platform isn't working as expected (crash, error message, incorrect data, UI issue)."
+labels: ["bug"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A short description of the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to ...
+        2. Click on ...
+        3. Error occurs
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Study / scenario data entry
+        - Quality check
+        - Laboratory / user management
+        - Method settings (extraction, PCR, quantification, etc.)
+        - Item catalog
+        - Authentication / account
+        - Other / unclear
+    validations:
+      required: true
+  - type: input
+    id: reference
+    attributes:
+      label: Affected study, scenario, or laboratory
+      description: Name or ID of the study/scenario/laboratory involved, if applicable.
+  - type: input
+    id: url
+    attributes:
+      label: URL
+      description: The address of the page where the error occurred.
+      placeholder: "https://..."
+    validations:
+      required: true
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots / error message
+      description: Add screenshots or browser console/server logs if available.
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: "e.g. browser + version, OS, prod/staging/local"

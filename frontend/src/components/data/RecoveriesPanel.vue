@@ -297,22 +297,14 @@ async function saveNewSet() {
     >
       <template #body>
         <div class="flex flex-col gap-4">
-          <div class="flex flex-col gap-2">
-            <EntitySelect
-              v-model="surfaceId"
-              label="Surface"
-              :options="studySurfaces"
-              :option-label="surfaceLabel"
-            />
-            <UAlert
-              v-if="errors.surface_id"
-              color="error"
-              variant="subtle"
-              :description="errors.surface_id"
-            />
-          </div>
-          <div class="flex flex-col gap-2">
-            <label class="font-medium text-sm">Recovery set (Optional)</label>
+          <EntitySelect
+            v-model="surfaceId"
+            label="Surface"
+            :options="studySurfaces"
+            :option-label="surfaceLabel"
+            :error="errors.surface_id"
+          />
+          <UFormField label="Recovery set" hint="Optional">
             <div class="flex gap-2">
               <EntitySelect
                 v-model="recoverySetId"
@@ -323,7 +315,7 @@ async function saveNewSet() {
               />
               <UButton icon="i-lucide-plus" variant="ghost" aria-label="Add recovery set" @click="openNewSetDialog" />
             </div>
-          </div>
+          </UFormField>
           <EntitySelect
             v-model="samplingMethodId"
             label="Sampling method"
@@ -336,34 +328,12 @@ async function saveNewSet() {
             :options="extractionMethods"
             :option-label="methodLabel"
           />
-          <div class="flex flex-col gap-2">
-            <label class="font-medium text-sm">Elution volume</label>
-            <UInputNumber
-              v-model="elutionVolume"
-              :color="errors.elution_volume ? 'error' : undefined"
-              class="w-full"
-            />
-            <UAlert
-              v-if="errors.elution_volume"
-              color="error"
-              variant="subtle"
-              :description="errors.elution_volume"
-            />
-          </div>
-          <div class="flex flex-col gap-2">
-            <label class="font-medium text-sm">Area</label>
-            <UInputNumber
-              v-model="area"
-              :color="errors.area ? 'error' : undefined"
-              class="w-full"
-            />
-            <UAlert
-              v-if="errors.area"
-              color="error"
-              variant="subtle"
-              :description="errors.area"
-            />
-          </div>
+          <UFormField label="Elution volume" :error="errors.elution_volume">
+            <UInputNumber v-model="elutionVolume" orientation="vertical" class="w-full" />
+          </UFormField>
+          <UFormField label="Area" :error="errors.area">
+            <UInputNumber v-model="area" orientation="vertical" class="w-full" />
+          </UFormField>
           <CategorySelect
             v-model="experienceLevelOfSamplerId"
             label="Experience level of sampler"
@@ -385,10 +355,9 @@ async function saveNewSet() {
       :ui="{ content: 'max-w-sm' }"
     >
       <template #body>
-        <div class="flex flex-col gap-2">
-          <label class="font-medium text-sm">Name</label>
+        <UFormField label="Name">
           <UInput v-model="newSetName" class="w-full" autofocus />
-        </div>
+        </UFormField>
       </template>
       <template #footer>
         <UButton label="Cancel" variant="ghost" @click="newSetDialogVisible = false" />

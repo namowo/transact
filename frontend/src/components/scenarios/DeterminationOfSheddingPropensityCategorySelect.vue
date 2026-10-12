@@ -137,20 +137,21 @@ const saveNewOption = handleSubmit(async (values) => {
 
 <template>
   <div class="flex flex-col gap-2">
-    <label class="font-medium text-sm">Determination of shedding propensity</label>
-    <div class="flex gap-2">
-      <USelectMenu
-        v-model="modelValue"
-        :items="selectOptions"
-        label-key="label"
-        value-key="id"
-        placeholder="Select an option"
-        :loading="loading"
-        clear
-        class="w-full"
-      />
-      <UButton icon="i-lucide-plus" variant="ghost" aria-label="Add new reference" @click="openAddDialog" />
-    </div>
+    <UFormField label="Determination of shedding propensity">
+      <div class="flex gap-2">
+        <USelectMenu
+          v-model="modelValue"
+          :items="selectOptions"
+          label-key="label"
+          value-key="id"
+          placeholder="Select an option"
+          :loading="loading"
+          clear
+          class="w-full"
+        />
+        <UButton icon="i-lucide-plus" variant="ghost" aria-label="Add new reference" @click="openAddDialog" />
+      </div>
+    </UFormField>
 
     <UModal
       v-model:open="showAddDialog"
@@ -166,53 +167,42 @@ const saveNewOption = handleSubmit(async (values) => {
             :description="errors['']"
           />
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div class="flex flex-col gap-2">
-              <label class="font-medium text-sm">Authors</label>
+            <UFormField label="Authors">
               <UInput v-model="authors" class="w-full" autofocus />
-            </div>
-            <div class="flex flex-col gap-2">
-              <label class="font-medium text-sm">Title</label>
+            </UFormField>
+            <UFormField label="Title">
               <UInput v-model="title" class="w-full" />
-            </div>
+            </UFormField>
           </div>
-          <div class="flex flex-col gap-2">
-            <label class="font-medium text-sm">DOI (Optional)</label>
+          <UFormField label="DOI" hint="Optional">
             <UInput v-model="doi" class="w-full" />
-          </div>
-          <div class="flex flex-col gap-2">
-            <label class="font-medium text-sm">Restrictions prior to sampling (Optional)</label>
+          </UFormField>
+          <UFormField label="Restrictions prior to sampling" hint="Optional">
             <UTextarea v-model="restrictionsPriorToSampling" rows="2" class="w-full" />
-          </div>
-          <div class="flex flex-col gap-2">
-            <label class="font-medium text-sm">Monitored transfer factors (Optional)</label>
+          </UFormField>
+          <UFormField label="Monitored transfer factors" hint="Optional">
             <UTextarea v-model="monitoredTransferFactors" rows="2" class="w-full" />
-          </div>
+          </UFormField>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div class="flex flex-col gap-2">
-              <label class="font-medium text-sm">Number of participants (Optional)</label>
+            <UFormField label="Number of participants" hint="Optional">
               <UInput v-model="numberOfParticipants" class="w-full" />
-            </div>
-            <div class="flex flex-col gap-2">
-              <label class="font-medium text-sm">Replicates (Optional)</label>
+            </UFormField>
+            <UFormField label="Replicates" hint="Optional">
               <UInput v-model="replicates" class="w-full" />
-            </div>
+            </UFormField>
           </div>
-          <div class="flex flex-col gap-2">
-            <label class="font-medium text-sm">Shedder test (Optional)</label>
+          <UFormField label="Shedder test" hint="Optional">
             <UTextarea v-model="shedderTest" rows="2" class="w-full" />
-          </div>
-          <div class="flex flex-col gap-2">
-            <label class="font-medium text-sm">Classification criteria (Optional)</label>
+          </UFormField>
+          <UFormField label="Classification criteria" hint="Optional">
             <UTextarea v-model="classificationCriteria" rows="2" class="w-full" />
-          </div>
-          <div class="flex flex-col gap-2">
-            <label class="font-medium text-sm">Classification scheme (Optional)</label>
+          </UFormField>
+          <UFormField label="Classification scheme" hint="Optional">
             <UTextarea v-model="classificationScheme" rows="2" class="w-full" />
-          </div>
-          <div class="flex flex-col gap-2">
-            <label class="font-medium text-sm">Classification outcome (Optional)</label>
+          </UFormField>
+          <UFormField label="Classification outcome" hint="Optional">
             <UTextarea v-model="classificationOutcome" rows="2" class="w-full" />
-          </div>
+          </UFormField>
           <p v-if="saveError" class="text-sm text-red-500">{{ saveError }}</p>
         </div>
       </template>

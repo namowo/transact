@@ -1,10 +1,21 @@
 import { fileURLToPath, URL } from 'node:url'
+import { execSync } from 'node:child_process'
 
 import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
 import tailwindcss from '@tailwindcss/vite'
 import ui from '@nuxt/ui/vite'
+
+function getAppVersion() {
+  try {
+    return execSync('git describe --tags --always --dirty', { cwd: import.meta.dirname })
+      .toString()
+      .trim()
+  } catch {
+    return 'unknown'
+  }
+}
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
@@ -250,6 +261,7 @@ export default defineConfig(({ mode }) => {
     },
     define: {
       'import.meta.env.VITE_API_BASE_URL': JSON.stringify(apiBaseUrl),
+      __APP_VERSION__: JSON.stringify(getAppVersion()),
     },
   }
 })

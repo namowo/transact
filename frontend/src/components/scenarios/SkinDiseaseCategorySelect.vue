@@ -68,20 +68,21 @@ const saveNewOption = handleSubmit(async (values) => {
 
 <template>
   <div class="flex flex-col gap-2">
-    <label class="font-medium text-sm">Skin disease category</label>
-    <div class="flex gap-2">
-      <USelectMenu
-        v-model="modelValue"
-        :items="options"
-        label-key="name"
-        value-key="id"
-        placeholder="Select an option"
-        :loading="loading"
-        clear
-        class="w-full"
-      />
-      <UButton icon="i-lucide-plus" variant="ghost" aria-label="Add new option" @click="openAddDialog" />
-    </div>
+    <UFormField label="Skin disease category">
+      <div class="flex gap-2">
+        <USelectMenu
+          v-model="modelValue"
+          :items="options"
+          label-key="name"
+          value-key="id"
+          placeholder="Select an option"
+          :loading="loading"
+          clear
+          class="w-full"
+        />
+        <UButton icon="i-lucide-plus" variant="ghost" aria-label="Add new option" @click="openAddDialog" />
+      </div>
+    </UFormField>
 
     <UModal
       v-model:open="showAddDialog"
@@ -90,24 +91,16 @@ const saveNewOption = handleSubmit(async (values) => {
     >
       <template #body>
       <div class="flex flex-col gap-4">
-        <div class="flex flex-col gap-2">
-          <label class="font-medium text-sm">Name</label>
-          <UInput
-            v-model="newName"
-            :color="errors.name ? 'error' : undefined"
-            class="w-full"
-            autofocus
-          />
-          <UAlert v-if="errors.name" color="error" variant="subtle" :description="errors.name" />
-        </div>
+        <UFormField label="Name" :error="errors.name">
+          <UInput v-model="newName" class="w-full" autofocus />
+        </UFormField>
         <div class="flex items-center gap-2">
           <USwitch v-model="newInfluence" id="influence-shedding" />
           <label for="influence-shedding" class="text-sm">Influences shedding propensity</label>
         </div>
-        <div class="flex flex-col gap-2">
-          <label class="font-medium text-sm">Literature (Optional)</label>
+        <UFormField label="Literature" hint="Optional">
           <UTextarea v-model="newLiterature" :rows="2" class="w-full" />
-        </div>
+        </UFormField>
         <p v-if="saveError" class="text-sm text-red-500">{{ saveError }}</p>
       </div>
       </template>

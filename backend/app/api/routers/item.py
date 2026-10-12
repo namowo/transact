@@ -28,7 +28,7 @@ async def get_all_grouped(db: AsyncSession = Depends(get_async_session)):
     a category are placed in a trailing "Uncategorized" group."""
     items = await crud.get_all_grouped_by_category(db)
 
-    groups: dict[int | None, ItemGroup] = {}
+    groups: dict[UUID | None, ItemGroup] = {}
     for item in items:
         key = item.item_category_id
         if key not in groups:

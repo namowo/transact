@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import Panel from 'openvue/panel'
 import { useConfirm } from '@/composables/useConfirm'
 import SurfaceTemplateForm from './SurfaceTemplateForm.vue'
@@ -7,6 +8,7 @@ import DurationValueInput from './DurationValueInput.vue'
 import FieldLabel from './FieldLabel.vue'
 import { deleteSurfaceTemplate } from '@/api/surfaceTemplates'
 import { emptySurfaceTemplateDraft } from './surfaceTemplateDraft'
+import { usePercentModel } from './percent'
 import {
   activityCategoryApi,
   pressureEstimateApi,
@@ -24,6 +26,11 @@ const emit = defineEmits<{ remove: [] }>()
 
 const draft = defineModel<ContactTemplateDraft>({ required: true })
 const collapsed = defineModel<boolean>('collapsed', { default: false })
+
+const humidityPercent = usePercentModel(computed({
+  get: () => draft.value.humidity,
+  set: (value) => (draft.value.humidity = value),
+}))
 
 const confirm = useConfirm()
 
@@ -81,49 +88,33 @@ async function deleteSurfaceTemplateSlot(which: 'donor' | 'recipient') {
 
       <USeparator />
 
-      <div class="flex flex-col gap-2">
-        <label class="font-medium text-sm">Duration (Optional)</label>
+      <UFormField label="Duration" hint="Optional" :error="errorFor('duration')">
         <DurationValueInput v-model="draft.duration" :invalid="!!errorFor('duration')" />
-        <UAlert
-          v-if="errorFor('duration')"
-          color="error"
-          variant="subtle"
-          :description="errorFor('duration')"
-        />
-      </div>
+      </UFormField>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <CategorySelect
           v-model="draft.pressureEstimateId"
-          label="Pressure estimate (Optional)"
+          label="Pressure estimate"
+          hint="Optional"
           :api="pressureEstimateApi"
           :allow-add="false"
         />
         <CategorySelect
           v-model="draft.frictionAppliedEstimateId"
-          label="Friction applied estimate (Optional)"
+          label="Friction applied estimate"
+          hint="Optional"
           :api="frictionAppliedEstimateApi"
           :allow-add="false"
         />
       </div>
 
-      <div class="flex flex-col gap-2">
-        <label class="font-medium text-sm">Contact area</label>
+      <UFormField label="Contact area" :error="errorFor('contactArea')">
         <UFieldGroup>
-          <UInputNumber
-            v-model="draft.contactArea"
-            :color="errorFor('contactArea') ? 'error' : undefined"
-            class="w-full"
-          />
+          <UInputNumber v-model="draft.contactArea" orientation="vertical" class="w-full" />
           <UBadge color="neutral" variant="outline" size="lg" label="cm²" />
         </UFieldGroup>
-        <UAlert
-          v-if="errorFor('contactArea')"
-          color="error"
-          variant="subtle"
-          :description="errorFor('contactArea')"
-        />
-      </div>
+      </UFormField>
 
       <CategorySelect
         v-model="draft.activityCategoryId"
@@ -131,59 +122,38 @@ async function deleteSurfaceTemplateSlot(which: 'donor' | 'recipient') {
         :api="activityCategoryApi"
       />
 
-      <div class="flex flex-col gap-2">
-        <label class="font-medium text-sm">Description of contact (Optional)</label>
+      <UFormField label="Description of contact" hint="Optional">
         <UTextarea v-model="draft.descriptionOfContact" rows="2" class="w-full" />
-      </div>
+      </UFormField>
 
       <USeparator />
 
       <h4 class="font-medium text-sm">Conditions during contact</h4>
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div class="flex flex-col gap-2">
-          <label class="font-medium text-sm">Temperature</label>
+        <UFormField label="Temperature">
           <UFieldGroup>
-            <UInputNumber v-model="draft.temperature" class="w-full" />
+            <UInputNumber v-model="draft.temperature" orientation="vertical" class="w-full" />
             <UBadge color="neutral" variant="outline" size="lg" label="°C" />
           </UFieldGroup>
-        </div>
-        <div class="flex flex-col gap-2">
-          <label class="font-medium text-sm">Humidity</label>
+        </UFormField>
+        <UFormField label="Humidity" :error="errorFor('humidity')">
           <UFieldGroup>
-            <UInputNumber
-              v-model="draft.humidity"
-              :color="errorFor('humidity') ? 'error' : undefined"
-              class="w-full"
-            />
+            <UInputNumber v-model="humidityPercent" orientation="vertical" :min="0" :max="100" class="w-full" />
             <UBadge color="neutral" variant="outline" size="lg" label="%" />
           </UFieldGroup>
-          <UAlert
-            v-if="errorFor('humidity')"
-            color="error"
-            variant="subtle"
-            :description="errorFor('humidity')"
-          />
-        </div>
-        <div class="flex flex-col gap-2">
-          <FieldLabel
-            label="UV irradiation"
-            description="Record UV radiation exposure (type and intensity in mW/cm²) during contact. For orientation: no direct light (ambient indoor lighting like fluorescent or LED bulbs with minimal UV exposure, no direct sunlight): mostly UVA 0.0001–0.02 mW/cm²; sunlight exposure (direct or indirect exposure to natural sunlight (outdoors), intensity varies with time of day, geography, and weather condition): UVA and UVB (natural solar) 0.5–10+ mW/cm²."
-          />
-          <UFieldGroup>
-            <UInputNumber
-              v-model="draft.uvIrradiation"
-              :color="errorFor('uvIrradiation') ? 'error' : undefined"
-              class="w-full"
+        </UFormField>
+        <UFormField :error="errorFor('uvIrradiation')">
+          <template #label>
+            <FieldLabel
+              label="UV irradiation"
+              description="Record UV radiation exposure (type and intensity in mW/cm²) during contact. For orientation: no direct light (ambient indoor lighting like fluorescent or LED bulbs with minimal UV exposure, no direct sunlight): mostly UVA 0.0001–0.02 mW/cm²; sunlight exposure (direct or indirect exposure to natural sunlight (outdoors), intensity varies with time of day, geography, and weather condition): UVA and UVB (natural solar) 0.5–10+ mW/cm²."
             />
+          </template>
+          <UFieldGroup>
+            <UInputNumber v-model="draft.uvIrradiation" orientation="vertical" class="w-full" />
             <UBadge color="neutral" variant="outline" size="lg" label="mW/cm²" />
           </UFieldGroup>
-          <UAlert
-            v-if="errorFor('uvIrradiation')"
-            color="error"
-            variant="subtle"
-            :description="errorFor('uvIrradiation')"
-          />
-        </div>
+        </UFormField>
       </div>
       <div class="flex items-center gap-2">
         <USwitch v-model="draft.indoors" id="indoors" />

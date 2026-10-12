@@ -268,14 +268,14 @@ function choosePurpose(purpose: 'transfer' | 'repository') {
       <div class="flex flex-col sm:flex-row gap-3">
         <UButton
           label="Plan a transfer experiment"
+          icon="i-lucide-network"
           class="flex-1"
-          variant="outline"
           @click="choosePurpose('transfer')"
         />
         <UButton
           label="Add data to repository"
+          icon="i-lucide-database"
           class="flex-1"
-          variant="outline"
           @click="choosePurpose('repository')"
         />
       </div>

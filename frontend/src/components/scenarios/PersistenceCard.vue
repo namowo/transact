@@ -1,9 +1,11 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import Panel from 'openvue/panel'
 import CategorySelect from './CategorySelect.vue'
 import DurationValueInput from './DurationValueInput.vue'
 import FieldLabel from './FieldLabel.vue'
 import { disturbanceCategoryApi, geographicLocationCategoryApi } from '@/api/categories'
+import { formatPercent, usePercentModel } from './percent'
 import type { PersistenceDraft } from './persistenceDraft'
 
 const props = defineProps<{
@@ -17,6 +19,11 @@ const emit = defineEmits<{ remove: [] }>()
 
 const draft = defineModel<PersistenceDraft>({ required: true })
 const collapsed = defineModel<boolean>('collapsed', { default: false })
+
+const humidityPercent = usePercentModel(computed({
+  get: () => draft.value.humidity,
+  set: (value) => (draft.value.humidity = value),
+}))
 
 function errorFor(field: string): string | undefined {
   return props.errors[`persistencies[${props.index}].${field}`]
@@ -63,7 +70,7 @@ function formatDuration(seconds: number | null): string | null {
           <span class="font-medium">Temperature:</span> {{ draft.temperature }} °C
         </div>
         <div v-if="draft.humidity != null">
-          <span class="font-medium">Humidity:</span> {{ draft.humidity }} %
+          <span class="font-medium">Humidity:</span> {{ formatPercent(draft.humidity) }}
         </div>
         <div v-if="draft.uvIrradiation != null">
           <span class="font-medium">UV irradiation:</span> {{ draft.uvIrradiation }} mW/cm²
@@ -96,92 +103,68 @@ function formatDuration(seconds: number | null): string | null {
     </template>
 
     <div class="flex flex-col gap-4">
-      <div class="flex flex-col gap-2">
-        <label class="font-medium text-sm">Name (Optional)</label>
+      <UFormField label="Name" hint="Optional">
         <UInput v-model="draft.name" placeholder="e.g. Winter, Summer" class="w-full" />
-      </div>
-      <div class="flex flex-col gap-2">
-        <FieldLabel
-          label="Interval of persistence (Optional)"
-          description="Record the time that has passed between the last contact and sampling."
-        />
+      </UFormField>
+      <UFormField :error="errorFor('intervalOfPersistence')">
+        <template #label>
+          <FieldLabel
+            label="Interval of persistence"
+            hint="Optional"
+            description="Record the time that has passed between the last contact and sampling."
+          />
+        </template>
         <DurationValueInput
           v-model="draft.intervalOfPersistence"
           :invalid="!!errorFor('intervalOfPersistence')"
         />
-        <UAlert
-          v-if="errorFor('intervalOfPersistence')"
-          color="error"
-          variant="subtle"
-          :description="errorFor('intervalOfPersistence')"
-        />
-      </div>
+      </UFormField>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div class="flex flex-col gap-2">
-          <FieldLabel
-            label="Temperature"
-            description="Record the ambient temperature between the last contact and sampling in °C."
-          />
+        <UFormField>
+          <template #label>
+            <FieldLabel
+              label="Temperature"
+              description="Record the ambient temperature between the last contact and sampling in °C."
+            />
+          </template>
           <UFieldGroup>
-            <UInputNumber v-model="draft.temperature" class="w-full" />
+            <UInputNumber v-model="draft.temperature" orientation="vertical" class="w-full" />
             <UBadge color="neutral" variant="outline" size="lg" label="°C" />
           </UFieldGroup>
-        </div>
-        <div class="flex flex-col gap-2">
-          <FieldLabel
-            label="Humidity"
-            description="Record the ambient relative humidity (%) between the experiment's last contact and sampling."
-          />
-          <UFieldGroup>
-            <UInputNumber
-              v-model="draft.humidity"
-              :color="errorFor('humidity') ? 'error' : undefined"
-              class="w-full"
+        </UFormField>
+        <UFormField :error="errorFor('humidity')">
+          <template #label>
+            <FieldLabel
+              label="Humidity"
+              description="Record the ambient relative humidity (%) between the experiment's last contact and sampling."
             />
+          </template>
+          <UFieldGroup>
+            <UInputNumber v-model="humidityPercent" orientation="vertical" :min="0" :max="100" class="w-full" />
             <UBadge color="neutral" variant="outline" size="lg" label="%" />
           </UFieldGroup>
-          <UAlert
-            v-if="errorFor('humidity')"
-            color="error"
-            variant="subtle"
-            :description="errorFor('humidity')"
-          />
-        </div>
+        </UFormField>
       </div>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div class="flex flex-col gap-2">
-          <FieldLabel
-            label="UV irradiation (Optional)"
-            description="Record UV radiation exposure (type and intensity in mW/cm²) during the interval between the last contact and sample collection. For orientation: no direct light (ambient indoor lighting like fluorescent or LED bulbs with minimal UV exposure, no direct sunlight): mostly UVA 0.0001–0.02 mW/cm²; sunlight exposure (direct or indirect exposure to natural sunlight (outdoors), intensity varies with time of day, geography, and weather condition): UVA and UVB (natural solar) 0.5–10+ mW/cm²."
-          />
-          <UFieldGroup>
-            <UInputNumber
-              v-model="draft.uvIrradiation"
-              :color="errorFor('uvIrradiation') ? 'error' : undefined"
-              class="w-full"
+        <UFormField :error="errorFor('uvIrradiation')">
+          <template #label>
+            <FieldLabel
+              label="UV irradiation"
+              hint="Optional"
+              description="Record UV radiation exposure (type and intensity in mW/cm²) during the interval between the last contact and sample collection. For orientation: no direct light (ambient indoor lighting like fluorescent or LED bulbs with minimal UV exposure, no direct sunlight): mostly UVA 0.0001–0.02 mW/cm²; sunlight exposure (direct or indirect exposure to natural sunlight (outdoors), intensity varies with time of day, geography, and weather condition): UVA and UVB (natural solar) 0.5–10+ mW/cm²."
             />
+          </template>
+          <UFieldGroup>
+            <UInputNumber v-model="draft.uvIrradiation" orientation="vertical" class="w-full" />
             <UBadge color="neutral" variant="outline" size="lg" label="mW/cm²" />
           </UFieldGroup>
-          <UAlert
-            v-if="errorFor('uvIrradiation')"
-            color="error"
-            variant="subtle"
-            :description="errorFor('uvIrradiation')"
-          />
-        </div>
-        <div class="flex flex-col gap-2">
-          <label class="font-medium text-sm">Duration of disturbance (Optional)</label>
+        </UFormField>
+        <UFormField label="Duration of disturbance" hint="Optional" :error="errorFor('durationOfDisturbance')">
           <DurationValueInput
             v-model="draft.durationOfDisturbance"
             :invalid="!!errorFor('durationOfDisturbance')"
           />
-          <UAlert
-            v-if="errorFor('durationOfDisturbance')"
-            color="error"
-            variant="subtle"
-            :description="errorFor('durationOfDisturbance')"
-          />
-        </div>
+        </UFormField>
       </div>
       <div class="flex flex-wrap gap-6">
         <div class="flex items-center gap-2">
@@ -203,13 +186,16 @@ function formatDuration(seconds: number | null): string | null {
         label="Geographic location"
         :api="geographicLocationCategoryApi"
       />
-      <div class="flex flex-col gap-2">
-        <FieldLabel
-          label="Description of disturbance (Optional)"
-          description="Describe if there have been other environmental conditions (e.g. rain, rapid change in temperature, etc.)"
-        />
+      <UFormField>
+        <template #label>
+          <FieldLabel
+            label="Description of disturbance"
+            hint="Optional"
+            description="Describe if there have been other environmental conditions (e.g. rain, rapid change in temperature, etc.)"
+          />
+        </template>
         <UTextarea v-model="draft.descriptionOfDisturbance" :rows="2" class="w-full" />
-      </div>
+      </UFormField>
 
       <UButton
         label="Remove persistence"

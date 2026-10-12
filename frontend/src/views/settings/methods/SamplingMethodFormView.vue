@@ -226,6 +226,7 @@ function onCancel() {
                 v-else-if="field.type === 'number'"
                 :model-value="fieldValue(config.key as typeof subMethodKeys[number], field.key)"
                 :color="fieldError(config.key as typeof subMethodKeys[number], field.key) ? 'error' : undefined"
+                orientation="vertical"
                 class="w-full"
                 @update:model-value="
                   setFieldValue(config.key as typeof subMethodKeys[number], field.key, $event)

@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onMounted, ref, watch } from 'vue'
 import DataView from 'openvue/dataview'
 import DataTable from 'openvue/datatable'
 import Column from 'openvue/column'
 import { useConfirm } from '@/composables/useConfirm'
 import ScenarioViewDialog from './ScenarioViewDialog.vue'
+import ScenarioFormDialog from './ScenarioFormDialog.vue'
 import ScenarioDetails from './ScenarioDetails.vue'
 import { listScenarios, getScenario, deleteScenario, updateScenario } from '@/api/scenarios'
 import { listStudies } from '@/api/studies'
@@ -13,7 +13,6 @@ import type { Scenario, Study } from '@/api/types'
 
 const props = defineProps<{ studyId: string }>()
 
-const router = useRouter()
 const confirm = useConfirm()
 
 const allScenarios = ref<Scenario[]>([])
@@ -32,7 +31,10 @@ async function load() {
   }
 }
 
-onMounted(load)
+onMounted(() => {
+  load()
+  restoreOpenDialogState()
+})
 
 async function onDelete(scenario: Scenario) {
   await deleteScenario(scenario.id)
@@ -88,6 +90,65 @@ function isScenarioEditable(scenario: Scenario): boolean {
 // it, and only once no other study still refers to it.
 function isScenarioDeletable(scenario: Scenario): boolean {
   return isScenarioEditable(scenario) && scenario.studies.length <= 1
+}
+
+const formDialogVisible = ref(false)
+const formDialogScenarioId = ref<string | null>(null)
+const formDialogDuplicateFromId = ref<string | null>(null)
+
+// Remembers which scenario dialog was open across a page reload, so an
+// accidental refresh re-opens it instead of silently dropping back to the
+// list (ScenarioFormDialog separately recovers the unsaved field values).
+const openDialogStorageKey = computed(() => `transact.scenarioFormOpen.${props.studyId}`)
+
+interface OpenDialogState {
+  scenarioId: string | null
+  duplicateFromId: string | null
+}
+
+function persistOpenDialogState() {
+  try {
+    if (!formDialogVisible.value) {
+      localStorage.removeItem(openDialogStorageKey.value)
+      return
+    }
+    const state: OpenDialogState = {
+      scenarioId: formDialogScenarioId.value,
+      duplicateFromId: formDialogDuplicateFromId.value,
+    }
+    localStorage.setItem(openDialogStorageKey.value, JSON.stringify(state))
+  } catch {
+    // Ignore - restoring the open dialog on reload is a convenience, not critical.
+  }
+}
+
+function restoreOpenDialogState() {
+  try {
+    const raw = localStorage.getItem(openDialogStorageKey.value)
+    if (!raw) return
+    const state = JSON.parse(raw) as OpenDialogState
+    formDialogScenarioId.value = state.scenarioId
+    formDialogDuplicateFromId.value = state.duplicateFromId
+    formDialogVisible.value = true
+  } catch {
+    // Ignore - if the stored state is corrupt, just stay on the list.
+  }
+}
+
+// Covers every way the dialog can close (Cancel, successful save, Escape,
+// backdrop click), not just the explicit open*Dialog() call sites.
+watch(formDialogVisible, persistOpenDialogState)
+
+function openAddDialog() {
+  formDialogScenarioId.value = null
+  formDialogDuplicateFromId.value = null
+  formDialogVisible.value = true
+}
+
+function openEditDialog(scenario: Scenario) {
+  formDialogScenarioId.value = scenario.id
+  formDialogDuplicateFromId.value = null
+  formDialogVisible.value = true
 }
 
 const viewDialogVisible = ref(false)
@@ -188,11 +249,9 @@ function confirmDuplicate() {
   if (!previewedScenario.value) return
 
   browseDialogVisible.value = false
-  router.push({
-    name: 'scenarios-new',
-    params: { studyId: props.studyId },
-    query: { duplicateFrom: String(previewedScenario.value.id) },
-  })
+  formDialogScenarioId.value = null
+  formDialogDuplicateFromId.value = String(previewedScenario.value.id)
+  formDialogVisible.value = true
 }
 
 defineExpose({ load })
@@ -210,7 +269,7 @@ defineExpose({ load })
       <UButton
         label="Add scenario"
         icon="i-lucide-plus"
-        @click="router.push({ name: 'scenarios-new', params: { studyId: props.studyId } })"
+        @click="openAddDialog"
       />
     </div>
 
@@ -260,12 +319,7 @@ defineExpose({ load })
                 icon="i-lucide-pencil"
                 color="neutral"
                 variant="outline"
-                @click="
-                  router.push({
-                    name: 'scenarios-edit',
-                    params: { studyId: props.studyId, id: item.id },
-                  })
-                "
+                @click="openEditDialog(item)"
               />
               <UButton
                 v-else
@@ -301,6 +355,14 @@ defineExpose({ load })
       v-model:open="viewDialogVisible"
       :scenario="viewedScenario"
       :loading="viewLoading"
+    />
+
+    <ScenarioFormDialog
+      v-model:open="formDialogVisible"
+      :study-id="props.studyId"
+      :id="formDialogScenarioId"
+      :duplicate-from-id="formDialogDuplicateFromId"
+      @saved="load"
     />
 
     <UModal

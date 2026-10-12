@@ -40,6 +40,22 @@ export interface ItemSubcategoryInput {
   item_category_id?: string | null
 }
 
+// Likewise, an item part belongs to exactly one item category - the picker
+// only offers parts once an item (and thus its category) has been chosen,
+// and new parts are always created under that category.
+export interface ItemPartsCategory {
+  id: string
+  name?: string | null
+  description?: string | null
+  item_category_id?: string | null
+}
+
+export interface ItemPartsCategoryInput {
+  name?: string | null
+  description?: string | null
+  item_category_id?: string | null
+}
+
 export interface TypeOfSwabCategory {
   id: string
   name?: string | null

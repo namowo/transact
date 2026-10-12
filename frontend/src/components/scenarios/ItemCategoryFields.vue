@@ -16,6 +16,7 @@ const description = defineModel<string | null>('description', { default: null })
 
 const props = defineProps<{
   categoryError?: string
+  subcategoryError?: string
   descriptionError?: string
 }>()
 
@@ -73,8 +74,7 @@ async function createSubcategory(name: string) {
 </script>
 
 <template>
-  <div class="flex flex-col gap-2">
-    <label class="font-medium text-sm">Item category</label>
+  <UFormField label="Item category" :error="props.categoryError">
     <InlineCreatableSelect
       v-model="categoryId"
       :options="allCategories"
@@ -82,16 +82,9 @@ async function createSubcategory(name: string) {
       :create="createCategory"
       placeholder="Select or type to add a category"
     />
-    <UAlert
-      v-if="props.categoryError"
-      color="error"
-      variant="subtle"
-      :description="props.categoryError"
-    />
-  </div>
+  </UFormField>
 
-  <div class="flex flex-col gap-2">
-    <label class="font-medium text-sm">Item subcategory</label>
+  <UFormField label="Item subcategory" :error="props.subcategoryError">
     <InlineCreatableSelect
       v-model="subcategoryId"
       :options="availableSubcategories"
@@ -100,21 +93,9 @@ async function createSubcategory(name: string) {
       :create="createSubcategory"
       placeholder="Select or type to add a subcategory"
     />
-  </div>
+  </UFormField>
 
-  <div class="flex flex-col gap-2">
-    <label class="font-medium text-sm">Description</label>
-    <UTextarea
-      v-model="description"
-      :rows="2"
-      :color="props.descriptionError ? 'error' : undefined"
-      class="w-full"
-    />
-    <UAlert
-      v-if="props.descriptionError"
-      color="error"
-      variant="subtle"
-      :description="props.descriptionError"
-    />
-  </div>
+  <UFormField label="Description" :error="props.descriptionError">
+    <UTextarea v-model="description" :rows="2" class="w-full" />
+  </UFormField>
 </template>

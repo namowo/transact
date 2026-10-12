@@ -1,0 +1,28 @@
+name: "Feature request"
+description: "Suggest a new feature or improvement for the TransAct platform."
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem should this solve?
+      description: Describe the need or current limitation, e.g. when recording studies/scenarios, running quality checks, or managing laboratories and methods.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How could the feature look or work?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives
+      description: Have you considered other approaches?
+  - type: textarea
+    id: other
+    attributes:
+      label: Anything else
+      description: Additional context, mockups, links, etc.

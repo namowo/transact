@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatPercent } from './percent'
 import type { Persistence } from '@/api/types'
 
 const props = defineProps<{
@@ -37,7 +38,7 @@ function formatDuration(seconds: number | null | undefined): string | null {
         <span class="font-medium">Temperature:</span> {{ persistence.temperature }} °C
       </div>
       <div v-if="persistence.humidity != null">
-        <span class="font-medium">Humidity:</span> {{ persistence.humidity }} %
+        <span class="font-medium">Humidity:</span> {{ formatPercent(persistence.humidity) }}
       </div>
       <div v-if="persistence.uv_irradiation != null">
         <span class="font-medium">UV irradiation:</span> {{ persistence.uv_irradiation }} mW/cm²

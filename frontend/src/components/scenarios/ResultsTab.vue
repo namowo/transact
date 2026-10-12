@@ -309,20 +309,13 @@ async function deleteRow(row: Result) {
     >
       <template #body>
       <div class="flex flex-col gap-4">
-        <div class="flex flex-col gap-2">
-          <EntitySelect
-            v-model="recoveryId"
-            label="Recovery"
-            :options="recoveries"
-            :option-label="recoveryLabel"
-          />
-          <UAlert
-            v-if="errors.recovery_id"
-            color="error"
-            variant="subtle"
-            :description="errors.recovery_id"
-          />
-        </div>
+        <EntitySelect
+          v-model="recoveryId"
+          label="Recovery"
+          :options="recoveries"
+          :option-label="recoveryLabel"
+          :error="errors.recovery_id"
+        />
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <EntitySelect
@@ -364,106 +357,37 @@ async function deleteRow(row: Result) {
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div class="flex flex-col gap-2">
-            <label class="font-medium text-sm">DNA concentration</label>
-            <UInputNumber v-model="dnaConcentration" :color="errors.dna_concentration ? 'error' : undefined" class="w-full" />
-            <UAlert
-              v-if="errors.dna_concentration"
-              color="error"
-              variant="subtle"
-              :description="errors.dna_concentration"
-            />
-          </div>
-          <div class="flex flex-col gap-2">
-            <label class="font-medium text-sm">DNA quantity</label>
-            <UInputNumber v-model="dnaQuantity" :color="errors.dna_quantity ? 'error' : undefined" class="w-full" />
-            <UAlert
-              v-if="errors.dna_quantity"
-              color="error"
-              variant="subtle"
-              :description="errors.dna_quantity"
-            />
-          </div>
-          <div class="flex flex-col gap-2">
-            <label class="font-medium text-sm">Degradation</label>
+          <UFormField label="DNA concentration" :error="errors.dna_concentration">
+            <UInputNumber v-model="dnaConcentration" orientation="vertical" class="w-full" />
+          </UFormField>
+          <UFormField label="DNA quantity" :error="errors.dna_quantity">
+            <UInputNumber v-model="dnaQuantity" orientation="vertical" class="w-full" />
+          </UFormField>
+          <UFormField label="Degradation">
             <UInput v-model="degradation" class="w-full" />
-          </div>
+          </UFormField>
           <div class="flex items-center gap-2 pt-6">
             <USwitch v-model="inhibitionToggle" id="inhibition" />
             <label for="inhibition" class="text-sm">Inhibition</label>
           </div>
-          <div class="flex flex-col gap-2">
-            <label class="font-medium text-sm">Sample input volume in PCR</label>
-            <UInputNumber
-              v-model="sampleInputVolumeInPcr"
-              :color="errors.sample_input_volume_in_pcr ? 'error' : undefined"
-              class="w-full"
-            />
-            <UAlert
-              v-if="errors.sample_input_volume_in_pcr"
-              color="error"
-              variant="subtle"
-              :description="errors.sample_input_volume_in_pcr"
-            />
-          </div>
-          <div class="flex flex-col gap-2">
-            <label class="font-medium text-sm">DNA input amount in PCR</label>
-            <UInputNumber
-              v-model="dnaInputAmountInPcr"
-              :color="errors.dna_input_amount_in_pcr ? 'error' : undefined"
-              class="w-full"
-            />
-            <UAlert
-              v-if="errors.dna_input_amount_in_pcr"
-              color="error"
-              variant="subtle"
-              :description="errors.dna_input_amount_in_pcr"
-            />
-          </div>
-          <div class="flex flex-col gap-2">
-            <label class="font-medium text-sm">No. of contributors</label>
-            <UInputNumber v-model="noOfContributors" :color="errors.no_of_contributors ? 'error' : undefined" class="w-full" />
-            <UAlert
-              v-if="errors.no_of_contributors"
-              color="error"
-              variant="subtle"
-              :description="errors.no_of_contributors"
-            />
-          </div>
-          <div class="flex flex-col gap-2">
-            <label class="font-medium text-sm">Mixture proportion</label>
-            <UInputNumber v-model="mixtureProportion" :color="errors.mixture_proportion ? 'error' : undefined" class="w-full" />
-            <UAlert
-              v-if="errors.mixture_proportion"
-              color="error"
-              variant="subtle"
-              :description="errors.mixture_proportion"
-            />
-          </div>
-          <div class="flex flex-col gap-2">
-            <label class="font-medium text-sm">Total RFU</label>
-            <UInputNumber v-model="totalRfu" :color="errors.total_rfu ? 'error' : undefined" class="w-full" />
-            <UAlert
-              v-if="errors.total_rfu"
-              color="error"
-              variant="subtle"
-              :description="errors.total_rfu"
-            />
-          </div>
-          <div class="flex flex-col gap-2">
-            <label class="font-medium text-sm">Total no. of alleles</label>
-            <UInputNumber
-              v-model="totalNoOfAlleles"
-              :color="errors.total_no_of_alleles ? 'error' : undefined"
-              class="w-full"
-            />
-            <UAlert
-              v-if="errors.total_no_of_alleles"
-              color="error"
-              variant="subtle"
-              :description="errors.total_no_of_alleles"
-            />
-          </div>
+          <UFormField label="Sample input volume in PCR" :error="errors.sample_input_volume_in_pcr">
+            <UInputNumber v-model="sampleInputVolumeInPcr" orientation="vertical" class="w-full" />
+          </UFormField>
+          <UFormField label="DNA input amount in PCR" :error="errors.dna_input_amount_in_pcr">
+            <UInputNumber v-model="dnaInputAmountInPcr" orientation="vertical" class="w-full" />
+          </UFormField>
+          <UFormField label="No. of contributors" :error="errors.no_of_contributors">
+            <UInputNumber v-model="noOfContributors" orientation="vertical" class="w-full" />
+          </UFormField>
+          <UFormField label="Mixture proportion" :error="errors.mixture_proportion">
+            <UInputNumber v-model="mixtureProportion" orientation="vertical" class="w-full" />
+          </UFormField>
+          <UFormField label="Total RFU" :error="errors.total_rfu">
+            <UInputNumber v-model="totalRfu" orientation="vertical" class="w-full" />
+          </UFormField>
+          <UFormField label="Total no. of alleles" :error="errors.total_no_of_alleles">
+            <UInputNumber v-model="totalNoOfAlleles" orientation="vertical" class="w-full" />
+          </UFormField>
         </div>
 
         <UAlert v-if="submitError" color="error" variant="outline" :description="submitError" />

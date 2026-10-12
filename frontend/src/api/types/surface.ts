@@ -1,4 +1,4 @@
-import type { NamedCategory } from './categories'
+import type { ItemPartsCategory, NamedCategory } from './categories'
 import type { Individual } from './individual'
 import type { SurfaceTemplate } from './surfaceTemplate'
 
@@ -17,7 +17,7 @@ export interface Surface {
   body_part_condition_category_id?: string | null
   body_part_condition_category?: NamedCategory | null
   item_parts_category_id?: string | null
-  item_parts_category?: NamedCategory | null
+  item_parts_category?: ItemPartsCategory | null
   condition_of_item_part_category_id?: string | null
   condition_of_item_part_category?: NamedCategory | null
   surface_material_category_id?: string | null

@@ -51,3 +51,35 @@ body,
 body {
   margin: 0;
 }
+
+.legal-content :is(h1, h2, h3) {
+  font-weight: 700;
+  margin-top: 1.25em;
+  margin-bottom: 0.5em;
+}
+.legal-content h1 {
+  font-size: 1.5em;
+}
+.legal-content h2 {
+  font-size: 1.25em;
+}
+.legal-content h3 {
+  font-size: 1.1em;
+}
+.legal-content p {
+  margin: 0.75em 0;
+}
+.legal-content :is(ul, ol) {
+  margin: 0.75em 0;
+  padding-left: 1.5em;
+}
+.legal-content a {
+  color: var(--ui-primary);
+  text-decoration: underline;
+}
+.legal-content blockquote {
+  border-left: 3px solid var(--ui-border);
+  padding-left: 1em;
+  margin: 0.75em 0;
+  color: var(--ui-text-muted);
+}

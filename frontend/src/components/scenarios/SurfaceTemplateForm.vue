@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import SelectButton from 'openvue/selectbutton'
+import { ref } from 'vue'
 import CategorySelect from './CategorySelect.vue'
 import ItemSelect from './ItemSelect.vue'
+import ItemPartSelect from './ItemPartSelect.vue'
 import {
   bodyPartConditionCategoryApi,
   conditionOfItemPartCategoryApi,
-  itemPartsCategoryApi,
   locationOfBodyCategoryApi,
   sourceOfDnaCategoryApi,
   surfaceMaterialCategoryApi,
@@ -23,21 +23,25 @@ const emit = defineEmits<{ delete: [] }>()
 const draft = defineModel<SurfaceTemplateDraft>({ required: true })
 
 const kindOptions = [
-  { label: 'Individual', value: 'individual' as const },
-  { label: 'Item', value: 'item' as const },
+  { label: 'Individual', value: 'individual' as const, icon: 'i-lucide-user' },
+  { label: 'Item', value: 'item' as const, icon: 'i-lucide-package' },
 ]
+
+// Derived from whichever item is selected, not persisted on the draft -
+// scopes the Item part picker to that item's category.
+const selectedItemCategoryId = ref<string | null>(null)
 </script>
 
 <template>
   <div class="flex flex-col gap-4 p-4 border border-surface-200 dark:border-surface-700 rounded-lg">
     <div class="flex items-center justify-between">
       <h4 class="font-medium">{{ props.label }}</h4>
-      <SelectButton
+      <URadioGroup
         v-model="draft.kind"
-        :options="kindOptions"
-        option-label="label"
-        option-value="value"
-        :allow-empty="false"
+        :items="kindOptions"
+        indicator="hidden"
+        orientation="horizontal"
+        variant="table"
         :disabled="props.locked"
       />
     </div>
@@ -70,21 +74,33 @@ const kindOptions = [
       </template>
 
       <template v-else>
-        <ItemSelect v-model="draft.itemId" />
+        <ItemSelect v-model="draft.itemId" v-model:item-category-id="selectedItemCategoryId" />
 
-        <CategorySelect
+        <p v-if="!draft.itemId" class="text-sm text-surface-500 dark:text-surface-400">
+          Select an item above to continue.
+        </p>
+
+        <ItemPartSelect
           v-model="draft.itemPartsCategoryId"
-          label="Item part"
-          :api="itemPartsCategoryApi"
+          :item-category-id="selectedItemCategoryId"
+          :disabled="!draft.itemId"
         />
         <CategorySelect
           v-model="draft.conditionOfItemPartCategoryId"
           label="Condition of item part"
           :api="conditionOfItemPartCategoryApi"
+          :disabled="!draft.itemId"
+        />
+        <CategorySelect
+          v-model="draft.surfaceMaterialCategoryId"
+          label="Surface material"
+          :api="surfaceMaterialCategoryApi"
+          :disabled="!draft.itemId"
         />
       </template>
 
       <CategorySelect
+        v-if="draft.kind === 'individual'"
         v-model="draft.surfaceMaterialCategoryId"
         label="Surface material"
         :api="surfaceMaterialCategoryApi"
@@ -106,10 +122,9 @@ const kindOptions = [
         </div>
       </div>
 
-      <div class="flex flex-col gap-2">
-        <label class="font-medium text-sm">Further description (Optional)</label>
+      <UFormField label="Further description" hint="Optional">
         <UTextarea v-model="draft.furtherDescription" :rows="2" class="w-full" />
-      </div>
+      </UFormField>
     </template>
 
     <UButton
