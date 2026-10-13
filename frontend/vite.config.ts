@@ -9,7 +9,7 @@ import ui from '@nuxt/ui/vite'
 
 function getAppVersion() {
   try {
-    return execSync('git describe --tags --always --dirty', { cwd: import.meta.dirname })
+    return execSync('git describe --tags --abbrev=0', { cwd: import.meta.dirname })
       .toString()
       .trim()
   } catch {

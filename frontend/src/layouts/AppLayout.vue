@@ -289,7 +289,7 @@ const footerLinks = [
           <UNavigationMenu :items="footerLinks" variant="link" />
 
           <template #right>
-            <span class="text-sm text-muted">v{{ appVersion }}</span>
+            <span class="text-sm text-muted">{{ appVersion }}</span>
           </template>
         </UFooter>
       </template>
