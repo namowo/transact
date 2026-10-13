@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.2.1](https://github.com/namowo/transact/compare/v0.2.0...v0.2.1) (2026-10-13)
+
+
+### Bug Fixes
+
+* revert deploy trigger to push on main ([fe3fe5a](https://github.com/namowo/transact/commit/fe3fe5ae933076b7e6d7d17392b9505163385639))
+* type error blocking production build ([69584fa](https://github.com/namowo/transact/commit/69584fa0682c10d63b239d3807e5fd732c52a2e2))
+* vulnerabilities ([ad8e977](https://github.com/namowo/transact/commit/ad8e9774a02afb2778e5c57e6e0eb1e9ebd9e455))
+
+
+### Reverts
+
+* @vue/eslint-config-typescript downgrade broke npm ci ([0728254](https://github.com/namowo/transact/commit/0728254c2ece6fdf7acc0e9330f59f3f229ae195))
+
 ## [0.2.0](https://github.com/namowo/transact/compare/v0.1.0...v0.2.0) (2026-10-13)
 
 
