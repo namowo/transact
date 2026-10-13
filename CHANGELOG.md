@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.3.0](https://github.com/namowo/transact/compare/v0.2.1...v0.3.0) (2026-10-13)
+
+
+### Features
+
+* deploy only on release-please's version-bump merge ([2ae71c2](https://github.com/namowo/transact/commit/2ae71c2bd65b8d6d20e22c322884c841546e539f))
+
+
+### Bug Fixes
+
+* double v and noisy dev suffix in footer version ([e733609](https://github.com/namowo/transact/commit/e7336094432c2400c50461fbcf2db404ba5e5764))
+* match release-please branch name, not free-text commit message ([7dffd39](https://github.com/namowo/transact/commit/7dffd39e08d09a57693033aae3f5d1fd39799f78))
+
 ## [0.2.1](https://github.com/namowo/transact/compare/v0.2.0...v0.2.1) (2026-10-13)
 
 
