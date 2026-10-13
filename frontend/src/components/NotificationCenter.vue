@@ -52,7 +52,7 @@ const items = computed<DropdownMenuItem[][]>(() => {
     :items="items"
     :content="{ align: 'end' }"
     :ui="{ content: 'w-80' }"
-    @update:open="(open) => open && load()"
+    @update:open="(open: boolean) => open && load()"
   >
     <UTooltip text="Notifications">
       <UChip :show="totalCount > 0" :text="totalCount" color="error" size="lg">
