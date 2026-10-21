@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.2](https://github.com/namowo/transact/compare/v0.3.1...v0.3.2) (2026-10-21)
+
+
+### Bug Fixes
+
+* npm build ([#8](https://github.com/namowo/transact/issues/8)) ([9816fbe](https://github.com/namowo/transact/commit/9816fbeb4db6d3a1bb407132ef856ad25165f8d5))
+
 ## [0.3.1](https://github.com/namowo/transact/compare/v0.3.0...v0.3.1) (2026-10-21)
 
 
