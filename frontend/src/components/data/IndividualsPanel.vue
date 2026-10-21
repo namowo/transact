@@ -94,11 +94,11 @@ const individualGroups = computed<IndividualGroup[]>(() => {
     } else {
       groups.set(key, {
         key,
-        sexId: individual.sex_id,
-        age: individual.age,
-        dnaSheddingPropensityCategoryId: individual.dna_shedding_propensity_category_id,
-        skinDiseaseCategoryId: individual.skin_disease_category_id,
-        determinationCategoryId: individual.determination_of_shedding_propensity_category_id,
+        sexId: individual.sex_id ?? null,
+        age: individual.age ?? null,
+        dnaSheddingPropensityCategoryId: individual.dna_shedding_propensity_category_id ?? null,
+        skinDiseaseCategoryId: individual.skin_disease_category_id ?? null,
+        determinationCategoryId: individual.determination_of_shedding_propensity_category_id ?? null,
         members: [individual],
       })
     }
