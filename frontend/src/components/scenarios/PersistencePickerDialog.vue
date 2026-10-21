@@ -72,7 +72,7 @@ function confirmSelection() {
   <UModal
     v-model:open="visible"
     title="Duplicate a persistence from this study"
-    :ui="{ content: 'max-w-5xl' }"
+    :ui="{ content: 'max-w-5xl', footer: 'justify-end' }"
   >
     <template #body>
       <div class="flex flex-col gap-3">
@@ -150,10 +150,11 @@ function confirmSelection() {
       </div>
     </template>
     <template #footer>
-      <UButton label="Close" variant="ghost" @click="visible = false" />
+      <UButton label="Close" icon="i-lucide-x" variant="ghost" @click="visible = false" />
       <UButton
         label="Duplicate into this scenario"
         trailing-icon="i-lucide-arrow-right"
+        icon="i-lucide-copy-plus"
         :disabled="previewedId === null"
         @click="confirmSelection"
       />

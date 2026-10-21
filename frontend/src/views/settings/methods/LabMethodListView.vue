@@ -1,15 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
 import DataTable from 'openvue/datatable'
 import Column from 'openvue/column'
 import { FilterMatchMode } from '@openvue/core/api'
 import { getLabMethodConfig } from '@/data/labMethods'
 import { useAuthStore } from '@/stores/auth'
+import LabMethodFormModal from './LabMethodFormModal.vue'
 
 const props = defineProps<{ methodKey: string }>()
 
-const router = useRouter()
 const config = computed(() => getLabMethodConfig(props.methodKey))
 const auth = useAuthStore()
 const laboratoryId = computed(() => auth.user?.laboratory_id ?? null)
@@ -59,14 +58,19 @@ async function load() {
 onMounted(load)
 watch(() => props.methodKey, load)
 
+const modalVisible = ref(false)
+const editingRow = ref<MethodRow | null>(null)
+
 function openCreate() {
   if (!config.value) return
-  router.push({ name: `settings-methods-${config.value.key}-new` })
+  editingRow.value = null
+  modalVisible.value = true
 }
 
 function openEdit(row: MethodRow) {
   if (!config.value) return
-  router.push({ name: `settings-methods-${config.value.key}-edit`, params: { id: String(row.id) } })
+  editingRow.value = row
+  modalVisible.value = true
 }
 
 async function deleteRow(row: MethodRow) {
@@ -162,5 +166,12 @@ function columnValue(row: MethodRow, key: string) {
         </Column>
       </DataTable>
     </div>
+
+    <LabMethodFormModal
+      v-model:visible="modalVisible"
+      :method-key="methodKey"
+      :editing-row="editingRow"
+      @saved="load"
+    />
   </div>
 </template>

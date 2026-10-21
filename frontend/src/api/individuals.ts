@@ -12,3 +12,7 @@ export function createIndividual(payload: IndividualInput) {
 export function updateIndividual(id: string, payload: IndividualInput) {
   return apiClient.patch<Individual>(`/individuals/${id}`, payload).then((r) => r.data)
 }
+
+export function deleteIndividual(id: string) {
+  return apiClient.delete(`/individuals/${id}`)
+}

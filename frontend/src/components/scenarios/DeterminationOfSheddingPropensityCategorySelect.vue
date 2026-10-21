@@ -148,6 +148,12 @@ const saveNewOption = handleSubmit(async (values) => {
           :loading="loading"
           clear
           class="w-full"
+          :ui="{
+            base: 'h-auto',
+            value: 'whitespace-normal text-left truncate-0 line-clamp-none',
+            content: 'w-(--reka-combobox-trigger-width) min-w-fit max-w-md',
+            itemLabel: 'whitespace-normal',
+          }"
         />
         <UButton icon="i-lucide-plus" variant="ghost" aria-label="Add new reference" @click="openAddDialog" />
       </div>
@@ -156,7 +162,7 @@ const saveNewOption = handleSubmit(async (values) => {
     <UModal
       v-model:open="showAddDialog"
       title="Add determination of shedding propensity reference"
-      :ui="{ content: 'max-w-xl' }"
+      :ui="{ content: 'max-w-xl', footer: 'justify-end' }"
     >
       <template #body>
         <div class="flex flex-col gap-4">
@@ -207,8 +213,8 @@ const saveNewOption = handleSubmit(async (values) => {
         </div>
       </template>
       <template #footer>
-        <UButton label="Cancel" variant="ghost" @click="showAddDialog = false" />
-        <UButton label="Add" :loading="saving" @click="saveNewOption" />
+        <UButton label="Cancel" icon="i-lucide-x" variant="ghost" @click="showAddDialog = false" />
+        <UButton label="Add" icon="i-lucide-plus" :loading="saving" @click="saveNewOption" />
       </template>
     </UModal>
   </div>

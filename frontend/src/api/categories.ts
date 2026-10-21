@@ -23,6 +23,8 @@ export function namedCategoryApi(basePath: string) {
     list: () => apiClient.get<NamedCategory[]>(basePath).then((r) => r.data),
     create: (payload: NamedCategoryInput) =>
       apiClient.post<NamedCategory>(basePath, payload).then((r) => r.data),
+    update: (id: string, payload: NamedCategoryInput) =>
+      apiClient.patch<NamedCategory>(`${basePath}/${id}`, payload).then((r) => r.data),
   }
 }
 
@@ -31,6 +33,8 @@ export const bodyPartConditionCategoryApi = namedCategoryApi('/body-part-conditi
 export const conditionOfItemPartCategoryApi = namedCategoryApi('/condition-of-item-part-categories')
 export const disturbanceCategoryApi = namedCategoryApi('/disturbance-categories')
 export const geographicLocationCategoryApi = namedCategoryApi('/geographic-location-categories')
+export const degradationCategoryApi = namedCategoryApi('/degradation-categories')
+export const inhibitionCategoryApi = namedCategoryApi('/inhibition-categories')
 
 // Not a plain namedCategoryApi: the admin item catalog screen needs to
 // rename/delete categories, so this exposes update/delete too.
@@ -107,11 +111,19 @@ export const quantificationKitApi = namedCategoryApi('/quantification-kits')
 export const manufacturerApi = namedCategoryApi('/manufacturers')
 export const platformApi = namedCategoryApi('/platforms')
 export const wettingAgentApi = namedCategoryApi('/wetting-agents')
+export const applicationAnalyticalThresholdApi = namedCategoryApi(
+  '/application-analytical-thresholds',
+)
+export const stutterFilterApi = namedCategoryApi('/stutter-filters')
 
 export const skinDiseaseCategoryApi = {
   list: () => apiClient.get<SkinDiseaseCategory[]>('/skin-disease-categories').then((r) => r.data),
   create: (payload: SkinDiseaseCategoryInput) =>
     apiClient.post<SkinDiseaseCategory>('/skin-disease-categories', payload).then((r) => r.data),
+  update: (id: string, payload: SkinDiseaseCategoryInput) =>
+    apiClient
+      .patch<SkinDiseaseCategory>(`/skin-disease-categories/${id}`, payload)
+      .then((r) => r.data),
 }
 
 export const determinationOfSheddingPropensityCategoryApi = {
@@ -128,10 +140,19 @@ export const determinationOfSheddingPropensityCategoryApi = {
         payload,
       )
       .then((r) => r.data),
+  update: (id: string, payload: DeterminationOfSheddingPropensityCategoryInput) =>
+    apiClient
+      .patch<DeterminationOfSheddingPropensityCategory>(
+        `/determination-of-shedding-propensity-categories/${id}`,
+        payload,
+      )
+      .then((r) => r.data),
 }
 
 export const supplierApi = {
   list: () => apiClient.get<Supplier[]>('/suppliers').then((r) => r.data),
   create: (payload: SupplierInput) =>
     apiClient.post<Supplier>('/suppliers', payload).then((r) => r.data),
+  update: (id: string, payload: SupplierInput) =>
+    apiClient.patch<Supplier>(`/suppliers/${id}`, payload).then((r) => r.data),
 }

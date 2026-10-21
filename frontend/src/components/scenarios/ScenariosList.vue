@@ -2,6 +2,8 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import DataTable from 'openvue/datatable'
 import Column from 'openvue/column'
+import ContextMenu from 'openvue/contextmenu'
+import type { MenuItem } from 'openvue/menuitem'
 import { FilterMatchMode } from '@openvue/core/api'
 import { useConfirm } from '@/composables/useConfirm'
 import ScenarioViewDialog from './ScenarioViewDialog.vue'
@@ -165,6 +167,53 @@ function openEditDialog(scenario: Scenario) {
   formDialogVisible.value = true
 }
 
+function onRowClick(event: { data: Scenario }) {
+  if (isScenarioEditable(event.data)) {
+    openEditDialog(event.data)
+  } else {
+    openViewDialog(event.data)
+  }
+}
+
+const contextMenu = ref<InstanceType<typeof ContextMenu>>()
+const selectedScenario = ref<Scenario>()
+
+const contextMenuItems = computed<MenuItem[]>(() => {
+  const scenario = selectedScenario.value
+  if (!scenario) return []
+
+  return [
+    {
+      label: isScenarioEditable(scenario) ? 'Edit' : 'View',
+      icon: isScenarioEditable(scenario) ? 'i-lucide-pencil' : 'i-lucide-eye',
+      command: () =>
+        isScenarioEditable(scenario) ? openEditDialog(scenario) : openViewDialog(scenario),
+    },
+    {
+      label: 'Remove from this study',
+      icon: 'i-lucide-x',
+      visible: scenario.studies.length > 1,
+      command: () => unlinkScenario(scenario),
+    },
+    {
+      label: 'Delete',
+      icon: 'i-lucide-trash-2',
+      visible: isScenarioDeletable(scenario),
+      command: () => confirmDelete(scenario),
+    },
+  ]
+})
+
+function onRowContextMenu(event: { originalEvent: Event; data: Scenario }) {
+  selectedScenario.value = event.data
+  contextMenu.value?.show(event.originalEvent)
+}
+
+function openContextMenu(event: Event, scenario: Scenario) {
+  selectedScenario.value = scenario
+  contextMenu.value?.show(event)
+}
+
 const viewDialogVisible = ref(false)
 const viewedScenario = ref<Scenario | null>(null)
 const viewLoading = ref(false)
@@ -292,6 +341,8 @@ defineExpose({ load })
     </div>
 
     <div v-else class="overflow-x-auto">
+      <ContextMenu ref="contextMenu" :model="contextMenuItems" />
+
       <div class="mb-3 flex items-center justify-between gap-3">
         <UButton type="button" icon="i-lucide-filter-x" variant="outline" size="sm" @click="clearFilters()">
           Clear Filters
@@ -311,6 +362,9 @@ defineExpose({ load })
         filterDisplay="menu"
         removableSort
         :globalFilterFields="['scenario_category.name']"
+        :row-class="() => 'cursor-pointer hover:bg-elevated'"
+        @row-click="onRowClick"
+        @row-contextmenu="onRowContextMenu"
       >
         <template #empty>
           <div class="text-center text-surface-500 dark:text-surface-400 py-8">No scenarios yet.</div>
@@ -380,40 +434,13 @@ defineExpose({ load })
 
         <Column header="" style="width: 1%">
           <template #body="{ data }">
-            <div class="flex items-center justify-end gap-2">
-              <UButton
-                v-if="isScenarioEditable(data)"
-                icon="i-lucide-pencil"
-                aria-label="Edit"
-                color="neutral"
-                variant="ghost"
-                @click="openEditDialog(data)"
-              />
-              <UButton
-                v-else
-                icon="i-lucide-eye"
-                aria-label="View"
-                color="neutral"
-                variant="ghost"
-                @click="openViewDialog(data)"
-              />
-              <UButton
-                v-if="data.studies.length > 1"
-                icon="i-lucide-x"
-                aria-label="Remove from this study"
-                color="warning"
-                variant="ghost"
-                @click="unlinkScenario(data)"
-              />
-              <UButton
-                v-if="isScenarioDeletable(data)"
-                icon="i-lucide-trash-2"
-                aria-label="Delete"
-                color="error"
-                variant="ghost"
-                @click="confirmDelete(data)"
-              />
-            </div>
+            <UButton
+              icon="i-lucide-more-vertical"
+              aria-label="Actions"
+              color="neutral"
+              variant="ghost"
+              @click.stop="openContextMenu($event, data)"
+            />
           </template>
         </Column>
       </DataTable>
@@ -436,7 +463,7 @@ defineExpose({ load })
     <UModal
       v-model:open="browseDialogVisible"
       title="Duplicate scenario from another study"
-      :ui="{ content: 'max-w-5xl' }"
+      :ui="{ content: 'max-w-5xl', footer: 'justify-end' }"
     >
       <template #body>
       <div class="flex flex-col gap-3">
@@ -514,10 +541,11 @@ defineExpose({ load })
       </div>
       </template>
       <template #footer>
-        <UButton label="Close" variant="ghost" @click="browseDialogVisible = false" />
+        <UButton label="Close" icon="i-lucide-x" variant="ghost" @click="browseDialogVisible = false" />
         <UButton
           label="Continue with this scenario"
           trailing-icon="i-lucide-arrow-right"
+          icon="i-lucide-copy-plus"
           :disabled="!previewedScenario"
           @click="confirmDuplicate"
         />

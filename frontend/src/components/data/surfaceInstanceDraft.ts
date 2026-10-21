@@ -29,7 +29,23 @@ export async function saveSurfaceInstanceDraft(
   template: SurfaceTemplate | null,
 ): Promise<Surface | null> {
   if (!template || isBlankDraft(draft)) return null
+  return createSurfaceInstance(draft, template)
+}
 
+// Like saveSurfaceInstanceDraft, but always creates the Surface when a
+// template is given, even if the draft has no overrides. Needed for an
+// item-side slot that other Surfaces (e.g. a batch of individuals) need to
+// reference - unlike the single-pair flow, skipping creation here would
+// leave those contacts with no surface on that side at all.
+export async function createRequiredSurfaceInstance(
+  draft: SurfaceInstanceDraft,
+  template: SurfaceTemplate | null,
+): Promise<Surface | null> {
+  if (!template) return null
+  return createSurfaceInstance(draft, template)
+}
+
+function createSurfaceInstance(draft: SurfaceInstanceDraft, template: SurfaceTemplate): Promise<Surface> {
   const isIndividual = !template.item_id
   return createSurface({
     surface_template_id: template.id,

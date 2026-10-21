@@ -10,6 +10,7 @@ import type { ContactTemplate } from '@/api/types'
 
 export interface ContactTemplateDraft {
   id: string | null
+  name: string | null
   donorSurfaceTemplate: SurfaceTemplateDraft
   donorSurfaceTemplateId: string | null
   recipientSurfaceTemplate: SurfaceTemplateDraft
@@ -31,6 +32,7 @@ export interface ContactTemplateDraft {
 export function emptyContactTemplateDraft(): ContactTemplateDraft {
   return {
     id: null,
+    name: null,
     donorSurfaceTemplate: emptySurfaceTemplateDraft(),
     donorSurfaceTemplateId: null,
     recipientSurfaceTemplate: emptySurfaceTemplateDraft(),
@@ -54,6 +56,7 @@ export function contactTemplateDraftFromContactTemplate(
 ): ContactTemplateDraft {
   return {
     id: template.id,
+    name: template.name ?? null,
     donorSurfaceTemplate: surfaceTemplateDraftFromSurfaceTemplate(template.donor_surface_template),
     donorSurfaceTemplateId: template.donor_surface_template_id ?? null,
     recipientSurfaceTemplate: surfaceTemplateDraftFromSurfaceTemplate(
@@ -132,6 +135,7 @@ export async function saveContactTemplateDraft(
   }
 
   const payload = {
+    name: draft.name || null,
     donor_surface_template_id: donorSurfaceTemplateId,
     recipient_surface_template_id: recipientSurfaceTemplateId,
     duration: draft.duration,

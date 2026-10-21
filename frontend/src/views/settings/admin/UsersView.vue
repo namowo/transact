@@ -377,7 +377,7 @@ async function deleteUserConfirmed(user: User) {
     <UModal
       v-model:open="labDialogVisible"
       title="Edit lab"
-      :ui="{ content: 'max-w-md' }"
+      :ui="{ content: 'max-w-md', footer: 'justify-end' }"
     >
       <template #body>
       <div v-if="labDialogUser" class="flex flex-col gap-4">
@@ -388,15 +388,15 @@ async function deleteUserConfirmed(user: User) {
       </div>
       </template>
       <template #footer>
-        <UButton label="Cancel" variant="ghost" @click="labDialogVisible = false" />
-        <UButton label="Save" :loading="labDialogSaving" @click="saveLabDialog" />
+        <UButton label="Cancel" icon="i-lucide-x" variant="ghost" @click="labDialogVisible = false" />
+        <UButton label="Save" icon="i-lucide-save" :loading="labDialogSaving" @click="saveLabDialog" />
       </template>
     </UModal>
 
     <UModal
       v-model:open="accessDialogVisible"
       title="Manage access"
-      :ui="{ content: 'max-w-md' }"
+      :ui="{ content: 'max-w-md', footer: 'justify-end' }"
     >
       <template #body>
         <div v-if="accessDialogUser" class="flex flex-col gap-4">
@@ -440,7 +440,7 @@ async function deleteUserConfirmed(user: User) {
         </div>
       </template>
       <template #footer>
-        <UButton label="Close" variant="ghost" @click="accessDialogVisible = false" />
+        <UButton label="Close" icon="i-lucide-x" variant="ghost" @click="accessDialogVisible = false" />
       </template>
     </UModal>
   </div>

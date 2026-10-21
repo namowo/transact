@@ -5,7 +5,6 @@ import DataTable from 'openvue/datatable'
 import Column from 'openvue/column'
 import ContextMenu from 'openvue/contextmenu'
 import { FilterMatchMode } from '@openvue/core/api'
-import { useToast } from '@nuxt/ui/composables'
 import { listStudies } from '@/api/studies'
 import { useAuthStore } from '@/stores/auth'
 import type { Study } from '@/api/types'
@@ -15,7 +14,6 @@ const props = defineProps<{ scope: 'laboratory' | 'all' }>()
 
 const router = useRouter()
 const auth = useAuthStore()
-const toast = useToast()
 
 const studies = ref<Study[]>([])
 const loading = ref(false)
@@ -72,15 +70,6 @@ function canEdit(study: Study) {
   return !!auth.user && (auth.user.is_superuser || isOwnLab(study))
 }
 
-function downloadStudy(study: Study) {
-  toast.add({
-    color: 'info',
-    title: 'Coming soon',
-    description: `Downloading data for "${study.title}" will be available in a future update.`,
-    duration: 4000,
-  })
-}
-
 function openStep(study: Study, step: 'details' | 'planning' | 'data-entry') {
   router.push({ name: 'studies-edit', params: { id: study.id }, query: { step } })
 }
@@ -125,9 +114,10 @@ const contextMenuItems = computed<MenuItem[]>(() => {
       separator: true,
     },
     {
-      label: 'Download',
+      // TODO: enable once study data export is implemented
+      label: 'Download (coming soon)',
       icon: 'i-lucide-download',
-      command: () => downloadStudy(study),
+      disabled: true,
     },
   ]
 })
@@ -205,7 +195,7 @@ function onRowClick(event: { data: Study }) {
         filter-display="menu"
         sort-field="created_at"
         :sort-order="-1"
-        :row-class="(data: Study) => (canEdit(data) ? 'cursor-pointer' : '')"
+        :row-class="(data: Study) => (canEdit(data) ? 'cursor-pointer hover:bg-elevated' : '')"
         @row-contextmenu="onRowContextMenu"
         @row-click="onRowClick"
       >
@@ -338,7 +328,7 @@ function onRowClick(event: { data: Study }) {
     <UModal
       v-model:open="showPurposeDialog"
       title="What would you like to do?"
-      :ui="{ content: 'max-w-lg' }"
+      :ui="{ content: 'max-w-lg', footer: 'justify-end' }"
     >
       <template #body>
       <div class="flex flex-col sm:flex-row gap-3">
@@ -357,7 +347,7 @@ function onRowClick(event: { data: Study }) {
       </div>
       </template>
       <template #footer>
-        <UButton label="Cancel" variant="ghost" @click="showPurposeDialog = false" />
+        <UButton label="Cancel" icon="i-lucide-x" variant="ghost" @click="showPurposeDialog = false" />
       </template>
     </UModal>
   </div>

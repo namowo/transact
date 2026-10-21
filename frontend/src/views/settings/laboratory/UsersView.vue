@@ -344,7 +344,7 @@ async function deny(request: LabMembershipRequest) {
     <UModal
       v-model:open="accessDialogVisible"
       title="Manage access"
-      :ui="{ content: 'max-w-md' }"
+      :ui="{ content: 'max-w-md', footer: 'justify-end' }"
     >
       <template #body>
         <div v-if="accessDialogUser" class="flex flex-col gap-4">
@@ -381,7 +381,7 @@ async function deny(request: LabMembershipRequest) {
         </div>
       </template>
       <template #footer>
-        <UButton label="Close" variant="ghost" @click="accessDialogVisible = false" />
+        <UButton label="Close" icon="i-lucide-x" variant="ghost" @click="accessDialogVisible = false" />
       </template>
     </UModal>
   </div>

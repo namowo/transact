@@ -111,6 +111,13 @@ async def superuser(db_session: AsyncSession, laboratory: Laboratory) -> User:
     )
 
 
+@pytest_asyncio.fixture
+async def lab_admin(db_session: AsyncSession, laboratory: Laboratory) -> User:
+    return await _make_user(
+        db_session, laboratory, email="labadmin@example.com", can_manage_lab_users=True
+    )
+
+
 def auth_headers(user: User) -> dict:
     token = create_access_token(subject=str(user.id))
     return {"Cookie": f"access_token={token}"}
@@ -125,4 +132,10 @@ async def auth_client(client: AsyncClient, regular_user: User) -> AsyncClient:
 @pytest_asyncio.fixture
 async def superuser_client(client: AsyncClient, superuser: User) -> AsyncClient:
     client.cookies.update({"access_token": create_access_token(subject=str(superuser.id))})
+    return client
+
+
+@pytest_asyncio.fixture
+async def lab_admin_client(client: AsyncClient, lab_admin: User) -> AsyncClient:
+    client.cookies.update({"access_token": create_access_token(subject=str(lab_admin.id))})
     return client

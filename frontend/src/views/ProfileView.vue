@@ -499,7 +499,11 @@ const onPasswordSubmit = handlePasswordSubmit(async (values) => {
         </div>
     </UCard>
 
-    <UModal v-model:open="showAddPasskeyDialog" title="Add a passkey" :ui="{ content: 'max-w-md' }">
+    <UModal
+      v-model:open="showAddPasskeyDialog"
+      title="Add a passkey"
+      :ui="{ content: 'max-w-md', footer: 'justify-end' }"
+    >
       <template #body>
       <div class="flex flex-col gap-4">
         <div class="flex flex-col gap-2">
@@ -520,8 +524,8 @@ const onPasswordSubmit = handlePasswordSubmit(async (values) => {
       </div>
       </template>
       <template #footer>
-        <UButton label="Cancel" variant="ghost" @click="showAddPasskeyDialog = false" />
-        <UButton label="Continue" :loading="addingPasskey" @click="onAddPasskey" />
+        <UButton label="Cancel" icon="i-lucide-x" variant="ghost" @click="showAddPasskeyDialog = false" />
+        <UButton label="Continue" icon="i-lucide-check" :loading="addingPasskey" @click="onAddPasskey" />
       </template>
     </UModal>
   </div>

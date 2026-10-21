@@ -37,10 +37,12 @@ import {
   platformApi,
   wettingAgentApi,
   supplierApi,
+  applicationAnalyticalThresholdApi,
+  stutterFilterApi,
 } from '@/api/categories'
 import type { NamedCategory, NamedCategoryInput } from '@/api/types'
 
-export type FieldType = 'text' | 'textarea' | 'number' | 'boolean' | 'category'
+export type FieldType = 'text' | 'textarea' | 'number' | 'boolean' | 'category' | 'duration'
 
 export interface MethodFieldConfig {
   key: string
@@ -51,6 +53,8 @@ export interface MethodFieldConfig {
     list: () => Promise<NamedCategory[]>
     create: (payload: NamedCategoryInput) => Promise<NamedCategory>
   }
+  // For 'number' fields: unit shown as a badge next to the input (e.g. "µl", "°C").
+  unit?: string
   // Column shown in the list table for this field (defaults to true for the
   // first few fields via `listColumns` below, not per-field).
 }
@@ -100,17 +104,20 @@ export const labMethods: MethodConfig[] = [
         key: 'volume_lysis_buffer_components',
         label: 'Volume of lysis buffer components',
         type: 'number',
+        unit: 'µl',
       },
-      { key: 'lysis_incubation_time', label: 'Lysis incubation time', type: 'text' },
+      { key: 'lysis_incubation_time', label: 'Lysis incubation time', type: 'duration' },
       {
         key: 'lysis_incubation_temperature',
         label: 'Lysis incubation temperature',
         type: 'number',
+        unit: '°C',
       },
       {
         key: 'volume_of_lysate_used_for_extraction',
         label: 'Volume of lysate used for extraction',
         type: 'number',
+        unit: 'µl',
       },
       {
         key: 'application_of_further_purification_step',
@@ -143,19 +150,34 @@ export const labMethods: MethodConfig[] = [
         type: 'category',
         categoryApi: thermocyclerApi,
       },
-      { key: 'initial_denaturation_temp', label: 'Initial denaturation temp.', type: 'number' },
-      { key: 'initial_denaturation_time', label: 'Initial denaturation time', type: 'text' },
+      {
+        key: 'initial_denaturation_temp',
+        label: 'Initial denaturation temp.',
+        type: 'number',
+        unit: '°C',
+      },
+      { key: 'initial_denaturation_time', label: 'Initial denaturation time', type: 'duration' },
       { key: 'no_of_cycles', label: 'No. of cycles', type: 'number' },
-      { key: 'denaturation_temp', label: 'Denaturation temp.', type: 'number' },
-      { key: 'denaturation_time', label: 'Denaturation time', type: 'text' },
-      { key: 'annealing_temp', label: 'Annealing temp.', type: 'number' },
-      { key: 'annealing_time', label: 'Annealing time', type: 'text' },
-      { key: 'elongation_temp', label: 'Elongation temp.', type: 'number' },
-      { key: 'elongation_time', label: 'Elongation time', type: 'text' },
-      { key: 'final_elongation_temp', label: 'Final elongation temp.', type: 'number' },
-      { key: 'final_elongation_time', label: 'Final elongation time', type: 'text' },
-      { key: 'ramping', label: 'Ramping', type: 'number' },
-      { key: 'total_volume_pcr_reaction', label: 'Total volume of PCR reaction', type: 'number' },
+      { key: 'denaturation_temp', label: 'Denaturation temp.', type: 'number', unit: '°C' },
+      { key: 'denaturation_time', label: 'Denaturation time', type: 'duration' },
+      { key: 'annealing_temp', label: 'Annealing temp.', type: 'number', unit: '°C' },
+      { key: 'annealing_time', label: 'Annealing time', type: 'duration' },
+      { key: 'elongation_temp', label: 'Elongation temp.', type: 'number', unit: '°C' },
+      { key: 'elongation_time', label: 'Elongation time', type: 'duration' },
+      {
+        key: 'final_elongation_temp',
+        label: 'Final elongation temp.',
+        type: 'number',
+        unit: '°C',
+      },
+      { key: 'final_elongation_time', label: 'Final elongation time', type: 'duration' },
+      { key: 'ramping', label: 'Ramping', type: 'number', unit: '°C/s' },
+      {
+        key: 'total_volume_pcr_reaction',
+        label: 'Total volume of PCR reaction',
+        type: 'number',
+        unit: 'µl',
+      },
     ],
   },
   {
@@ -172,7 +194,7 @@ export const labMethods: MethodConfig[] = [
         categoryApi: ceDeviceApi,
       },
       { key: 'application_type', label: 'Application type', type: 'text' },
-      { key: 'capillary_length', label: 'Capillary length', type: 'number' },
+      { key: 'capillary_length', label: 'Capillary length', type: 'number', unit: 'cm' },
       {
         key: 'polymer_id',
         label: 'Polymer',
@@ -185,29 +207,44 @@ export const labMethods: MethodConfig[] = [
         type: 'category',
         categoryApi: dyeSetApi,
       },
-      { key: 'oven_temperature', label: 'Oven temperature', type: 'number' },
-      { key: 'run_voltage', label: 'Run voltage', type: 'number' },
-      { key: 'pre_run_voltage', label: 'Pre-run voltage', type: 'number' },
-      { key: 'injection_voltage', label: 'Injection voltage', type: 'number' },
-      { key: 'run_time', label: 'Run time', type: 'text' },
-      { key: 'pre_run_time', label: 'Pre-run time', type: 'text' },
-      { key: 'injection_time', label: 'Injection time', type: 'text' },
+      { key: 'oven_temperature', label: 'Oven temperature', type: 'number', unit: '°C' },
+      { key: 'run_voltage', label: 'Run voltage', type: 'number', unit: 'V' },
+      { key: 'pre_run_voltage', label: 'Pre-run voltage', type: 'number', unit: 'V' },
+      { key: 'injection_voltage', label: 'Injection voltage', type: 'number', unit: 'V' },
+      { key: 'run_time', label: 'Run time', type: 'duration' },
+      { key: 'pre_run_time', label: 'Pre-run time', type: 'duration' },
+      { key: 'injection_time', label: 'Injection time', type: 'duration' },
       {
         key: 'type_of_formamide_id',
         label: 'Type of formamide',
         type: 'category',
         categoryApi: typeOfFormamideApi,
       },
-      { key: 'volume_formamide', label: 'Volume of formamide', type: 'number' },
+      {
+        key: 'volume_formamide',
+        label: 'Volume of formamide',
+        type: 'number',
+        unit: 'µl',
+      },
       {
         key: 'size_standard_id',
         label: 'Size standard',
         type: 'category',
         categoryApi: sizeStandardApi,
       },
-      { key: 'volume_size_standard', label: 'Volume of size standard', type: 'number' },
-      { key: 'input_volume_pcr_product', label: 'Input volume PCR product', type: 'number' },
-      { key: 'final_volume', label: 'Final volume', type: 'number' },
+      {
+        key: 'volume_size_standard',
+        label: 'Volume of size standard',
+        type: 'number',
+        unit: 'µl',
+      },
+      {
+        key: 'input_volume_pcr_product',
+        label: 'Input volume PCR product',
+        type: 'number',
+        unit: 'µl',
+      },
+      { key: 'final_volume', label: 'Final volume', type: 'number', unit: 'µl' },
     ],
   },
   {
@@ -262,7 +299,12 @@ export const labMethods: MethodConfig[] = [
         type: 'category',
         categoryApi: genotypingSoftwareApi,
       },
-      { key: 'analytical_threshold', label: 'Analytical threshold', type: 'number' },
+      {
+        key: 'analytical_threshold',
+        label: 'Analytical threshold',
+        type: 'number',
+        unit: 'RFU',
+      },
       {
         key: 'application_analytical_threshold',
         label: 'Application of analytical threshold',
@@ -291,6 +333,18 @@ export const labMethods: MethodConfig[] = [
         type: 'textarea',
       },
       { key: 'allele_frequency_database', label: 'Allele frequency database', type: 'text' },
+      {
+        key: 'application_analytical_threshold_id',
+        label: 'Application of analytical threshold',
+        type: 'category',
+        categoryApi: applicationAnalyticalThresholdApi,
+      },
+      {
+        key: 'stutter_filter_id',
+        label: 'Stutter filter',
+        type: 'category',
+        categoryApi: stutterFilterApi,
+      },
     ],
   },
   {
@@ -339,7 +393,12 @@ export const labMethods: MethodConfig[] = [
         type: 'category',
         categoryApi: wettingAgentApi,
       },
-      { key: 'volume_of_wetting_agent', label: 'Volume of wetting agent', type: 'number' },
+      {
+        key: 'volume_of_wetting_agent',
+        label: 'Volume of wetting agent',
+        type: 'number',
+        unit: 'µl',
+      },
       { key: 'specification', label: 'Specification', type: 'text' },
       { key: 'description', label: 'Description', type: 'textarea' },
     ],

@@ -119,7 +119,11 @@ async function saveEdit() {
     </div>
   </UFormField>
 
-  <UModal v-model:open="showEditDialog" title="Edit item part" :ui="{ content: 'max-w-md' }">
+  <UModal
+    v-model:open="showEditDialog"
+    title="Edit item part"
+    :ui="{ content: 'max-w-md', footer: 'justify-end' }"
+  >
     <template #body>
       <div class="flex flex-col gap-4">
         <UFormField label="Name">
@@ -132,8 +136,8 @@ async function saveEdit() {
       </div>
     </template>
     <template #footer>
-      <UButton label="Cancel" variant="ghost" @click="showEditDialog = false" />
-      <UButton label="Save" :loading="saving" @click="saveEdit" />
+      <UButton label="Cancel" icon="i-lucide-x" variant="ghost" @click="showEditDialog = false" />
+      <UButton label="Save" icon="i-lucide-save" :loading="saving" @click="saveEdit" />
     </template>
   </UModal>
 </template>

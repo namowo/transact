@@ -33,6 +33,7 @@ class ContactTemplate(Base):
         PGUUID(as_uuid=True), primary_key=True, index=True,
         server_default=text("gen_random_uuid()")
     )
+    name: Mapped[Optional[str]]
     scenarios: Mapped[list["Scenario"]] = relationship(
         lazy="selectin",
         secondary=scenario_contact_template,

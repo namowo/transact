@@ -735,7 +735,7 @@ function confirmDeleteItem(item: Item) {
     <UModal
       v-model:open="renameDialogVisible"
       :title="renameTarget === 'category' ? 'Edit category' : renameTarget === 'subcategory' ? 'Edit subcategory' : 'Edit item part'"
-      :ui="{ content: 'max-w-md' }"
+      :ui="{ content: 'max-w-md', footer: 'justify-end' }"
     >
       <template #body>
         <div class="flex flex-col gap-4">
@@ -749,13 +749,17 @@ function confirmDeleteItem(item: Item) {
         </div>
       </template>
       <template #footer>
-        <UButton label="Cancel" variant="ghost" @click="renameDialogVisible = false" />
-        <UButton label="Save" :loading="renameSaving" @click="saveRename" />
+        <UButton label="Cancel" icon="i-lucide-x" variant="ghost" @click="renameDialogVisible = false" />
+        <UButton label="Save" icon="i-lucide-save" :loading="renameSaving" @click="saveRename" />
       </template>
     </UModal>
 
     <!-- Add category dialog -->
-    <UModal v-model:open="addCategoryDialogVisible" title="Add item category" :ui="{ content: 'max-w-md' }">
+    <UModal
+      v-model:open="addCategoryDialogVisible"
+      title="Add item category"
+      :ui="{ content: 'max-w-md', footer: 'justify-end' }"
+    >
       <template #body>
         <div class="flex flex-col gap-4">
           <UFormField label="Name">
@@ -768,13 +772,17 @@ function confirmDeleteItem(item: Item) {
         </div>
       </template>
       <template #footer>
-        <UButton label="Cancel" variant="ghost" @click="addCategoryDialogVisible = false" />
-        <UButton label="Add" :loading="addCategorySaving" @click="saveAddCategory" />
+        <UButton label="Cancel" icon="i-lucide-x" variant="ghost" @click="addCategoryDialogVisible = false" />
+        <UButton label="Add" icon="i-lucide-plus" :loading="addCategorySaving" @click="saveAddCategory" />
       </template>
     </UModal>
 
     <!-- Add subcategory dialog (always under the selected category) -->
-    <UModal v-model:open="addSubcategoryDialogVisible" title="Add item subcategory" :ui="{ content: 'max-w-md' }">
+    <UModal
+      v-model:open="addSubcategoryDialogVisible"
+      title="Add item subcategory"
+      :ui="{ content: 'max-w-md', footer: 'justify-end' }"
+    >
       <template #body>
         <div class="flex flex-col gap-4">
           <p class="text-sm text-surface-500">
@@ -790,13 +798,17 @@ function confirmDeleteItem(item: Item) {
         </div>
       </template>
       <template #footer>
-        <UButton label="Cancel" variant="ghost" @click="addSubcategoryDialogVisible = false" />
-        <UButton label="Add" :loading="addSubcategorySaving" @click="saveAddSubcategory" />
+        <UButton label="Cancel" icon="i-lucide-x" variant="ghost" @click="addSubcategoryDialogVisible = false" />
+        <UButton label="Add" icon="i-lucide-plus" :loading="addSubcategorySaving" @click="saveAddSubcategory" />
       </template>
     </UModal>
 
     <!-- Add item part dialog (always under the selected category) -->
-    <UModal v-model:open="addPartDialogVisible" title="Add item part" :ui="{ content: 'max-w-md' }">
+    <UModal
+      v-model:open="addPartDialogVisible"
+      title="Add item part"
+      :ui="{ content: 'max-w-md', footer: 'justify-end' }"
+    >
       <template #body>
         <div class="flex flex-col gap-4">
           <p class="text-sm text-surface-500">
@@ -812,13 +824,17 @@ function confirmDeleteItem(item: Item) {
         </div>
       </template>
       <template #footer>
-        <UButton label="Cancel" variant="ghost" @click="addPartDialogVisible = false" />
-        <UButton label="Add" :loading="addPartSaving" @click="saveAddPart" />
+        <UButton label="Cancel" icon="i-lucide-x" variant="ghost" @click="addPartDialogVisible = false" />
+        <UButton label="Add" icon="i-lucide-plus" :loading="addPartSaving" @click="saveAddPart" />
       </template>
     </UModal>
 
     <!-- Add / edit item dialog -->
-    <UModal v-model:open="editItemDialogVisible" :title="editingItem ? 'Edit item' : 'Add item'" :ui="{ content: 'max-w-md' }">
+    <UModal
+      v-model:open="editItemDialogVisible"
+      :title="editingItem ? 'Edit item' : 'Add item'"
+      :ui="{ content: 'max-w-md', footer: 'justify-end' }"
+    >
       <template #body>
         <div class="flex flex-col gap-4">
           <ItemCategoryFields
@@ -833,8 +849,8 @@ function confirmDeleteItem(item: Item) {
         </div>
       </template>
       <template #footer>
-        <UButton label="Cancel" variant="ghost" @click="editItemDialogVisible = false" />
-        <UButton label="Save" :loading="editItemSaving" @click="saveEditItem" />
+        <UButton label="Cancel" icon="i-lucide-x" variant="ghost" @click="editItemDialogVisible = false" />
+        <UButton label="Save" icon="i-lucide-save" :loading="editItemSaving" @click="saveEditItem" />
       </template>
     </UModal>
   </div>

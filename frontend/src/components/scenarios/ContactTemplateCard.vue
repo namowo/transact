@@ -67,10 +67,14 @@ async function deleteSurfaceTemplateSlot(which: 'donor' | 'recipient') {
 <template>
   <Panel v-model:collapsed="collapsed" toggleable>
     <template #header>
-      <span class="font-semibold">Contact template #{{ props.index + 1 }}</span>
+      <span class="font-semibold">{{ draft.name || `Contact template #${props.index + 1}` }}</span>
     </template>
 
     <div class="flex flex-col gap-4">
+      <UFormField label="Name" hint="Optional">
+        <UInput v-model="draft.name" placeholder="e.g. Handshake" class="w-full" />
+      </UFormField>
+
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <SurfaceTemplateForm
           v-model="draft.donorSurfaceTemplate"

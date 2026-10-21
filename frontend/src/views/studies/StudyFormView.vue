@@ -644,10 +644,10 @@ function confirmDeleteStudy() {
         <template #2>
           <ScenariosList v-if="editingId !== null" :study-id="editingId" />
           <div class="flex justify-between mt-4">
-            <UButton label="Back" icon="i-lucide-arrow-left" variant="ghost" type="button" @click="activeStep = '1'" />
+            <UButton label="Previous step" icon="i-lucide-arrow-left" variant="ghost" type="button" @click="activeStep = '1'" />
             <UButton
               v-if="purpose === 'repository'"
-              label="Continue"
+              label="Next step"
               trailing-icon="i-lucide-arrow-right"
               variant="ghost"
               type="button"
@@ -659,7 +659,7 @@ function confirmDeleteStudy() {
         <template v-if="purpose === 'repository'" #3>
           <DataEntryView v-if="editingId !== null" :study-id="String(editingId)" />
           <div class="flex justify-start mt-4">
-            <UButton label="Back" icon="i-lucide-arrow-left" variant="ghost" type="button" @click="activeStep = '2'" />
+            <UButton label="Previous step" icon="i-lucide-arrow-left" variant="ghost" type="button" @click="activeStep = '2'" />
           </div>
         </template>
     </UStepper>

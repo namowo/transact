@@ -40,15 +40,11 @@ export interface RecoveryInput {
   experience_level_of_sampler_id: string | null
 }
 
-export interface Result {
+// One PCR attempt run off a Result's quantified extract. A Result can have
+// several (re-runs, replicates), so these are kept as Result.pcrs rather
+// than flattened onto Result itself.
+export interface PCR {
   id: string
-  recovery_id?: string | null
-  recovery?: Recovery | null
-  quantification_method_id?: string | null
-  quantification_method?: QuantificationMethod | null
-  dna_concentration?: number | null
-  degradation?: string | null
-  inhibition?: boolean | null
   dna_quantity?: number | null
   pcr_method_id?: string | null
   pcr_method?: PCRMethod | null
@@ -68,12 +64,7 @@ export interface Result {
   total_no_of_alleles?: number | null
 }
 
-export interface ResultInput {
-  recovery_id: string | null
-  quantification_method_id: string | null
-  dna_concentration: number | null
-  degradation: string | null
-  inhibition: boolean | null
+export interface PCRInput {
   dna_quantity: number | null
   pcr_method_id: string | null
   sample_input_volume_in_pcr: number | null
@@ -86,4 +77,29 @@ export interface ResultInput {
   mixture_proportion: number | null
   total_rfu: number | null
   total_no_of_alleles: number | null
+}
+
+export interface Result {
+  id: string
+  recovery_id?: string | null
+  recovery?: Recovery | null
+  quantification_method_id?: string | null
+  quantification_method?: QuantificationMethod | null
+  dna_concentration?: number | null
+  degradation_category_id?: string | null
+  degradation_category?: NamedCategory | null
+  inhibition_category_id?: string | null
+  inhibition_category?: NamedCategory | null
+  pcrs: PCR[]
+}
+
+export interface ResultInput {
+  recovery_id: string | null
+  quantification_method_id: string | null
+  dna_concentration: number | null
+  degradation_category_id: string | null
+  inhibition_category_id: string | null
+  // Full-replace on save: omit to leave the backend's existing PCRs
+  // untouched, or pass the complete list to replace them.
+  pcrs?: PCRInput[]
 }

@@ -377,7 +377,7 @@ const submitNewLaboratory = handleSubmit(async (values) => {
     <UModal
       v-model:open="dialogVisible"
       title="Add laboratory"
-      :ui="{ content: 'max-w-lg' }"
+      :ui="{ content: 'max-w-lg', footer: 'justify-end' }"
     >
       <template #body>
       <div class="flex flex-col gap-4">
@@ -472,8 +472,8 @@ const submitNewLaboratory = handleSubmit(async (values) => {
       </div>
       </template>
       <template #footer>
-        <UButton label="Cancel" variant="ghost" @click="dialogVisible = false" />
-        <UButton label="Add laboratory" :loading="submitting" @click="submitNewLaboratory" />
+        <UButton label="Cancel" icon="i-lucide-x" variant="ghost" @click="dialogVisible = false" />
+        <UButton label="Add laboratory" icon="i-lucide-plus" :loading="submitting" @click="submitNewLaboratory" />
       </template>
     </UModal>
   </div>

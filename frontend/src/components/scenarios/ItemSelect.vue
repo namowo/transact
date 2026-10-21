@@ -183,7 +183,7 @@ const saveItem = handleSubmit(async (values) => {
     <UModal
       v-model:open="pickerVisible"
       title="Select an item"
-      :ui="{ content: 'max-w-3xl' }"
+      :ui="{ content: 'max-w-3xl', footer: 'justify-end' }"
     >
       <template #body>
         <div class="flex flex-col gap-3">
@@ -210,6 +210,7 @@ const saveItem = handleSubmit(async (values) => {
             scrollHeight="28rem"
             selectionMode="single"
             :metaKeySelection="false"
+            :row-class="() => 'cursor-pointer hover:bg-elevated'"
             @row-click="({ data }) => { itemId = data.id; pickerVisible = false }"
           >
             <template #empty>No items found.</template>
@@ -252,14 +253,14 @@ const saveItem = handleSubmit(async (values) => {
         </div>
       </template>
       <template #footer>
-        <UButton label="Close" variant="ghost" @click="pickerVisible = false" />
+        <UButton label="Close" icon="i-lucide-x" variant="ghost" @click="pickerVisible = false" />
       </template>
     </UModal>
 
     <UModal
       v-model:open="showDialog"
       :title="dialogMode === 'edit' ? 'Edit item' : 'Add item'"
-      :ui="{ content: 'max-w-md' }"
+      :ui="{ content: 'max-w-md', footer: 'justify-end' }"
     >
       <template #body>
         <div class="flex flex-col gap-4">
@@ -274,8 +275,8 @@ const saveItem = handleSubmit(async (values) => {
         </div>
       </template>
       <template #footer>
-        <UButton label="Cancel" variant="ghost" @click="showDialog = false" />
-        <UButton label="Save" :loading="saving" @click="saveItem" />
+        <UButton label="Cancel" icon="i-lucide-x" variant="ghost" @click="showDialog = false" />
+        <UButton label="Save" icon="i-lucide-save" :loading="saving" @click="saveItem" />
       </template>
     </UModal>
   </div>

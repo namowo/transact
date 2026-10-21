@@ -57,6 +57,12 @@ async function onCreate(name: string) {
     :loading="loading || creating"
     :disabled="disabled || creating"
     class="w-full"
+    :ui="{
+      content: 'w-(--reka-combobox-trigger-width)',
+      item: 'items-start',
+      itemWrapper: 'min-w-0',
+      itemLabel: 'whitespace-normal break-words',
+    }"
     @create="onCreate"
   >
     <template #create-item-label="{ item }">

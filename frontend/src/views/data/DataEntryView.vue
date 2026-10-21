@@ -1,16 +1,28 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import DataTable from 'openvue/datatable'
 import Column from 'openvue/column'
+import ContextMenu from 'openvue/contextmenu'
 import { FilterMatchMode } from '@openvue/core/api'
 import type { TabsItem } from '@nuxt/ui'
+import type { MenuItem } from 'openvue/menuitem'
 import ContactInstanceDialog from '@/components/data/ContactInstanceDialog.vue'
-import IndividualsAndItemsPanel from '@/components/data/IndividualsAndItemsPanel.vue'
+import IndividualsPanel from '@/components/data/IndividualsPanel.vue'
+import ItemsPanel from '@/components/data/ItemsPanel.vue'
 import RecoveriesPanel from '@/components/data/RecoveriesPanel.vue'
 import ResultsTab from '@/components/scenarios/ResultsTab.vue'
+import { templateName, surfaceInstanceIcon, surfaceInstanceDetail } from '@/components/data/contactTemplateLabel'
+import { useIndividualOptions } from '@/components/scenarios/individualOptions'
+import { useConfirm } from '@/composables/useConfirm'
 import { listScenarios } from '@/api/scenarios'
 import { listContacts, deleteContact } from '@/api/contacts'
 import type { Contact, ContactTemplate, Recovery } from '@/api/types'
+
+const confirm = useConfirm()
+const { describeIndividual, individualName } = useIndividualOptions()
+const route = useRoute()
+const router = useRouter()
 
 const props = defineProps<{ studyId: string }>()
 
@@ -50,29 +62,178 @@ onMounted(load)
 
 const dialogVisible = ref(false)
 
-function onContactSaved(contact: Contact) {
-  contacts.value = [...contacts.value, contact]
+function onContactSaved(newContacts: Contact[]) {
+  contacts.value = [...contacts.value, ...newContacts]
 }
 
-async function onDeleteContact(contact: Contact) {
-  if (!window.confirm('Delete this contact? This cannot be undone.')) return
-  await deleteContact(contact.id)
-  contacts.value = contacts.value.filter((c) => c.id !== contact.id)
+function contactTemplateFor(contact: Contact): ContactTemplate | null {
+  return contactTemplates.value.find((t) => t.id === contact.contact_template_id) ?? null
 }
 
-function surfaceSummary(contact: Contact, side: 'donor_surface' | 'recipient_surface'): string {
+// Which surface slot ('donor_surface' | 'recipient_surface') holds the item,
+// for contact templates shaped item-on-one-side/individual-on-the-other.
+// Mirrors ContactInstanceDialog's batching rule: only applies when exactly
+// one side is an item.
+function itemSideOf(template: ContactTemplate): 'donor_surface' | 'recipient_surface' | null {
+  const donorIsItem = !!template.donor_surface_template?.item_id
+  const recipientIsItem = !!template.recipient_surface_template?.item_id
+  if (donorIsItem && !recipientIsItem) return 'donor_surface'
+  if (recipientIsItem && !donorIsItem) return 'recipient_surface'
+  return null
+}
+
+interface ContactGroup {
+  key: string
+  template: ContactTemplate | null
+  itemSide: 'donor_surface' | 'recipient_surface' | null
+  itemSurfaceId: string | null
+  members: Contact[]
+}
+
+// Contacts sharing the same template and the same item-side surface
+// instance (i.e. the same batch-created item-to-many-individuals entry) are
+// grouped into one expandable row, so the table doesn't repeat the item's
+// details once per individual.
+const contactGroups = computed<ContactGroup[]>(() => {
+  const groups = new Map<string, ContactGroup>()
+  for (const contact of contacts.value) {
+    const template = contactTemplateFor(contact)
+    const itemSide = template ? itemSideOf(template) : null
+    const itemSurfaceId = itemSide ? contact[itemSide]?.id ?? null : null
+    const key = itemSide
+      ? `${contact.contact_template_id}::${itemSurfaceId}`
+      : `single::${contact.id}`
+
+    const existing = groups.get(key)
+    if (existing) {
+      existing.members.push(contact)
+    } else {
+      groups.set(key, {
+        key,
+        template,
+        itemSide,
+        itemSurfaceId,
+        members: [contact],
+      })
+    }
+  }
+  return [...groups.values()]
+})
+
+// Icon + text for one side ('donor_surface' | 'recipient_surface') of a
+// single contact, using the individual's position label when that side
+// holds an individual rather than an item.
+function sideDisplay(contact: Contact, side: 'donor_surface' | 'recipient_surface') {
   const surface = contact[side]
-  if (!surface) return '—'
-  if (surface.individual) return 'Individual'
-  const category = surface.surface_template?.item?.item_category?.name
-  return category ? `Item (${category})` : 'Item'
+  const label = surface?.individual
+    ? describeIndividual(surface.individual)
+    : surfaceInstanceDetail(surface)
+  return { icon: surfaceInstanceIcon(surface), label }
 }
+
+// Donor/Recipient column display for a group row: the fixed item side
+// shows the item once; the individual side shows either the single
+// individual (ungrouped contact) or a count badge (batch group).
+function groupSideDisplay(group: ContactGroup, side: 'donor_surface' | 'recipient_surface') {
+  const first = group.members[0]
+  if (!first) return { icon: null, label: '—' }
+  if (group.itemSide === side || group.members.length === 1) {
+    return sideDisplay(first, side)
+  }
+  return { icon: 'i-lucide-users', label: `${group.members.length} individuals` }
+}
+
+// The individual behind a group member row, for the expansion table's
+// separate Individual/Sex/Age columns - plain text crammed into one string
+// ("Individual 2 (female, 26y)") is harder to scan than a name plus badges.
+function memberIndividual(contact: Contact, itemSide: 'donor_surface' | 'recipient_surface' | null) {
+  const side = itemSide === 'donor_surface' ? 'recipient_surface' : 'donor_surface'
+  return contact[side]?.individual ?? null
+}
+
+async function deleteContacts(ids: string[]) {
+  await Promise.all(ids.map((id) => deleteContact(id)))
+  const removed = new Set(ids)
+  contacts.value = contacts.value.filter((c) => !removed.has(c.id))
+}
+
+function confirmDeleteContact(contact: Contact) {
+  confirm.require({
+    message: 'Delete this contact? This cannot be undone.',
+    header: 'Delete contact',
+    rejectLabel: 'Cancel',
+    acceptLabel: 'Delete',
+    acceptColor: 'error',
+    accept: () => deleteContacts([contact.id]),
+  })
+}
+
+function confirmDeleteGroup(group: ContactGroup) {
+  const count = group.members.length
+  confirm.require({
+    message:
+      count > 1
+        ? `Delete all ${count} contacts in this group? This cannot be undone.`
+        : 'Delete this contact? This cannot be undone.',
+    header: count > 1 ? `Delete ${count} contacts` : 'Delete contact',
+    rejectLabel: 'Cancel',
+    acceptLabel: 'Delete',
+    acceptColor: 'error',
+    accept: () => deleteContacts(group.members.map((c) => c.id)),
+  })
+}
+
+// -- Context menu --
+
+const contactContextMenu = ref<InstanceType<typeof ContextMenu>>()
+const contextMenuGroup = ref<ContactGroup>()
+const contextMenuContact = ref<Contact>()
+
+const groupContextMenuItems = computed<MenuItem[]>(() => {
+  const group = contextMenuGroup.value
+  if (!group) return []
+  return [
+    {
+      label: group.members.length > 1 ? `Delete all ${group.members.length} contacts` : 'Delete',
+      icon: 'i-lucide-trash-2',
+      command: () => confirmDeleteGroup(group),
+    },
+  ]
+})
+
+const memberContextMenuItems = computed<MenuItem[]>(() => {
+  const contact = contextMenuContact.value
+  if (!contact) return []
+  return [
+    {
+      label: 'Delete',
+      icon: 'i-lucide-trash-2',
+      command: () => confirmDeleteContact(contact),
+    },
+  ]
+})
+
+function openGroupContextMenu(event: Event, group: ContactGroup) {
+  contextMenuContact.value = undefined
+  contextMenuGroup.value = group
+  contactContextMenu.value?.show(event)
+}
+
+function openMemberContextMenu(event: Event, contact: Contact) {
+  contextMenuGroup.value = undefined
+  contextMenuContact.value = contact
+  contactContextMenu.value?.show(event)
+}
+
+function onGroupRowContextMenu(event: { originalEvent: Event; data: ContactGroup }) {
+  openGroupContextMenu(event.originalEvent, event.data)
+}
+
+const expandedContactRows = ref<Record<string, boolean>>({})
 
 function initContactFilters() {
   return {
     global: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    donor_surface: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    recipient_surface: { value: null, matchMode: FilterMatchMode.CONTAINS },
   }
 }
 
@@ -83,11 +244,24 @@ function clearContactFilters() {
 }
 
 const tabItems = computed<TabsItem[]>(() => [
-  { label: 'Individuals & items', value: 'individuals-items', slot: 'individuals-items' },
+  { label: 'Individuals', value: 'individuals', slot: 'individuals' },
+  { label: 'Items', value: 'items', slot: 'items' },
   { label: 'Contacts', value: 'contacts', slot: 'contacts', badge: contacts.value.length },
   { label: 'Recoveries', value: 'recoveries', slot: 'recoveries' },
   { label: 'Results', value: 'results', slot: 'results' },
 ])
+
+const tabValues = new Set(['individuals', 'items', 'contacts', 'recoveries', 'results'])
+
+const activeTab = computed<string>({
+  get() {
+    const tab = route.query.tab
+    return typeof tab === 'string' && tabValues.has(tab) ? tab : 'individuals'
+  },
+  set(value) {
+    router.replace({ query: { ...route.query, tab: value } })
+  },
+})
 </script>
 
 <template>
@@ -100,9 +274,13 @@ const tabItems = computed<TabsItem[]>(() => [
 
     <UAlert v-else-if="loadError" color="error" variant="outline" :description="loadError" />
 
-    <UTabs v-else default-value="contacts" :items="tabItems" class="w-full">
-      <template #individuals-items>
-        <IndividualsAndItemsPanel />
+    <UTabs v-else v-model="activeTab" :items="tabItems" class="w-full">
+      <template #individuals>
+        <IndividualsPanel />
+      </template>
+
+      <template #items>
+        <ItemsPanel />
       </template>
 
       <template #contacts>
@@ -114,6 +292,7 @@ const tabItems = computed<TabsItem[]>(() => [
             <UButton
               label="Add actual contact"
               icon="i-lucide-plus"
+              variant="outline"
               :disabled="!contactTemplates.length"
               @click="dialogVisible = true"
             />
@@ -145,54 +324,99 @@ const tabItems = computed<TabsItem[]>(() => [
               />
             </div>
 
+            <ContextMenu ref="contactContextMenu" :model="contextMenuGroup ? groupContextMenuItems : memberContextMenuItems" />
+
             <DataTable
               v-model:filters="contactFilters"
-              :value="contacts"
-              data-key="id"
+              v-model:expanded-rows="expandedContactRows"
+              :value="contactGroups"
+              data-key="key"
               filter-display="menu"
-              removable-sort
+              :global-filter-fields="['template.name']"
+              :row-class="() => 'hover:bg-elevated'"
+              @row-contextmenu="onGroupRowContextMenu"
             >
-              <Column field="contact_template_id" header="Contact template" sortable>
-                <template #body="{ data }">#{{ data.contact_template_id }}</template>
+              <template #empty>No actual contacts recorded yet.</template>
+              <Column expander style="width: 2.5rem" />
+              <Column header="Contact template">
+                <template #body="{ data }">{{ data.template ? templateName(data.template) : '—' }}</template>
               </Column>
-              <Column
-                field="donor_surface"
-                header="Donor"
-                sortable
-                :filter-field="(data: Contact) => surfaceSummary(data, 'donor_surface')"
-                :show-filter-operator="false"
-                :show-add-button="false"
-              >
-                <template #body="{ data }">{{ surfaceSummary(data, 'donor_surface') }}</template>
-                <template #filter="{ filterModel }">
-                  <UInput v-model="filterModel.value" type="text" placeholder="Search by donor" />
+              <Column header="Donor">
+                <template #body="{ data }">
+                  <span class="flex items-center gap-1.5">
+                    <UIcon v-if="groupSideDisplay(data, 'donor_surface').icon" :name="groupSideDisplay(data, 'donor_surface').icon!" class="shrink-0" />
+                    {{ groupSideDisplay(data, 'donor_surface').label }}
+                  </span>
                 </template>
               </Column>
-              <Column
-                field="recipient_surface"
-                header="Recipient"
-                sortable
-                :filter-field="(data: Contact) => surfaceSummary(data, 'recipient_surface')"
-                :show-filter-operator="false"
-                :show-add-button="false"
-              >
-                <template #body="{ data }">{{ surfaceSummary(data, 'recipient_surface') }}</template>
-                <template #filter="{ filterModel }">
-                  <UInput v-model="filterModel.value" type="text" placeholder="Search by recipient" />
+              <Column header="Recipient">
+                <template #body="{ data }">
+                  <span class="flex items-center gap-1.5">
+                    <UIcon v-if="groupSideDisplay(data, 'recipient_surface').icon" :name="groupSideDisplay(data, 'recipient_surface').icon!" class="shrink-0" />
+                    {{ groupSideDisplay(data, 'recipient_surface').label }}
+                  </span>
                 </template>
               </Column>
-              <Column header="" style="width: 4rem">
+              <Column header="" style="width: 3rem">
                 <template #body="{ data }">
                   <UButton
-                    icon="i-lucide-trash-2"
+                    icon="i-lucide-more-vertical"
+                    color="neutral"
                     variant="ghost"
                     square
-                    color="error"
-                    aria-label="Delete"
-                    @click="onDeleteContact(data)"
+                    aria-label="Contact options"
+                    @click.stop="openGroupContextMenu($event, data)"
                   />
                 </template>
               </Column>
+
+              <template #expansion="{ data: group }">
+                <DataTable
+                  :value="group.members"
+                  data-key="id"
+                  :row-class="() => 'hover:bg-elevated'"
+                  @row-contextmenu="(event: { originalEvent: Event; data: Contact }) => openMemberContextMenu(event.originalEvent, event.data)"
+                >
+                  <Column header="Individual">
+                    <template #body="{ data }">
+                      <span class="flex items-center gap-1.5">
+                        <UIcon name="i-lucide-user" class="shrink-0" />
+                        <template v-if="memberIndividual(data, group.itemSide)">
+                          {{ individualName(memberIndividual(data, group.itemSide)!) }}
+                        </template>
+                        <template v-else>—</template>
+                      </span>
+                    </template>
+                  </Column>
+                  <Column header="Sex">
+                    <template #body="{ data }">
+                      <UBadge
+                        v-if="memberIndividual(data, group.itemSide)?.sex?.name"
+                        color="neutral"
+                        variant="outline"
+                      >
+                        {{ memberIndividual(data, group.itemSide)!.sex!.name }}
+                      </UBadge>
+                      <span v-else>—</span>
+                    </template>
+                  </Column>
+                  <Column header="Age">
+                    <template #body="{ data }">{{ memberIndividual(data, group.itemSide)?.age ?? '—' }}</template>
+                  </Column>
+                  <Column header="" style="width: 3rem">
+                    <template #body="{ data }">
+                      <UButton
+                        icon="i-lucide-more-vertical"
+                        color="neutral"
+                        variant="ghost"
+                        square
+                        aria-label="Contact options"
+                        @click.stop="openMemberContextMenu($event, data)"
+                      />
+                    </template>
+                  </Column>
+                </DataTable>
+              </template>
             </DataTable>
           </div>
 
@@ -208,6 +432,7 @@ const tabItems = computed<TabsItem[]>(() => [
         <RecoveriesPanel
           :study-id="studyId"
           :contacts="contacts"
+          :contact-templates="contactTemplates"
           @update:recoveries="scopedRecoveries = $event"
         />
       </template>

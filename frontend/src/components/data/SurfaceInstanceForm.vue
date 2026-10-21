@@ -37,7 +37,8 @@ function templateSummary(template: SurfaceTemplate): string {
       <CategorySelect
         v-else
         v-model="draft.conditionOfItemPartCategoryId"
-        label="Condition of item part (Optional, overrides the template)"
+        label="Condition of item part"
+        hint="Optional, overrides the template"
         :api="conditionOfItemPartCategoryApi"
       />
     </template>

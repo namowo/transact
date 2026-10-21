@@ -1,14 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
 import DataTable from 'openvue/datatable'
 import Column from 'openvue/column'
 import { FilterMatchMode } from '@openvue/core/api'
 import { useAuthStore } from '@/stores/auth'
 import { samplingMethodApi } from '@/api/methods'
 import type { SamplingMethod } from '@/api/types'
+import SamplingMethodFormModal from './SamplingMethodFormModal.vue'
 
-const router = useRouter()
 const auth = useAuthStore()
 const laboratoryId = computed(() => auth.user?.laboratory_id ?? null)
 
@@ -75,12 +74,17 @@ async function load() {
 
 onMounted(load)
 
+const modalVisible = ref(false)
+const editingRow = ref<SamplingMethod | null>(null)
+
 function openCreate() {
-  router.push({ name: 'settings-methods-sampling-new' })
+  editingRow.value = null
+  modalVisible.value = true
 }
 
 function openEdit(row: SamplingMethod) {
-  router.push({ name: 'settings-methods-sampling-edit', params: { id: String(row.id) } })
+  editingRow.value = row
+  modalVisible.value = true
 }
 
 async function deleteRow(row: SamplingMethod) {
@@ -220,5 +224,7 @@ async function deleteRow(row: SamplingMethod) {
         </Column>
       </DataTable>
     </div>
+
+    <SamplingMethodFormModal v-model:visible="modalVisible" :editing-row="editingRow" @saved="load" />
   </div>
 </template>

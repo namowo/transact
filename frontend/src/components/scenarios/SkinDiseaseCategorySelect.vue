@@ -79,6 +79,7 @@ const saveNewOption = handleSubmit(async (values) => {
           :loading="loading"
           clear
           class="w-full"
+          :ui="{ content: 'w-(--reka-combobox-trigger-width) min-w-fit max-w-md', itemLabel: 'whitespace-normal' }"
         />
         <UButton icon="i-lucide-plus" variant="ghost" aria-label="Add new option" @click="openAddDialog" />
       </div>
@@ -87,7 +88,7 @@ const saveNewOption = handleSubmit(async (values) => {
     <UModal
       v-model:open="showAddDialog"
       title="Add skin disease category"
-      :ui="{ content: 'max-w-md' }"
+      :ui="{ content: 'max-w-md', footer: 'justify-end' }"
     >
       <template #body>
       <div class="flex flex-col gap-4">
@@ -105,8 +106,8 @@ const saveNewOption = handleSubmit(async (values) => {
       </div>
       </template>
       <template #footer>
-        <UButton label="Cancel" variant="ghost" @click="showAddDialog = false" />
-        <UButton label="Add" :loading="saving" @click="saveNewOption" />
+        <UButton label="Cancel" icon="i-lucide-x" variant="ghost" @click="showAddDialog = false" />
+        <UButton label="Add" icon="i-lucide-plus" :loading="saving" @click="saveNewOption" />
       </template>
     </UModal>
   </div>

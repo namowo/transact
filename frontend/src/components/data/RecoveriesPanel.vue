@@ -5,12 +5,17 @@ import * as yup from 'yup'
 import DataTable from 'openvue/datatable'
 import Column from 'openvue/column'
 import { FilterMatchMode } from '@openvue/core/api'
-import CategorySelect from '@/components/scenarios/CategorySelect.vue'
+import DataTableSkeleton from '@/components/data/DataTableSkeleton.vue'
 import EntitySelect from '@/components/scenarios/EntitySelect.vue'
+import InlineCreatableSelect from '@/components/scenarios/InlineCreatableSelect.vue'
+import NamedCategoryRadioGroup from '@/components/scenarios/NamedCategoryRadioGroup.vue'
+import SurfaceMultiSelect from './SurfaceMultiSelect.vue'
+import { surfaceLabel, recoverySetLabel, extractionMethodLabel } from './recoveryLabel'
 import { recoveryApi, recoverySetApi, samplingMethodApi, extractionMethodApi } from '@/api/methods'
 import { experienceLevelCategoryApi } from '@/api/categories'
 import type {
   Contact,
+  ContactTemplate,
   Recovery,
   RecoveryInput,
   RecoverySet,
@@ -19,24 +24,20 @@ import type {
   Surface,
 } from '@/api/types'
 
-const props = defineProps<{ studyId: string; contacts: Contact[] }>()
+const props = defineProps<{
+  studyId: string
+  contacts: Contact[]
+  contactTemplates: ContactTemplate[]
+}>()
 
 const emit = defineEmits<{
   'update:recoveries': [recoveries: Recovery[]]
 }>()
 
-function surfaceLabel(surface: Surface): string {
-  const template = surface.surface_template
-  const subject = surface.individual
-    ? 'Individual'
-    : (template?.item?.item_category?.name ?? 'Item')
-  const part =
-    surface.location_of_body_category?.name ??
-    template?.location_of_body_category?.name ??
-    surface.item_parts_category?.name ??
-    template?.item_parts_category?.name ??
-    null
-  return [subject, part].filter(Boolean).join(' — ') || `Surface #${surface.id}`
+const experienceLevelIcons: Record<string, string> = {
+  low: 'i-lucide-signal-low',
+  medium: 'i-lucide-signal-medium',
+  high: 'i-lucide-signal-high',
 }
 
 const studySurfaces = computed<Surface[]>(() => {
@@ -136,10 +137,12 @@ function emptyForm(): RecoveryInput {
   }
 }
 
+// In create mode, a recovery is made per selected surface, so surface_id
+// isn't part of the validated form - surfaceIds below covers it instead.
 const schema = yup.object({
   study_id: yup.string().nullable().defined(),
   recovery_set_id: yup.string().nullable().defined(),
-  surface_id: yup.string().nullable().required('Please select a surface.'),
+  surface_id: yup.string().nullable().defined(),
   sampling_method_id: yup.string().nullable().defined(),
   extraction_method_id: yup.string().nullable().defined(),
   elution_volume: yup.number().nullable().min(0, 'Elution volume must be zero or greater.'),
@@ -160,6 +163,8 @@ const [elutionVolume] = defineField('elution_volume')
 const [area] = defineField('area')
 const [experienceLevelOfSamplerId] = defineField('experience_level_of_sampler_id')
 
+const surfaceIds = ref<string[]>([])
+
 const dialogVisible = ref(false)
 const editingId = ref<string | null>(null)
 const submitting = ref(false)
@@ -168,6 +173,7 @@ const submitError = ref('')
 function openCreateDialog() {
   editingId.value = null
   resetForm({ values: emptyForm() })
+  surfaceIds.value = []
   submitError.value = ''
   dialogVisible.value = true
 }
@@ -186,26 +192,36 @@ function openEditDialog(row: Recovery) {
       experience_level_of_sampler_id: row.experience_level_of_sampler_id ?? null,
     },
   })
+  surfaceIds.value = row.surface_id ? [row.surface_id] : []
   submitError.value = ''
   dialogVisible.value = true
 }
+
+const canSave = computed(() =>
+  editingId.value === null ? surfaceIds.value.length > 0 : true,
+)
 
 const submitForm = handleSubmit(async (formValues) => {
   submitting.value = true
   submitError.value = ''
   try {
     if (editingId.value === null) {
-      const created = await recoveryApi.create(formValues)
-      allRecoveries.value = [...allRecoveries.value, created]
+      const created = await Promise.all(
+        surfaceIds.value.map((surface_id) => recoveryApi.create({ ...formValues, surface_id })),
+      )
+      allRecoveries.value = [...allRecoveries.value, ...created]
     } else {
-      const updated = await recoveryApi.update(editingId.value, formValues)
+      const updated = await recoveryApi.update(editingId.value, {
+        ...formValues,
+        surface_id: surfaceIds.value[0] ?? null,
+      })
       allRecoveries.value = allRecoveries.value.map((item) =>
         item.id === updated.id ? updated : item,
       )
     }
     dialogVisible.value = false
   } catch {
-    submitError.value = 'Could not save this recovery. Please try again.'
+    submitError.value = 'Could not save these recoveries. Please try again.'
   } finally {
     submitting.value = false
   }
@@ -221,29 +237,12 @@ async function deleteRow(row: Recovery) {
   }
 }
 
-function methodLabel(method: ExtractionMethod): string {
-  return method.extraction_protocol || `#${method.id}`
+async function createRecoverySet(name: string) {
+  return recoverySetApi.create({ name: name || null })
 }
 
-const newSetDialogVisible = ref(false)
-const newSetName = ref('')
-const savingSet = ref(false)
-
-function openNewSetDialog() {
-  newSetName.value = ''
-  newSetDialogVisible.value = true
-}
-
-async function saveNewSet() {
-  savingSet.value = true
-  try {
-    const created = await recoverySetApi.create({ name: newSetName.value || null })
-    recoverySets.value = [...recoverySets.value, created]
-    recoverySetId.value = created.id
-    newSetDialogVisible.value = false
-  } finally {
-    savingSet.value = false
-  }
+function onRecoverySetCreated(created: { id: string; name?: string | null }) {
+  recoverySets.value = [...recoverySets.value, created as RecoverySet]
 }
 </script>
 
@@ -256,6 +255,7 @@ async function saveNewSet() {
       <UButton
         label="Add recovery"
         icon="i-lucide-plus"
+        variant="outline"
         :disabled="!studySurfaces.length"
         @click="openCreateDialog"
       />
@@ -282,21 +282,27 @@ async function saveNewSet() {
       />
     </div>
 
-    <div v-for="group in groupedRecoveries" :key="group.recoverySetId ?? 'ungrouped'" class="flex flex-col gap-2">
+    <DataTableSkeleton v-if="loading" :columns="5" />
+
+    <div
+      v-else
+      v-for="group in groupedRecoveries"
+      :key="group.recoverySetId ?? 'ungrouped'"
+      class="flex flex-col gap-2"
+    >
       <h4 class="font-medium text-sm">
-        {{ group.recoverySet?.name ?? (group.recoverySetId === null ? 'Ungrouped' : `Set #${group.recoverySetId}`) }}
+        {{ group.recoverySetId === null ? 'Ungrouped' : recoverySetLabel(group.recoverySet) }}
       </h4>
       <div class="overflow-x-auto">
         <DataTable
           v-model:filters="filters"
           :value="group.items"
-          :loading="loading"
           data-key="id"
           filterDisplay="menu"
           :globalFilterFields="['extraction_method.extraction_protocol', 'elution_volume', 'area']"
         >
           <Column header="Surface">
-            <template #body="{ data }">{{ data.surface ? surfaceLabel(data.surface) : '—' }}</template>
+            <template #body="{ data }">{{ surfaceLabel(data.surface) }}</template>
           </Column>
           <Column header="Sampling method">
             <template #body="{ data }">{{ data.sampling_method ? `#${data.sampling_method.id}` : '—' }}</template>
@@ -308,7 +314,7 @@ async function saveNewSet() {
             :showFilterOperator="false"
             :showAddButton="false"
           >
-            <template #body="{ data }">{{ data.extraction_method ? methodLabel(data.extraction_method) : '—' }}</template>
+            <template #body="{ data }">{{ extractionMethodLabel(data.extraction_method) }}</template>
             <template #filter="{ filterModel }">
               <UInput v-model="filterModel.value" type="text" placeholder="Search by extraction method" />
             </template>
@@ -357,11 +363,23 @@ async function saveNewSet() {
     <UModal
       v-model:open="dialogVisible"
       :title="editingId === null ? 'Add recovery' : 'Edit recovery'"
-      :ui="{ content: 'max-w-lg' }"
+      :ui="{ content: 'max-w-2xl', footer: 'justify-end' }"
     >
       <template #body>
         <div class="flex flex-col gap-4">
+          <UFormField
+            v-if="editingId === null"
+            label="Surfaces"
+            hint="One recovery is created per selected surface"
+          >
+            <SurfaceMultiSelect
+              v-model="surfaceIds"
+              :contacts="props.contacts"
+              :contact-templates="contactTemplates"
+            />
+          </UFormField>
           <EntitySelect
+            v-else
             v-model="surfaceId"
             label="Surface"
             :options="studySurfaces"
@@ -369,16 +387,12 @@ async function saveNewSet() {
             :error="errors.surface_id"
           />
           <UFormField label="Recovery set" hint="Optional">
-            <div class="flex gap-2">
-              <EntitySelect
-                v-model="recoverySetId"
-                label=""
-                :options="recoverySets"
-                :option-label="(s: RecoverySet) => s.name || `Set #${s.id}`"
-                class="flex-1"
-              />
-              <UButton icon="i-lucide-plus" variant="ghost" aria-label="Add recovery set" @click="openNewSetDialog" />
-            </div>
+            <InlineCreatableSelect
+              v-model="recoverySetId"
+              :options="recoverySets.map((s) => ({ id: s.id, name: recoverySetLabel(s) }))"
+              :create="createRecoverySet"
+              @created="onRecoverySetCreated"
+            />
           </UFormField>
           <EntitySelect
             v-model="samplingMethodId"
@@ -386,46 +400,58 @@ async function saveNewSet() {
             :options="samplingMethods"
             :option-label="(m: SamplingMethod) => `#${m.id}`"
           />
+          <p v-if="!samplingMethods.length" class="text-sm text-surface-500 dark:text-surface-400 -mt-2">
+            No sampling methods yet. Add one under
+            <RouterLink :to="{ name: 'settings-methods-sampling' }" class="underline" target="_blank">
+              Settings → Methods → Sampling
+            </RouterLink>.
+          </p>
           <EntitySelect
             v-model="extractionMethodId"
             label="Extraction method"
             :options="extractionMethods"
-            :option-label="methodLabel"
+            :option-label="extractionMethodLabel"
           />
+          <p v-if="!extractionMethods.length" class="text-sm text-surface-500 dark:text-surface-400 -mt-2">
+            No extraction methods yet. Add one under
+            <RouterLink :to="{ name: 'settings-methods-extraction' }" class="underline" target="_blank">
+              Settings → Methods → Extraction
+            </RouterLink>.
+          </p>
           <UFormField label="Elution volume" :error="errors.elution_volume">
-            <UInputNumber v-model="elutionVolume" orientation="vertical" class="w-full" />
+            <UFieldGroup>
+              <UInputNumber v-model="elutionVolume" orientation="vertical" class="w-full" />
+              <UBadge color="neutral" variant="outline" size="lg" label="µL" />
+            </UFieldGroup>
           </UFormField>
           <UFormField label="Area" :error="errors.area">
-            <UInputNumber v-model="area" orientation="vertical" class="w-full" />
+            <UFieldGroup>
+              <UInputNumber v-model="area" orientation="vertical" class="w-full" />
+              <UBadge color="neutral" variant="outline" size="lg" label="cm²" />
+            </UFieldGroup>
           </UFormField>
-          <CategorySelect
+          <NamedCategoryRadioGroup
             v-model="experienceLevelOfSamplerId"
             label="Experience level of sampler"
             :api="experienceLevelCategoryApi"
+            :icons="experienceLevelIcons"
+            orientation="horizontal"
           />
 
           <UAlert v-if="submitError" color="error" variant="outline" :description="submitError" />
         </div>
       </template>
       <template #footer>
-        <UButton label="Cancel" variant="ghost" @click="dialogVisible = false" />
-        <UButton label="Save" :loading="submitting" @click="submitForm" />
-      </template>
-    </UModal>
-
-    <UModal
-      v-model:open="newSetDialogVisible"
-      title="Add recovery set"
-      :ui="{ content: 'max-w-sm' }"
-    >
-      <template #body>
-        <UFormField label="Name">
-          <UInput v-model="newSetName" class="w-full" autofocus />
-        </UFormField>
-      </template>
-      <template #footer>
-        <UButton label="Cancel" variant="ghost" @click="newSetDialogVisible = false" />
-        <UButton label="Add" :loading="savingSet" @click="saveNewSet" />
+        <UButton label="Cancel" icon="i-lucide-x" variant="ghost" @click="dialogVisible = false" />
+        <UButton
+          :label="editingId === null && surfaceIds.length > 1
+            ? `Save ${surfaceIds.length} recoveries`
+            : 'Save'"
+          icon="i-lucide-save"
+          :loading="submitting"
+          :disabled="!canSave"
+          @click="submitForm"
+        />
       </template>
     </UModal>
   </div>
