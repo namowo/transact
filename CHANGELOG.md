@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/namowo/transact/compare/v0.3.0...v0.3.1) (2026-10-21)
+
+
+### Bug Fixes
+
+* various form updates and ui improvements ([c1de275](https://github.com/namowo/transact/commit/c1de275e198e763b5b6435230422e8c53319641d))
+
 ## [0.3.0](https://github.com/namowo/transact/compare/v0.2.1...v0.3.0) (2026-10-13)
 
 
