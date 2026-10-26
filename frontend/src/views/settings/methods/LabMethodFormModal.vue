@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { onKeyStroke } from '@vueuse/core'
 import { useForm } from 'vee-validate'
 import * as yup from 'yup'
 import CategorySelect from '@/components/scenarios/CategorySelect.vue'
+import EntitySelect from '@/components/scenarios/EntitySelect.vue'
 import MultiCategorySelect from '@/components/scenarios/MultiCategorySelect.vue'
 import CheckboxGroupSelect from '@/components/scenarios/CheckboxGroupSelect.vue'
 import DurationValueInput from '@/components/scenarios/DurationValueInput.vue'
@@ -50,6 +51,9 @@ function schemaForFields(fields: MethodFieldConfig[]) {
       case 'multi-select':
       case 'checkbox-group':
         shape[field.key] = yup.array().of(yup.string().defined()).defined()
+        break
+      case 'entity-select':
+        shape[field.key] = yup.string().nullable().defined()
         break
       default:
         shape[field.key] = yup.string().nullable().defined()
@@ -103,6 +107,19 @@ function emptyForm(fields: MethodFieldConfig[]): Record<string, any> {
 }
 
 const validationSchema = computed(() => schemaForFields(config.value?.fields ?? []))
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- entity shape varies per field
+const entityOptions = ref<Record<string, any[]>>({})
+
+async function loadEntityOptions() {
+  for (const field of config.value?.fields ?? []) {
+    if (field.type !== 'entity-select' || !field.entityApi) continue
+    entityOptions.value[field.key] = await field.entityApi.list()
+  }
+}
+
+onMounted(loadEntityOptions)
+watch(() => props.methodKey, loadEntityOptions)
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- form values are dynamic per method config
 const { errors, handleSubmit, resetForm, setFieldValue, values } = useForm<Record<string, any>>({
@@ -233,6 +250,7 @@ const submitForm = handleSubmit(async (formValues) => {
           <div
             v-if="
               field.type !== 'category' &&
+              field.type !== 'entity-select' &&
               field.type !== 'repeatable-group' &&
               field.type !== 'multi-select' &&
               field.type !== 'checkbox-group'
@@ -270,6 +288,15 @@ const submitForm = handleSubmit(async (formValues) => {
             :label="field.label"
             :description="field.hint"
             :api="field.categoryApi!"
+            @update:model-value="setFieldValue(field.key, $event)"
+          />
+
+          <EntitySelect
+            v-else-if="field.type === 'entity-select'"
+            :model-value="values[field.key]"
+            :label="field.label"
+            :options="entityOptions[field.key] ?? []"
+            :option-label="field.entityLabel ?? ((entity) => entity?.id ?? '')"
             @update:model-value="setFieldValue(field.key, $event)"
           />
 

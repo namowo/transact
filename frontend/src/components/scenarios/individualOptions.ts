@@ -5,7 +5,7 @@ import type { Individual } from '@/api/types'
 // Individuals have no name of their own, so label them by creation order
 // (not their database id, which is an implementation detail) plus whatever
 // traits are known, e.g. "Individual 3 (m, 34y)".
-export function useIndividualOptions() {
+export function useIndividualOptions(studyId: string) {
   const individuals = ref<Individual[]>([])
   const loading = ref(false)
 
@@ -29,7 +29,7 @@ export function useIndividualOptions() {
   async function load() {
     loading.value = true
     try {
-      individuals.value = await listIndividuals()
+      individuals.value = await listIndividuals(studyId)
     } finally {
       loading.value = false
     }

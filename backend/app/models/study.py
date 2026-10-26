@@ -64,6 +64,11 @@ class Study(Base):
         cascade="all, delete-orphan",
         foreign_keys="Recovery.study_id",
     )
+    items: Mapped[list["Item"]] = relationship(
+        lazy="selectin",
+        secondary="study_item",
+        back_populates="studies",
+    )
 
     @property
     def authors(self) -> list["Author"]:

@@ -8,11 +8,10 @@ import { FilterMatchMode } from '@openvue/core/api'
 import DataTableSkeleton from '@/components/data/DataTableSkeleton.vue'
 import EntitySelect from '@/components/scenarios/EntitySelect.vue'
 import InlineCreatableSelect from '@/components/scenarios/InlineCreatableSelect.vue'
-import NamedCategoryRadioGroup from '@/components/scenarios/NamedCategoryRadioGroup.vue'
 import SurfaceMultiSelect from './SurfaceMultiSelect.vue'
-import { surfaceLabel, recoverySetLabel, extractionMethodLabel } from './recoveryLabel'
+import { surfaceLabel, recoverySetLabel, extractionMethodLabel, samplingMethodLabel } from './recoveryLabel'
 import { recoveryApi, recoverySetApi, samplingMethodApi, extractionMethodApi } from '@/api/methods'
-import { experienceLevelCategoryApi } from '@/api/categories'
+import { useAuthStore } from '@/stores/auth'
 import type {
   Contact,
   ContactTemplate,
@@ -34,11 +33,7 @@ const emit = defineEmits<{
   'update:recoveries': [recoveries: Recovery[]]
 }>()
 
-const experienceLevelIcons: Record<string, string> = {
-  low: 'i-lucide-signal-low',
-  medium: 'i-lucide-signal-medium',
-  high: 'i-lucide-signal-high',
-}
+const auth = useAuthStore()
 
 const studySurfaces = computed<Surface[]>(() => {
   const bySurfaceId = new Map<string, Surface>()
@@ -126,6 +121,7 @@ onMounted(async () => {
 
 function emptyForm(): RecoveryInput {
   return {
+    name: null,
     study_id: props.studyId,
     recovery_set_id: null,
     surface_id: null,
@@ -137,9 +133,11 @@ function emptyForm(): RecoveryInput {
   }
 }
 
-// In create mode, a recovery is made per selected surface, so surface_id
-// isn't part of the validated form - surfaceIds below covers it instead.
+// In create mode, a recovery is made per selected surface, each with its own
+// name/elution volume/area - surface_id and those three fields aren't part
+// of the validated shared form, perSurface below covers them instead.
 const schema = yup.object({
+  name: yup.string().nullable().defined(),
   study_id: yup.string().nullable().defined(),
   recovery_set_id: yup.string().nullable().defined(),
   surface_id: yup.string().nullable().defined(),
@@ -155,33 +153,57 @@ const { defineField, errors, handleSubmit, resetForm } = useForm<RecoveryInput>(
   initialValues: emptyForm(),
 })
 
+const [name] = defineField('name')
 const [surfaceId] = defineField('surface_id')
 const [recoverySetId] = defineField('recovery_set_id')
 const [samplingMethodId] = defineField('sampling_method_id')
 const [extractionMethodId] = defineField('extraction_method_id')
 const [elutionVolume] = defineField('elution_volume')
 const [area] = defineField('area')
-const [experienceLevelOfSamplerId] = defineField('experience_level_of_sampler_id')
+
+interface PerSurfaceEntry {
+  surfaceId: string
+  name: string | null
+  elutionVolume: number | null
+  area: number | null
+}
 
 const surfaceIds = ref<string[]>([])
+const perSurface = ref<PerSurfaceEntry[]>([])
+
+// Keeps one name/elution volume/area row per selected surface, preserving
+// values already entered for surfaces that stay selected.
+watch(surfaceIds, (ids) => {
+  const existing = new Map(perSurface.value.map((entry) => [entry.surfaceId, entry]))
+  perSurface.value = ids.map(
+    (surfaceId) => existing.get(surfaceId) ?? { surfaceId, name: null, elutionVolume: null, area: null },
+  )
+})
+
+function surfaceEntryLabel(surfaceId: string): string {
+  return surfaceLabel(studySurfaces.value.find((s) => s.id === surfaceId))
+}
 
 const dialogVisible = ref(false)
 const editingId = ref<string | null>(null)
 const submitting = ref(false)
 const submitError = ref('')
 
-function openCreateDialog() {
+async function openCreateDialog() {
   editingId.value = null
   resetForm({ values: emptyForm() })
   surfaceIds.value = []
+  perSurface.value = []
   submitError.value = ''
   dialogVisible.value = true
+  recoverySetId.value = await ensureDefaultRecoverySet()
 }
 
 function openEditDialog(row: Recovery) {
   editingId.value = row.id
   resetForm({
     values: {
+      name: row.name ?? null,
       study_id: row.study_id ?? props.studyId,
       recovery_set_id: row.recovery_set_id ?? null,
       surface_id: row.surface_id ?? null,
@@ -193,6 +215,7 @@ function openEditDialog(row: Recovery) {
     },
   })
   surfaceIds.value = row.surface_id ? [row.surface_id] : []
+  perSurface.value = []
   submitError.value = ''
   dialogVisible.value = true
 }
@@ -207,7 +230,15 @@ const submitForm = handleSubmit(async (formValues) => {
   try {
     if (editingId.value === null) {
       const created = await Promise.all(
-        surfaceIds.value.map((surface_id) => recoveryApi.create({ ...formValues, surface_id })),
+        perSurface.value.map((entry) =>
+          recoveryApi.create({
+            ...formValues,
+            surface_id: entry.surfaceId,
+            name: entry.name,
+            elution_volume: entry.elutionVolume,
+            area: entry.area,
+          }),
+        ),
       )
       allRecoveries.value = [...allRecoveries.value, ...created]
     } else {
@@ -239,6 +270,21 @@ async function deleteRow(row: Recovery) {
 
 async function createRecoverySet(name: string) {
   return recoverySetApi.create({ name: name || null })
+}
+
+// Pre-fills the recovery set field with the user's own laboratory name so
+// it's never left pointing at someone else's set by accident, while still
+// letting them pick or create a different one.
+const defaultRecoverySetName = computed(() => auth.user?.laboratory?.laboratory_name ?? null)
+
+async function ensureDefaultRecoverySet(): Promise<string | null> {
+  const name = defaultRecoverySetName.value
+  if (!name) return null
+  const existing = recoverySets.value.find((set) => set.name === name)
+  if (existing) return existing.id
+  const created = await createRecoverySet(name)
+  onRecoverySetCreated(created)
+  return created.id
 }
 
 function onRecoverySetCreated(created: { id: string; name?: string | null }) {
@@ -304,8 +350,11 @@ function onRecoverySetCreated(created: { id: string; name?: string | null }) {
           <Column header="Surface">
             <template #body="{ data }">{{ surfaceLabel(data.surface) }}</template>
           </Column>
+          <Column header="Name">
+            <template #body="{ data }">{{ data.name || '—' }}</template>
+          </Column>
           <Column header="Sampling method">
-            <template #body="{ data }">{{ data.sampling_method ? `#${data.sampling_method.id}` : '—' }}</template>
+            <template #body="{ data }">{{ samplingMethodLabel(data.sampling_method) }}</template>
           </Column>
           <Column
             field="extraction_method.extraction_protocol"
@@ -374,18 +423,23 @@ function onRecoverySetCreated(created: { id: string; name?: string | null }) {
           >
             <SurfaceMultiSelect
               v-model="surfaceIds"
+              :study-id="props.studyId"
               :contacts="props.contacts"
               :contact-templates="contactTemplates"
             />
           </UFormField>
-          <EntitySelect
-            v-else
-            v-model="surfaceId"
-            label="Surface"
-            :options="studySurfaces"
-            :option-label="surfaceLabel"
-            :error="errors.surface_id"
-          />
+          <template v-else>
+            <EntitySelect
+              v-model="surfaceId"
+              label="Surface"
+              :options="studySurfaces"
+              :option-label="surfaceLabel"
+              :error="errors.surface_id"
+            />
+            <UFormField label="Internal name" hint="Optional - helps tell otherwise identical recoveries apart">
+              <UInput v-model="name" class="w-full" />
+            </UFormField>
+          </template>
           <UFormField label="Recovery set" hint="Optional">
             <InlineCreatableSelect
               v-model="recoverySetId"
@@ -398,7 +452,7 @@ function onRecoverySetCreated(created: { id: string; name?: string | null }) {
             v-model="samplingMethodId"
             label="Sampling method"
             :options="samplingMethods"
-            :option-label="(m: SamplingMethod) => `#${m.id}`"
+            :option-label="samplingMethodLabel"
           />
           <p v-if="!samplingMethods.length" class="text-sm text-surface-500 dark:text-surface-400 -mt-2">
             No sampling methods yet. Add one under
@@ -418,25 +472,48 @@ function onRecoverySetCreated(created: { id: string; name?: string | null }) {
               Settings → Methods → Extraction
             </RouterLink>.
           </p>
-          <UFormField label="Elution volume" :error="errors.elution_volume">
-            <UFieldGroup>
-              <UInputNumber v-model="elutionVolume" orientation="vertical" class="w-full" />
-              <UBadge color="neutral" variant="outline" size="lg" label="µL" />
-            </UFieldGroup>
-          </UFormField>
-          <UFormField label="Area" :error="errors.area">
-            <UFieldGroup>
-              <UInputNumber v-model="area" orientation="vertical" class="w-full" />
-              <UBadge color="neutral" variant="outline" size="lg" label="cm²" />
-            </UFieldGroup>
-          </UFormField>
-          <NamedCategoryRadioGroup
-            v-model="experienceLevelOfSamplerId"
-            label="Experience level of sampler"
-            :api="experienceLevelCategoryApi"
-            :icons="experienceLevelIcons"
-            orientation="horizontal"
-          />
+          <template v-if="editingId === null">
+            <UFormField
+              v-if="perSurface.length"
+              label="Per-surface details"
+              hint="Name, elution volume and area for each selected surface"
+            >
+              <div class="flex flex-col gap-3">
+                <div
+                  v-for="entry in perSurface"
+                  :key="entry.surfaceId"
+                  class="flex flex-col gap-2 border border-default rounded-md p-3"
+                >
+                  <p class="text-sm font-medium">{{ surfaceEntryLabel(entry.surfaceId) }}</p>
+                  <UInput v-model="entry.name" placeholder="Internal name (optional)" />
+                  <div class="flex gap-2">
+                    <UFieldGroup class="flex-1">
+                      <UInputNumber v-model="entry.elutionVolume" orientation="vertical" class="w-full" />
+                      <UBadge color="neutral" variant="outline" size="lg" label="µL" />
+                    </UFieldGroup>
+                    <UFieldGroup class="flex-1">
+                      <UInputNumber v-model="entry.area" orientation="vertical" class="w-full" />
+                      <UBadge color="neutral" variant="outline" size="lg" label="cm²" />
+                    </UFieldGroup>
+                  </div>
+                </div>
+              </div>
+            </UFormField>
+          </template>
+          <template v-else>
+            <UFormField label="Elution volume" :error="errors.elution_volume">
+              <UFieldGroup>
+                <UInputNumber v-model="elutionVolume" orientation="vertical" class="w-full" />
+                <UBadge color="neutral" variant="outline" size="lg" label="µL" />
+              </UFieldGroup>
+            </UFormField>
+            <UFormField label="Area" :error="errors.area">
+              <UFieldGroup>
+                <UInputNumber v-model="area" orientation="vertical" class="w-full" />
+                <UBadge color="neutral" variant="outline" size="lg" label="cm²" />
+              </UFieldGroup>
+            </UFormField>
+          </template>
 
           <UAlert v-if="submitError" color="error" variant="outline" :description="submitError" />
         </div>

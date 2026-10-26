@@ -12,10 +12,18 @@ import { useConfirm } from '@/composables/useConfirm'
 import { createItem, deleteItem, listItems, updateItem } from '@/api/items'
 import type { Item } from '@/api/types'
 import type { MenuItem } from 'openvue/menuitem'
+import type { DropdownMenuItem } from '@nuxt/ui'
+
+const props = defineProps<{ studyId: string }>()
 
 const confirm = useConfirm()
 
-const items = ref<Item[]>([])
+// Items are a shared catalog - this tab only shows the items this study has
+// explicitly added to itself, not every item in the whole catalog.
+const allItems = ref<Item[]>([])
+const items = computed(() =>
+  allItems.value.filter((item) => item.studies?.some((study) => study.id === props.studyId)),
+)
 const loading = ref(false)
 const loadError = ref('')
 
@@ -23,7 +31,7 @@ async function load() {
   loading.value = true
   loadError.value = ''
   try {
-    items.value = await listItems()
+    allItems.value = await listItems()
   } catch {
     loadError.value = 'Could not load items. Please try again.'
   } finally {
@@ -32,6 +40,10 @@ async function load() {
 }
 
 onMounted(load)
+
+function replaceItem(updated: Item) {
+  allItems.value = allItems.value.map((candidate) => (candidate.id === updated.id ? updated : candidate))
+}
 
 function initItemFilters() {
   return {
@@ -52,6 +64,7 @@ interface ItemFormState {
   itemCategoryId: string | null
   itemSubcategoryId: string | null
   description: string | null
+  quantity: number
 }
 
 function emptyItemForm(item: Item | null): ItemFormState {
@@ -59,6 +72,7 @@ function emptyItemForm(item: Item | null): ItemFormState {
     itemCategoryId: item?.item_category_id ?? null,
     itemSubcategoryId: item?.item_subcategory_id ?? null,
     description: item?.description ?? null,
+    quantity: 1,
   }
 }
 
@@ -66,6 +80,7 @@ const itemSchema = yup.object({
   itemCategoryId: yup.string().nullable().required('Please select an item category.'),
   itemSubcategoryId: yup.string().nullable().defined(),
   description: yup.string().trim().required('Description is required.'),
+  quantity: yup.number().min(1, 'Quantity must be at least 1.').required(),
 })
 
 const {
@@ -81,6 +96,7 @@ const {
 const [itemCategoryId] = defineItemField('itemCategoryId')
 const [itemSubcategoryId] = defineItemField('itemSubcategoryId')
 const [itemDescription] = defineItemField('description')
+const [itemQuantity] = defineItemField('quantity')
 
 const itemDialogVisible = ref(false)
 const editingItemId = ref<string | null>(null)
@@ -111,11 +127,15 @@ const saveItemForm = handleItemSubmit(async (values) => {
       description: values.description?.trim() ?? null,
     }
     if (editingItemId.value === null) {
-      const created = await createItem(payload)
-      items.value = [...items.value, created]
+      const created = await Promise.all(
+        Array.from({ length: values.quantity }, () =>
+          createItem({ ...payload, study_ids: [props.studyId] }),
+        ),
+      )
+      allItems.value = [...allItems.value, ...created]
     } else {
       const updated = await updateItem(editingItemId.value, payload)
-      items.value = items.value.map((candidate) => (candidate.id === updated.id ? updated : candidate))
+      replaceItem(updated)
     }
     itemDialogVisible.value = false
   } catch {
@@ -127,11 +147,20 @@ const saveItemForm = handleItemSubmit(async (values) => {
 
 const deletingItem = ref(false)
 
+// An item still used by other studies is only unlinked from this one; it's
+// hard-deleted from the shared catalog only once this was its last study.
+function itemUsedByOtherStudies(item: Item): boolean {
+  return (item.studies ?? []).some((study) => study.id !== props.studyId)
+}
+
 function confirmDeleteItem(item: Item) {
+  const usedElsewhere = itemUsedByOtherStudies(item)
   confirm.require({
-    header: 'Delete item',
-    message: 'Delete this item? This cannot be undone.',
-    acceptLabel: 'Delete',
+    header: usedElsewhere ? 'Remove item from study' : 'Delete item',
+    message: usedElsewhere
+      ? 'Remove this item from this study? It will stay available in the other studies using it.'
+      : 'Delete this item? This cannot be undone.',
+    acceptLabel: usedElsewhere ? 'Remove' : 'Delete',
     acceptColor: 'error',
     rejectLabel: 'Cancel',
     accept: () => void removeItem(item),
@@ -141,8 +170,16 @@ function confirmDeleteItem(item: Item) {
 async function removeItem(item: Item) {
   deletingItem.value = true
   try {
-    await deleteItem(item.id)
-    items.value = items.value.filter((candidate) => candidate.id !== item.id)
+    if (itemUsedByOtherStudies(item)) {
+      const remainingStudyIds = (item.studies ?? [])
+        .map((study) => study.id)
+        .filter((id) => id !== props.studyId)
+      const updated = await updateItem(item.id, { study_ids: remainingStudyIds })
+      replaceItem(updated)
+    } else {
+      await deleteItem(item.id)
+      allItems.value = allItems.value.filter((candidate) => candidate.id !== item.id)
+    }
   } finally {
     deletingItem.value = false
   }
@@ -163,7 +200,7 @@ const contextMenuItems = computed<MenuItem[]>(() => {
       command: () => openEditItemDialog(item),
     },
     {
-      label: 'Delete',
+      label: itemUsedByOtherStudies(item) ? 'Remove from study' : 'Delete',
       icon: 'i-lucide-trash-2',
       command: () => confirmDeleteItem(item),
     },
@@ -183,6 +220,52 @@ function openRowContextMenu(event: Event, item: Item) {
 function onRowClick(event: { data: Item }) {
   openEditItemDialog(event.data)
 }
+
+// -- Add existing item (from the shared catalog) --
+
+const pickerVisible = ref(false)
+const addingExistingItem = ref(false)
+
+const catalogItemsNotInStudy = computed(() =>
+  allItems.value.filter((item) => !item.studies?.some((study) => study.id === props.studyId)),
+)
+
+function describeCatalogItem(item: Item): string {
+  return (
+    [item.item_category?.name, item.item_subcategory?.name].filter(Boolean).join(' — ') ||
+    'Uncategorized'
+  )
+}
+
+function initPickerFilters() {
+  return {
+    global: { value: null, matchMode: FilterMatchMode.CONTAINS },
+  }
+}
+
+const pickerFilters = ref(initPickerFilters())
+
+async function addExistingItem(item: Item) {
+  addingExistingItem.value = true
+  try {
+    const studyIds = [...(item.studies ?? []).map((study) => study.id), props.studyId]
+    const updated = await updateItem(item.id, { study_ids: studyIds })
+    replaceItem(updated)
+    pickerVisible.value = false
+  } finally {
+    addingExistingItem.value = false
+  }
+}
+
+function openPicker() {
+  pickerFilters.value = initPickerFilters()
+  pickerVisible.value = true
+}
+
+const addItemMenuItems: DropdownMenuItem[] = [
+  { label: 'New item', icon: 'i-lucide-plus', onSelect: () => openCreateItemDialog() },
+  { label: 'Existing item', icon: 'i-lucide-search', onSelect: () => openPicker() },
+]
 </script>
 
 <template>
@@ -191,7 +274,9 @@ function onRowClick(event: { data: Item }) {
 
     <div class="flex items-center justify-between">
       <h4 class="font-medium">Items</h4>
-      <UButton label="Add item" icon="i-lucide-plus" variant="outline" @click="openCreateItemDialog" />
+      <UDropdownMenu :items="addItemMenuItems" :content="{ align: 'end' }">
+        <UButton label="Add item" icon="i-lucide-plus" variant="outline" trailing-icon="i-lucide-chevron-down" />
+      </UDropdownMenu>
     </div>
     <div class="overflow-x-auto">
       <div class="mb-3 flex items-center justify-between gap-3">
@@ -296,12 +381,64 @@ function onRowClick(event: { data: Item }) {
             :category-error="itemErrors.itemCategoryId"
             :description-error="itemErrors.description"
           />
+          <UFormField
+            v-if="editingItemId === null"
+            label="Quantity"
+            hint="Creates this many identical, separate items"
+            :error="itemErrors.quantity"
+          >
+            <UInputNumber v-model="itemQuantity" :min="1" class="w-full" />
+          </UFormField>
           <UAlert v-if="itemSaveError" color="error" variant="outline" :description="itemSaveError" />
         </div>
       </template>
       <template #footer>
         <UButton label="Cancel" icon="i-lucide-x" variant="ghost" @click="itemDialogVisible = false" />
-        <UButton label="Save" icon="i-lucide-save" :loading="savingItem" @click="saveItemForm" />
+        <UButton
+          :label="editingItemId === null && itemQuantity > 1 ? `Save ${itemQuantity} items` : 'Save'"
+          icon="i-lucide-save"
+          :loading="savingItem"
+          @click="saveItemForm"
+        />
+      </template>
+    </UModal>
+
+    <UModal
+      v-model:open="pickerVisible"
+      title="Add an existing item"
+      :ui="{ content: 'max-w-3xl', footer: 'justify-end' }"
+    >
+      <template #body>
+        <div class="flex flex-col gap-3">
+          <UInput
+            v-model="pickerFilters['global'].value"
+            type="text"
+            icon="i-lucide-search"
+            placeholder="Keyword Search"
+            class="w-full"
+          />
+
+          <DataTable
+            v-model:filters="pickerFilters"
+            :value="catalogItemsNotInStudy"
+            :globalFilterFields="['item_category.name', 'item_subcategory.name', 'description']"
+            dataKey="id"
+            scrollable
+            scrollHeight="28rem"
+            :loading="addingExistingItem"
+            :row-class="() => 'cursor-pointer hover:bg-elevated'"
+            @row-click="({ data }) => addExistingItem(data)"
+          >
+            <template #empty>No other items in the catalog to add.</template>
+            <Column header="Item">
+              <template #body="{ data }">{{ describeCatalogItem(data) }}</template>
+            </Column>
+            <Column field="description" header="Description" />
+          </DataTable>
+        </div>
+      </template>
+      <template #footer>
+        <UButton label="Close" icon="i-lucide-x" variant="ghost" @click="pickerVisible = false" />
       </template>
     </UModal>
   </div>

@@ -21,33 +21,39 @@ export function emptyContactInstanceDraft(): ContactInstanceDraft {
   }
 }
 
-// Creates one SurfaceInstanceDraft's Surface for a template slot. An item
-// slot always produces a Surface once a template is defined - the item is
-// implied by the template, not by anything the user fills in - whereas an
-// individual slot only produces one once an individual has actually been
-// picked, since skipping it there leaves an intentionally-unused slot alone.
+// Creates one SurfaceInstanceDraft's Surface for a template slot (or reuses
+// an existing one per the draft). An item slot always produces a Surface
+// once a template is defined - the item is implied by the template, not by
+// anything the user fills in - whereas an individual slot only produces one
+// once an individual has actually been picked, since skipping it there
+// leaves an intentionally-unused slot alone.
 function saveSlotSurfaceInstanceDraft(
   draft: SurfaceInstanceDraft,
   template: SurfaceTemplate | null,
+  existingSurfaces: Surface[],
 ): Promise<Surface | null> {
-  if (template?.item_id) return createRequiredSurfaceInstance(draft, template)
-  return saveSurfaceInstanceDraft(draft, template)
+  if (template?.item_id) return createRequiredSurfaceInstance(draft, template, existingSurfaces)
+  return saveSurfaceInstanceDraft(draft, template, existingSurfaces)
 }
 
 // Creates the actual donor/recipient Surface rows (instantiating the
-// template's SurfaceTemplates) and the actual Contact that ties them
-// together under the chosen ContactTemplate.
+// template's SurfaceTemplates, or reusing an existing Surface the draft
+// points to) and the actual Contact that ties them together under the
+// chosen ContactTemplate.
 export async function saveContactInstanceDraft(
   draft: ContactInstanceDraft,
   contactTemplate: ContactTemplate,
+  existingSurfaces: Surface[] = [],
 ): Promise<Contact> {
   const donorSurface = await saveSlotSurfaceInstanceDraft(
     draft.donorSurface,
     contactTemplate.donor_surface_template ?? null,
+    existingSurfaces,
   )
   const recipientSurface = await saveSlotSurfaceInstanceDraft(
     draft.recipientSurface,
     contactTemplate.recipient_surface_template ?? null,
+    existingSurfaces,
   )
 
   return createContact({
@@ -67,6 +73,7 @@ export async function saveContactInstanceBatch(
   contactTemplate: ContactTemplate,
   individualSide: 'donor' | 'recipient',
   individualIds: string[],
+  existingSurfaces: Surface[] = [],
 ): Promise<Contact[]> {
   const itemSide = individualSide === 'donor' ? 'recipient' : 'donor'
   const itemSurfaceTemplate =
@@ -75,7 +82,11 @@ export async function saveContactInstanceBatch(
       : contactTemplate.recipient_surface_template) ?? null
   const itemSurfaceDraft = itemSide === 'donor' ? draft.donorSurface : draft.recipientSurface
 
-  const itemSurface = await createRequiredSurfaceInstance(itemSurfaceDraft, itemSurfaceTemplate)
+  const itemSurface = await createRequiredSurfaceInstance(
+    itemSurfaceDraft,
+    itemSurfaceTemplate,
+    existingSurfaces,
+  )
 
   const individualSurfaceTemplate =
     (individualSide === 'donor'
@@ -85,7 +96,7 @@ export async function saveContactInstanceBatch(
   const contacts: Contact[] = []
   for (const individualId of individualIds) {
     const individualSurface = await saveSurfaceInstanceDraft(
-      { individualId, conditionOfItemPartCategoryId: null },
+      { individualId, conditionOfItemPartCategoryId: null, existingSurfaceId: null },
       individualSurfaceTemplate,
     )
     const donorSurfaceId = individualSide === 'donor' ? individualSurface?.id : itemSurface?.id

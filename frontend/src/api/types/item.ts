@@ -8,6 +8,7 @@ export interface Item {
   item_subcategory?: NamedCategory | null
   description?: string | null
   picture_path?: string | null
+  studies?: { id: string }[]
 }
 
 export interface ItemInput {
@@ -15,6 +16,7 @@ export interface ItemInput {
   item_subcategory_id?: string | null
   description?: string | null
   picture_path?: string | null
+  study_ids?: string[]
 }
 
 export interface ItemGroup {

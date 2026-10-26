@@ -4,9 +4,10 @@ import { useIndividualOptions } from './individualOptions'
 // Picks which existing Individual a surface points at. Individuals
 // themselves are managed on the Individuals tab, not created from here, so
 // this is a plain picker - keeping entity creation in one guided place.
+const props = defineProps<{ studyId: string }>()
 const individualId = defineModel<string | null>({ default: null })
 
-const { individualOptions, loading } = useIndividualOptions()
+const { individualOptions, loading } = useIndividualOptions(props.studyId)
 </script>
 
 <template>

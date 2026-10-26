@@ -20,13 +20,14 @@ import { listContacts, deleteContact } from '@/api/contacts'
 import type { Contact, ContactTemplate, Recovery } from '@/api/types'
 
 const confirm = useConfirm()
-const { describeIndividual, individualName } = useIndividualOptions()
 const route = useRoute()
 const router = useRouter()
 
 const props = defineProps<{ studyId: string }>()
 
 const studyId = computed(() => props.studyId)
+
+const { describeIndividual, individualName } = useIndividualOptions(props.studyId)
 
 const loading = ref(false)
 const loadError = ref('')
@@ -276,11 +277,11 @@ const activeTab = computed<string>({
 
     <UTabs v-else v-model="activeTab" :items="tabItems" class="w-full">
       <template #individuals>
-        <IndividualsPanel />
+        <IndividualsPanel :study-id="studyId" />
       </template>
 
       <template #items>
-        <ItemsPanel />
+        <ItemsPanel :study-id="studyId" />
       </template>
 
       <template #contacts>
@@ -422,7 +423,9 @@ const activeTab = computed<string>({
 
           <ContactInstanceDialog
             v-model:visible="dialogVisible"
+            :study-id="studyId"
             :contact-templates="contactTemplates"
+            :contacts="contacts"
             @saved="onContactSaved"
           />
         </div>
@@ -438,7 +441,7 @@ const activeTab = computed<string>({
       </template>
 
       <template #results>
-        <ResultsTab :recoveries="scopedRecoveries" />
+        <ResultsTab :recoveries="scopedRecoveries" :study-id="studyId" />
       </template>
     </UTabs>
   </div>

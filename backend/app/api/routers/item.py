@@ -10,6 +10,7 @@ from app.crud.item import crud_item as crud
 from app.schemas.item import (
     ItemGroup,
     ItemRead as ReadSchema,
+    ItemReadNested,
     ItemCreate as CreateSchema,
     ItemUpdate as UpdateSchema,
 )
@@ -34,7 +35,7 @@ async def get_all_grouped(db: AsyncSession = Depends(get_async_session)):
         if key not in groups:
             label = item.item_category.name if item.item_category else "Uncategorized"
             groups[key] = ItemGroup(label=label or "Uncategorized", value=key, items=[])
-        groups[key].items.append(ReadSchema.model_validate(item))
+        groups[key].items.append(ItemReadNested.model_validate(item))
 
     return list(groups.values())
 

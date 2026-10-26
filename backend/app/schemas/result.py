@@ -1,7 +1,7 @@
 from typing import List, Optional
 
 from uuid import UUID
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, computed_field
 
 
 class ResultBase(BaseModel):
@@ -29,6 +29,14 @@ class ResultRead(ResultBase):
     degradation_category: Optional["DegradationCategoryRead"] = None
     inhibition_category: Optional["InhibitionCategoryRead"] = None
     pcrs: List["PCRRead"] = []
+
+    @computed_field
+    @property
+    def dna_quantity(self) -> Optional[float]:
+        elution_volume = self.recovery.elution_volume if self.recovery else None
+        if self.dna_concentration is None or elution_volume is None:
+            return None
+        return self.dna_concentration * elution_volume
 
 
 from app.schemas.degradation_category import DegradationCategoryRead

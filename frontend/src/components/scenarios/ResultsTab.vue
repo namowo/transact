@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useForm } from 'vee-validate'
 import * as yup from 'yup'
 import DataTable from 'openvue/datatable'
@@ -12,6 +12,7 @@ import EntitySelect from '@/components/scenarios/EntitySelect.vue'
 import NamedCategoryRadioGroup from '@/components/scenarios/NamedCategoryRadioGroup.vue'
 import RecoveryPicker from '@/components/scenarios/RecoveryPicker.vue'
 import { surfaceLabel } from '@/components/data/recoveryLabel'
+import { useIndividualOptions } from '@/components/scenarios/individualOptions'
 import {
   resultApi,
   quantificationMethodApi,
@@ -21,13 +22,14 @@ import {
   epgAnalysisMethodApi,
   epgInterpretationMethodApi,
 } from '@/api/methods'
-import { degradationCategoryApi, inhibitionCategoryApi } from '@/api/categories'
+import { degradationCategoryApi } from '@/api/categories'
 import type {
   Recovery,
   Result,
   ResultInput,
   PCR,
   PCRInput,
+  PCRContributorInput,
   QuantificationMethod,
   PCRMethod,
   PostPCRTreatmentMethod,
@@ -36,7 +38,53 @@ import type {
   EPGInterpretationMethod,
 } from '@/api/types'
 
-const props = defineProps<{ recoveries: Recovery[] }>()
+const props = defineProps<{ recoveries: Recovery[]; studyId: string }>()
+
+const { individualOptions } = useIndividualOptions(props.studyId)
+
+// Contributor picker options: known Individuals plus as many "UPn" (unknown
+// person) placeholders as could ever be needed. Unknown persons aren't
+// their own entity - just an auto-numbered label scoped to one PCR run.
+const unknownPersonOptions = Array.from({ length: 10 }, (_, i) => ({
+  id: `__up_${i + 1}`,
+  label: `UP${i + 1}`,
+  unknownLabel: `UP${i + 1}`,
+}))
+const contributorOptions = computed(() => [
+  ...individualOptions.value.map((individual) => ({
+    id: individual.id,
+    label: individual.label,
+    unknownLabel: null as string | null,
+  })),
+  ...unknownPersonOptions,
+])
+
+function contributorKey(contributor: PCRContributorInput): string | null {
+  if (contributor.individual_id) return contributor.individual_id
+  if (contributor.unknown_label) {
+    return unknownPersonOptions.find((up) => up.unknownLabel === contributor.unknown_label)?.id ?? null
+  }
+  return null
+}
+
+function setContributorKey(contributor: PCRContributorInput, key: string | null) {
+  const option = contributorOptions.value.find((candidate) => candidate.id === key)
+  contributor.individual_id = option && !option.unknownLabel ? option.id : null
+  contributor.unknown_label = option?.unknownLabel ?? null
+}
+
+function emptyContributor(): PCRContributorInput {
+  return { individual_id: null, unknown_label: null, mixture_proportion: null }
+}
+
+// Keeps the contributors array in sync with no_of_contributors: growing it
+// adds blank rows, shrinking it drops the extra ones from the end.
+function syncContributors(contributors: PCRContributorInput[], count: number | null): PCRContributorInput[] {
+  const target = count ?? 0
+  const next = contributors.slice(0, target)
+  while (next.length < target) next.push(emptyContributor())
+  return next
+}
 
 const recoveryIds = computed(() => new Set(props.recoveries.map((r) => r.id)))
 
@@ -77,12 +125,6 @@ onMounted(async () => {
   epgAnalysisMethods.value = await epgAnalysisMethodApi.list()
   epgInterpretationMethods.value = await epgInterpretationMethodApi.list()
 })
-
-const inhibitionIcons: Record<string, string> = {
-  no: 'i-lucide-circle-x',
-  yes: 'i-lucide-circle-check',
-  'not applied': 'i-lucide-circle-help',
-}
 
 const degradationIcons: Record<string, string> = {
   severe: 'i-lucide-signal-high',
@@ -137,7 +179,6 @@ function clearFilters() {
 
 function emptyPcrForm(): PCRInput {
   return {
-    dna_quantity: null,
     pcr_method_id: null,
     sample_input_volume_in_pcr: null,
     dna_input_amount_in_pcr: null,
@@ -146,14 +187,13 @@ function emptyPcrForm(): PCRInput {
     epg_analysis_method_id: null,
     epg_interpretation_method_id: null,
     no_of_contributors: null,
-    mixture_proportion: null,
     total_rfu: null,
     total_no_of_alleles: null,
+    contributors: [],
   }
 }
 
 const pcrSchema = yup.object({
-  dna_quantity: yup.number().nullable().min(0, 'DNA quantity must be zero or greater.'),
   pcr_method_id: yup.string().nullable().defined(),
   sample_input_volume_in_pcr: yup
     .number()
@@ -172,17 +212,26 @@ const pcrSchema = yup.object({
     .nullable()
     .integer('No. of contributors must be a whole number.')
     .min(0, 'No. of contributors must be zero or greater.'),
-  mixture_proportion: yup
-    .number()
-    .nullable()
-    .min(0, 'Mixture proportion must be between 0 and 1.')
-    .max(1, 'Mixture proportion must be between 0 and 1.'),
   total_rfu: yup.number().nullable().min(0, 'Total RFU must be zero or greater.'),
   total_no_of_alleles: yup
     .number()
     .nullable()
     .integer('Total no. of alleles must be a whole number.')
     .min(0, 'Total no. of alleles must be zero or greater.'),
+  contributors: yup
+    .array()
+    .of(
+      yup.object({
+        individual_id: yup.string().nullable().defined(),
+        unknown_label: yup.string().nullable().defined(),
+        mixture_proportion: yup
+          .number()
+          .nullable()
+          .min(0, 'Mixture proportion must be between 0 and 1.')
+          .max(1, 'Mixture proportion must be between 0 and 1.'),
+      }),
+    )
+    .defined(),
 })
 
 const {
@@ -191,6 +240,7 @@ const {
   errors: pcrErrors,
   handleSubmit: handlePcrSubmit,
   resetForm: resetPcrForm,
+  setFieldValue: setPcrFieldValue,
 } = useForm<PCRInput>({
   validationSchema: pcrSchema,
   initialValues: emptyPcrForm(),
@@ -201,16 +251,33 @@ const [postPcrTreatmentMethodId] = definePcrField('post_pcr_treatment_method_id'
 const [ceMethodId] = definePcrField('ce_method_id')
 const [epgAnalysisMethodId] = definePcrField('epg_analysis_method_id')
 const [epgInterpretationMethodId] = definePcrField('epg_interpretation_method_id')
-const [dnaQuantity] = definePcrField('dna_quantity')
 const [sampleInputVolumeInPcr] = definePcrField('sample_input_volume_in_pcr')
 const [dnaInputAmountInPcr] = definePcrField('dna_input_amount_in_pcr')
 const [noOfContributors] = definePcrField('no_of_contributors')
-const [mixtureProportion] = definePcrField('mixture_proportion')
 const [totalRfu] = definePcrField('total_rfu')
 const [totalNoOfAlleles] = definePcrField('total_no_of_alleles')
 
+// CE methods available for the currently-selected PCR method, falling back
+// to the full list when none are linked yet (e.g. the lab hasn't set this
+// up in Settings yet), so the dropdown is never left empty.
+const ceMethodOptions = computed(() => {
+  const matching = ceMethods.value.filter((method) => method.pcr_method_id === pcrMethodId.value)
+  return matching.length ? matching : ceMethods.value
+})
+
+watch(noOfContributors, (count) => {
+  setPcrFieldValue('contributors', syncContributors(pcrFormValues.contributors ?? [], count))
+})
+
+function isBlankContributor(contributor: PCRContributorInput): boolean {
+  return Object.values(contributor).every((value) => value === null)
+}
+
 function isBlankPcr(pcr: PCRInput): boolean {
-  return Object.values(pcr).every((value) => value === null)
+  return (
+    Object.entries(pcr).every(([key, value]) => key === 'contributors' || value === null) &&
+    (pcr.contributors ?? []).every(isBlankContributor)
+  )
 }
 
 // -- Result dialog --
@@ -345,7 +412,6 @@ const submitPcrError = ref('')
 
 function pcrInputOf(pcr: PCR): PCRInput {
   return {
-    dna_quantity: pcr.dna_quantity ?? null,
     pcr_method_id: pcr.pcr_method_id ?? null,
     sample_input_volume_in_pcr: pcr.sample_input_volume_in_pcr ?? null,
     dna_input_amount_in_pcr: pcr.dna_input_amount_in_pcr ?? null,
@@ -354,9 +420,13 @@ function pcrInputOf(pcr: PCR): PCRInput {
     epg_analysis_method_id: pcr.epg_analysis_method_id ?? null,
     epg_interpretation_method_id: pcr.epg_interpretation_method_id ?? null,
     no_of_contributors: pcr.no_of_contributors ?? null,
-    mixture_proportion: pcr.mixture_proportion ?? null,
     total_rfu: pcr.total_rfu ?? null,
     total_no_of_alleles: pcr.total_no_of_alleles ?? null,
+    contributors: (pcr.contributors ?? []).map((contributor) => ({
+      individual_id: contributor.individual_id ?? null,
+      unknown_label: contributor.unknown_label ?? null,
+      mixture_proportion: contributor.mixture_proportion ?? null,
+    })),
   }
 }
 
@@ -444,7 +514,7 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
         Lab results derived from this scenario's recoveries.
       </p>
       <UButton
-        label="Add result"
+        label="Add quantification result"
         icon="i-lucide-plus"
         variant="outline"
         :disabled="!recoveries.length"
@@ -498,16 +568,18 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
           sortable
         >
           <template #body="{ data }">
-            {{ data.dna_concentration != null ? `${data.dna_concentration} ng/µL` : '—' }}
+            {{ data.dna_concentration != null ? `${data.dna_concentration.toFixed(4)} ng/µL` : '—' }}
           </template>
         </Column>
-        <Column header="Degradation">
+        <Column header="DNA quantity">
+          <template #body="{ data }">
+            {{ data.dna_quantity != null ? `${data.dna_quantity.toFixed(4)} ng` : '—' }}
+          </template>
+        </Column>
+        <Column header="Degradation Index">
           <template #body="{ data }">{{ data.degradation_category?.name ?? '—' }}</template>
         </Column>
-        <Column header="Inhibition">
-          <template #body="{ data }">{{ data.inhibition_category?.name ?? '—' }}</template>
-        </Column>
-        <Column header="PCR runs" style="width: 6rem">
+        <Column header="Genotyping results" style="width: 8rem">
           <template #body="{ data }">{{ data.pcrs.length }}</template>
         </Column>
         <Column header="" style="width: 3rem">
@@ -526,9 +598,9 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
         <template #expansion="{ data: result }">
           <div class="flex flex-col gap-2 p-2">
             <div class="flex items-center justify-between">
-              <h5 class="font-medium text-sm">PCR runs</h5>
+              <h5 class="font-medium text-sm">Genotyping results</h5>
               <UButton
-                label="Add PCR run"
+                label="Add genotyping result"
                 icon="i-lucide-plus"
                 variant="outline"
                 size="sm"
@@ -541,14 +613,9 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
               data-key="id"
               @row-contextmenu="({ originalEvent, data }: { originalEvent: Event; data: PCR }) => openPcrContextMenu(originalEvent, result, data)"
             >
-              <template #empty>No PCR runs recorded yet.</template>
+              <template #empty>No genotyping results recorded yet.</template>
               <Column header="PCR method">
                 <template #body="{ data }">{{ data.pcr_method ? methodLabel(data.pcr_method) : '—' }}</template>
-              </Column>
-              <Column header="DNA quantity">
-                <template #body="{ data }">
-                  {{ data.dna_quantity != null ? `${data.dna_quantity} ng` : '—' }}
-                </template>
               </Column>
               <Column header="No. of contributors">
                 <template #body="{ data }">{{ data.no_of_contributors ?? '—' }}</template>
@@ -565,7 +632,7 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
                     color="neutral"
                     variant="ghost"
                     square
-                    aria-label="PCR run options"
+                    aria-label="Genotyping result options"
                     @click.stop="openPcrContextMenu($event, result, data)"
                   />
                 </template>
@@ -578,7 +645,7 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
 
     <UModal
       v-model:open="dialogVisible"
-      :title="editingId === null ? 'Add result' : 'Edit result'"
+      :title="editingId === null ? 'Add quantification result' : 'Edit quantification result'"
       :ui="{ content: 'max-w-xl', footer: 'justify-end' }"
     >
       <template #body>
@@ -600,23 +667,17 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
 
           <UFormField label="DNA concentration" :error="errors.dna_concentration">
             <UFieldGroup>
-              <UInputNumber v-model="dnaConcentration" orientation="vertical" class="w-full" />
+              <UInputNumber v-model="dnaConcentration" :step="0.0001" orientation="vertical" class="w-full" />
               <UBadge color="neutral" variant="outline" size="lg" label="ng/µL" />
             </UFieldGroup>
           </UFormField>
           <NamedCategoryRadioGroup
             v-model="degradationCategoryId"
-            label="Degradation"
+            label="Degradation Index"
             :api="degradationCategoryApi"
             :icons="degradationIcons"
             variant="table"
             orientation="horizontal"
-          />
-          <NamedCategoryRadioGroup
-            v-model="inhibitionCategoryId"
-            label="Inhibition"
-            :api="inhibitionCategoryApi"
-            :icons="inhibitionIcons"
           />
 
           <UAlert v-if="submitError" color="error" variant="outline" :description="submitError" />
@@ -648,25 +709,18 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
 
               <UFormField label="DNA concentration" :error="errors.dna_concentration">
                 <UFieldGroup>
-                  <UInputNumber v-model="dnaConcentration" orientation="vertical" class="w-full" />
+                  <UInputNumber v-model="dnaConcentration" :step="0.0001" orientation="vertical" class="w-full" />
                   <UBadge color="neutral" variant="outline" size="lg" label="ng/µL" />
                 </UFieldGroup>
               </UFormField>
               <NamedCategoryRadioGroup
                 v-model="degradationCategoryId"
-                label="Degradation"
+                label="Degradation Index"
                 :api="degradationCategoryApi"
                 :icons="degradationIcons"
                 variant="table"
                 orientation="horizontal"
               />
-              <NamedCategoryRadioGroup
-                v-model="inhibitionCategoryId"
-                label="Inhibition"
-                :api="inhibitionCategoryApi"
-                :icons="inhibitionIcons"
-              />
-
               <div class="flex justify-end mt-2">
                 <UButton
                   label="Continue"
@@ -681,8 +735,7 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
           <template #pcr>
             <div class="flex flex-col gap-4">
               <p class="text-sm text-surface-500 dark:text-surface-400">
-                Optional. Leave these blank to add PCR runs later, or fill them in now to record
-                the first run alongside this result.
+                The first genotyping result for this quantification result.
               </p>
 
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -718,7 +771,7 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
                   <EntitySelect
                     v-model="ceMethodId"
                     label="CE method"
-                    :options="ceMethods"
+                    :options="ceMethodOptions"
                     :option-label="methodLabel"
                   />
                   <p v-if="!ceMethods.length" class="text-sm text-surface-500 dark:text-surface-400">
@@ -759,29 +812,20 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
               </div>
 
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <UFormField label="DNA quantity" :error="pcrErrors.dna_quantity">
-                  <UFieldGroup>
-                    <UInputNumber v-model="dnaQuantity" orientation="vertical" class="w-full" />
-                    <UBadge color="neutral" variant="outline" size="lg" label="ng" />
-                  </UFieldGroup>
-                </UFormField>
                 <UFormField label="Sample input volume in PCR" :error="pcrErrors.sample_input_volume_in_pcr">
                   <UFieldGroup>
-                    <UInputNumber v-model="sampleInputVolumeInPcr" orientation="vertical" class="w-full" />
+                    <UInputNumber v-model="sampleInputVolumeInPcr" :step="0.1" orientation="vertical" class="w-full" />
                     <UBadge color="neutral" variant="outline" size="lg" label="µL" />
                   </UFieldGroup>
                 </UFormField>
                 <UFormField label="DNA input amount in PCR" :error="pcrErrors.dna_input_amount_in_pcr">
                   <UFieldGroup>
-                    <UInputNumber v-model="dnaInputAmountInPcr" orientation="vertical" class="w-full" />
-                    <UBadge color="neutral" variant="outline" size="lg" label="ng" />
+                    <UInputNumber v-model="dnaInputAmountInPcr" :step="0.001" orientation="vertical" class="w-full" />
+                    <UBadge color="neutral" variant="outline" size="lg" label="pg" />
                   </UFieldGroup>
                 </UFormField>
                 <UFormField label="No. of contributors" :error="pcrErrors.no_of_contributors">
-                  <UInputNumber v-model="noOfContributors" orientation="vertical" class="w-full" />
-                </UFormField>
-                <UFormField label="Mixture proportion" hint="Between 0 and 1" :error="pcrErrors.mixture_proportion">
-                  <UInputNumber v-model="mixtureProportion" orientation="vertical" :min="0" :max="1" :step="0.01" class="w-full" />
+                  <UInputNumber v-model="noOfContributors" :min="0" orientation="vertical" class="w-full" />
                 </UFormField>
                 <UFormField label="Total RFU" :error="pcrErrors.total_rfu">
                   <UFieldGroup>
@@ -792,6 +836,37 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
                 <UFormField label="Total no. of alleles" :error="pcrErrors.total_no_of_alleles">
                   <UInputNumber v-model="totalNoOfAlleles" orientation="vertical" class="w-full" />
                 </UFormField>
+              </div>
+
+              <div v-if="pcrFormValues.contributors?.length" class="flex flex-col gap-2">
+                <label class="font-medium text-sm">Mixture proportions</label>
+                <div
+                  v-for="(contributor, index) in pcrFormValues.contributors"
+                  :key="index"
+                  class="flex items-end gap-2"
+                >
+                  <UFormField :label="`Contributor ${index + 1}`" class="flex-1">
+                    <USelectMenu
+                      :model-value="contributorKey(contributor)"
+                      :items="contributorOptions"
+                      value-key="id"
+                      placeholder="Select an individual or unknown person"
+                      clear
+                      class="w-full"
+                      @update:model-value="setContributorKey(contributor, $event)"
+                    />
+                  </UFormField>
+                  <UFormField label="Mx" class="w-28">
+                    <UInputNumber
+                      v-model="contributor.mixture_proportion"
+                      :min="0"
+                      :max="1"
+                      :step="0.01"
+                      orientation="vertical"
+                      class="w-full"
+                    />
+                  </UFormField>
+                </div>
               </div>
 
               <div class="flex justify-start mt-2">
@@ -816,7 +891,7 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
 
     <UModal
       v-model:open="pcrDialogVisible"
-      :title="editingPcrId === null ? 'Add PCR run' : 'Edit PCR run'"
+      :title="editingPcrId === null ? 'Add genotyping result' : 'Edit genotyping result'"
       :ui="{ content: 'max-w-xl', footer: 'justify-end' }"
     >
       <template #body>
@@ -854,7 +929,7 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
               <EntitySelect
                 v-model="ceMethodId"
                 label="CE method"
-                :options="ceMethods"
+                :options="ceMethodOptions"
                 :option-label="methodLabel"
               />
               <p v-if="!ceMethods.length" class="text-sm text-surface-500 dark:text-surface-400">
@@ -895,29 +970,20 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <UFormField label="DNA quantity" :error="pcrErrors.dna_quantity">
-              <UFieldGroup>
-                <UInputNumber v-model="dnaQuantity" orientation="vertical" class="w-full" />
-                <UBadge color="neutral" variant="outline" size="lg" label="ng" />
-              </UFieldGroup>
-            </UFormField>
             <UFormField label="Sample input volume in PCR" :error="pcrErrors.sample_input_volume_in_pcr">
               <UFieldGroup>
-                <UInputNumber v-model="sampleInputVolumeInPcr" orientation="vertical" class="w-full" />
+                <UInputNumber v-model="sampleInputVolumeInPcr" :step="0.1" orientation="vertical" class="w-full" />
                 <UBadge color="neutral" variant="outline" size="lg" label="µL" />
               </UFieldGroup>
             </UFormField>
             <UFormField label="DNA input amount in PCR" :error="pcrErrors.dna_input_amount_in_pcr">
               <UFieldGroup>
-                <UInputNumber v-model="dnaInputAmountInPcr" orientation="vertical" class="w-full" />
-                <UBadge color="neutral" variant="outline" size="lg" label="ng" />
+                <UInputNumber v-model="dnaInputAmountInPcr" :step="0.001" orientation="vertical" class="w-full" />
+                <UBadge color="neutral" variant="outline" size="lg" label="pg" />
               </UFieldGroup>
             </UFormField>
             <UFormField label="No. of contributors" :error="pcrErrors.no_of_contributors">
-              <UInputNumber v-model="noOfContributors" orientation="vertical" class="w-full" />
-            </UFormField>
-            <UFormField label="Mixture proportion" hint="Between 0 and 1" :error="pcrErrors.mixture_proportion">
-              <UInputNumber v-model="mixtureProportion" orientation="vertical" :min="0" :max="1" :step="0.01" class="w-full" />
+              <UInputNumber v-model="noOfContributors" :min="0" orientation="vertical" class="w-full" />
             </UFormField>
             <UFormField label="Total RFU" :error="pcrErrors.total_rfu">
               <UFieldGroup>
@@ -928,6 +994,37 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
             <UFormField label="Total no. of alleles" :error="pcrErrors.total_no_of_alleles">
               <UInputNumber v-model="totalNoOfAlleles" orientation="vertical" class="w-full" />
             </UFormField>
+          </div>
+
+          <div v-if="pcrFormValues.contributors?.length" class="flex flex-col gap-2">
+            <label class="font-medium text-sm">Mixture proportions</label>
+            <div
+              v-for="(contributor, index) in pcrFormValues.contributors"
+              :key="index"
+              class="flex items-end gap-2"
+            >
+              <UFormField :label="`Contributor ${index + 1}`" class="flex-1">
+                <USelectMenu
+                  :model-value="contributorKey(contributor)"
+                  :items="contributorOptions"
+                  value-key="id"
+                  placeholder="Select an individual or unknown person"
+                  clear
+                  class="w-full"
+                  @update:model-value="setContributorKey(contributor, $event)"
+                />
+              </UFormField>
+              <UFormField label="Mx" class="w-28">
+                <UInputNumber
+                  v-model="contributor.mixture_proportion"
+                  :min="0"
+                  :max="1"
+                  :step="0.01"
+                  orientation="vertical"
+                  class="w-full"
+                />
+              </UFormField>
+            </div>
           </div>
 
           <UAlert v-if="submitPcrError" color="error" variant="outline" :description="submitPcrError" />

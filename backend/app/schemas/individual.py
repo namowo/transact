@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict
 
 
 class IndividualBase(BaseModel):
+    study_id: Optional[UUID] = None
     sex_id: Optional[UUID] = None
     age: Optional[int] = None
     dna_shedding_propensity_category_id: Optional[UUID] = None

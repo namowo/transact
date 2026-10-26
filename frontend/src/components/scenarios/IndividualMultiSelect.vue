@@ -12,9 +12,10 @@ import type { Individual } from '@/api/types'
 // selected in one click, or expanded to pick just a few of its members.
 // Individuals themselves are managed on the Individuals tab, not created
 // from here.
+const props = defineProps<{ studyId: string }>()
 const individualIds = defineModel<string[]>({ default: () => [] })
 
-const { individuals, loading } = useIndividualOptions()
+const { individuals, loading } = useIndividualOptions(props.studyId)
 
 const groups = computed(() => groupIndividuals(individuals.value))
 

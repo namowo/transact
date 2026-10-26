@@ -32,7 +32,7 @@ class SurfaceTemplateRead(SurfaceTemplateBase):
     id: UUID
     location_of_body_category: Optional["LocationOfBodyCategoryRead"] = None
     body_part_condition_category: Optional["BodyPartConditionCategoryRead"] = None
-    item: Optional["ItemRead"] = None
+    item: Optional["ItemReadNested"] = None
     item_parts_category: Optional["ItemPartsCategoryRead"] = None
     condition_of_item_part_category: Optional["ConditionOfItemPartCategoryRead"] = None
     surface_material_category: Optional["SurfaceMaterialCategoryRead"] = None
@@ -42,7 +42,7 @@ class SurfaceTemplateRead(SurfaceTemplateBase):
 
 from app.schemas.location_of_body_category import LocationOfBodyCategoryRead
 from app.schemas.body_part_condition_category import BodyPartConditionCategoryRead
-from app.schemas.item import ItemRead
+from app.schemas.item import ItemReadNested
 from app.schemas.item_parts_category import ItemPartsCategoryRead
 from app.schemas.condition_of_item_part_category import ConditionOfItemPartCategoryRead
 from app.schemas.surface_material_category import SurfaceMaterialCategoryRead

@@ -22,6 +22,8 @@ import { listContacts } from '@/api/contacts'
 import type { Individual } from '@/api/types'
 import type { MenuItem } from 'openvue/menuitem'
 
+const props = defineProps<{ studyId: string }>()
+
 const confirm = useConfirm()
 
 const sexIcons: Record<string, string> = {
@@ -45,7 +47,10 @@ async function load() {
   loading.value = true
   loadError.value = ''
   try {
-    const [loadedIndividuals, contacts] = await Promise.all([listIndividuals(), listContacts()])
+    const [loadedIndividuals, contacts] = await Promise.all([
+      listIndividuals(props.studyId),
+      listContacts(),
+    ])
     individuals.value = loadedIndividuals
     const used = new Set<string>()
     for (const contact of contacts) {
@@ -256,7 +261,7 @@ async function applyIndividualFormSave(values: IndividualFormState) {
     }
     const created: Individual[] = []
     for (let i = 0; i < toCreate; i++) {
-      created.push(await createIndividual(payload))
+      created.push(await createIndividual({ ...payload, study_id: props.studyId }))
       savingIndividualProgress.value.done += 1
     }
 
@@ -361,7 +366,7 @@ const saveBatchForm = handleBatchSubmit(async (values) => {
   try {
     const created: Individual[] = []
     for (let i = 0; i < total; i++) {
-      created.push(await createIndividual(payload))
+      created.push(await createIndividual({ ...payload, study_id: props.studyId }))
       batchProgress.value = { done: i + 1, total }
     }
     individuals.value = [...individuals.value, ...created]

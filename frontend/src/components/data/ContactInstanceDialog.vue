@@ -11,9 +11,15 @@ import {
 } from './contactInstanceDraft'
 import { templateName, surfaceLabel, surfaceIcon, surfaceDetail } from './contactTemplateLabel'
 import type { ContactInstanceDraft } from './contactInstanceDraft'
-import type { Contact, ContactTemplate } from '@/api/types'
+import type { Contact, ContactTemplate, Surface } from '@/api/types'
 
-const props = defineProps<{ contactTemplates: ContactTemplate[] }>()
+const props = defineProps<{
+  studyId: string
+  contactTemplates: ContactTemplate[]
+  // Actual contacts already recorded for this study, used to offer their
+  // surfaces for reuse when chaining a new contact onto one of them.
+  contacts?: Contact[]
+}>()
 const visible = defineModel<boolean>('visible', { required: true })
 
 const emit = defineEmits<{ saved: [contacts: Contact[]] }>()
@@ -95,6 +101,36 @@ const itemSurfaceDraft = computed({
   },
 })
 
+// All surfaces already created for this study's actual contacts, deduped
+// by id - a surface can appear as both donor and recipient across contacts.
+const allExistingSurfaces = computed<Surface[]>(() => {
+  const byId = new Map<string, Surface>()
+  for (const contact of props.contacts ?? []) {
+    if (contact.donor_surface) byId.set(contact.donor_surface.id, contact.donor_surface)
+    if (contact.recipient_surface) byId.set(contact.recipient_surface.id, contact.recipient_surface)
+  }
+  return [...byId.values()]
+})
+
+// Surfaces offered for reuse on a given slot - only those of the same kind
+// (item vs individual) as the slot's template, since a surface's shape is
+// fixed by the template it instantiated.
+function existingSurfacesFor(template: { item_id?: string | null } | null | undefined): Surface[] {
+  if (!template) return []
+  const wantsItem = !!template.item_id
+  return allExistingSurfaces.value.filter((s) => !!s.surface_template?.item_id === wantsItem)
+}
+
+const donorExistingSurfaces = computed(() =>
+  existingSurfacesFor(selectedTemplate.value?.donor_surface_template),
+)
+const recipientExistingSurfaces = computed(() =>
+  existingSurfacesFor(selectedTemplate.value?.recipient_surface_template),
+)
+const itemExistingSurfaces = computed(() =>
+  itemSide.value === 'donor' ? donorExistingSurfaces.value : recipientExistingSurfaces.value,
+)
+
 function backToTemplateStep() {
   step.value = 'template'
 }
@@ -122,10 +158,15 @@ async function save() {
         selectedTemplate.value,
         individualSide.value,
         batchIndividualIds.value,
+        allExistingSurfaces.value,
       )
       emit('saved', contacts)
     } else {
-      const contact = await saveContactInstanceDraft(draft.value, selectedTemplate.value)
+      const contact = await saveContactInstanceDraft(
+        draft.value,
+        selectedTemplate.value,
+        allExistingSurfaces.value,
+      )
       emit('saved', [contact])
     }
     visible.value = false
@@ -213,27 +254,33 @@ async function save() {
         <template v-else-if="selectedTemplate && individualSide">
           <SurfaceInstanceForm
             v-model="itemSurfaceDraft"
+            :study-id="props.studyId"
             :label="itemSide === 'donor' ? 'Donor' : 'Recipient'"
             :template="itemSurfaceTemplate"
+            :existing-surfaces="itemExistingSurfaces"
           />
           <UFormField
             :label="individualSide === 'donor' ? 'Donors' : 'Recipients'"
             hint="One contact is created per selected individual"
           >
-            <IndividualMultiSelect v-model="batchIndividualIds" />
+            <IndividualMultiSelect v-model="batchIndividualIds" :study-id="props.studyId" />
           </UFormField>
         </template>
 
         <template v-else-if="selectedTemplate">
           <SurfaceInstanceForm
             v-model="draft.donorSurface"
+            :study-id="props.studyId"
             label="Donor"
             :template="selectedTemplate.donor_surface_template ?? null"
+            :existing-surfaces="donorExistingSurfaces"
           />
           <SurfaceInstanceForm
             v-model="draft.recipientSurface"
+            :study-id="props.studyId"
             label="Recipient"
             :template="selectedTemplate.recipient_surface_template ?? null"
+            :existing-surfaces="recipientExistingSurfaces"
           />
         </template>
 

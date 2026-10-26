@@ -44,7 +44,19 @@ import {
   dyeChannelApi,
   modelledParameterApi,
 } from '@/api/categories'
-import type { NamedCategory, NamedCategoryInput } from '@/api/types'
+import type { NamedCategory, NamedCategoryInput, PCRMethod } from '@/api/types'
+
+// PCR methods have no name of their own - identified by kit + thermocycler
+// + cycle count instead, mirroring the list view's own disambiguating
+// columns (see the 'pcr' config's listColumns below).
+export function pcrMethodLabel(method: PCRMethod): string {
+  const parts = [
+    method.pcr_kit?.name,
+    method.thermocycler?.name,
+    method.no_of_cycles != null ? `${method.no_of_cycles} cycles` : null,
+  ].filter(Boolean)
+  return parts.length ? parts.join(' / ') : `#${method.id}`
+}
 
 export type FieldType =
   | 'text'
@@ -52,6 +64,7 @@ export type FieldType =
   | 'number'
   | 'boolean'
   | 'category'
+  | 'entity-select'
   | 'duration'
   | 'repeatable-group'
   | 'multi-select'
@@ -67,6 +80,14 @@ export interface MethodFieldConfig {
     list: () => Promise<NamedCategory[]>
     create: (payload: NamedCategoryInput) => Promise<NamedCategory>
   }
+  // For 'entity-select' fields: a plain id-based dropdown over entities
+  // that don't have a simple `.name` (e.g. a PCR method, identified by
+  // kit + thermocycler + cycle count), so they can't go through
+  // `categoryApi`. `entityLabel` formats each option's display text.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- entity shape varies per field
+  entityApi?: { list: () => Promise<any[]> }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- entity shape varies per field
+  entityLabel?: (entity: any) => string
   // For 'number' fields: unit shown as a badge next to the input (e.g. "µl", "°C").
   unit?: string
   // For 'number' fields: increment step, also controls decimal precision
@@ -278,11 +299,19 @@ export const labMethods: MethodConfig[] = [
     entryLabel: 'CE method',
     api: ceMethodApi,
     laboratoryScoped: true,
-    listColumns: ['ce_device', 'dye_set'],
+    listColumns: ['pcr_method', 'ce_device', 'dye_set'],
     // Dye set depends on the PCR kit used and isn't editable here (see the
     // field list below), but it's still shown for reference.
-    listColumnLabels: { dye_set: 'Dye set' },
+    listColumnLabels: { dye_set: 'Dye set', pcr_method: 'PCR method' },
     fields: [
+      {
+        key: 'pcr_method_id',
+        label: 'PCR method',
+        type: 'entity-select',
+        entityApi: pcrMethodApi,
+        entityLabel: (method) => pcrMethodLabel(method),
+        hint: 'Which PCR method this CE method is run after.',
+      },
       {
         key: 'ce_device_id',
         label: 'CE device',

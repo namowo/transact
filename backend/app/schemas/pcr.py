@@ -1,11 +1,10 @@
-from typing import Optional
+from typing import List, Optional
 
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 
 
 class PCRBase(BaseModel):
-    dna_quantity: Optional[float] = None
     pcr_method_id: Optional[UUID] = None
     sample_input_volume_in_pcr: Optional[float] = None
     dna_input_amount_in_pcr: Optional[float] = None
@@ -14,13 +13,12 @@ class PCRBase(BaseModel):
     epg_analysis_method_id: Optional[UUID] = None
     epg_interpretation_method_id: Optional[UUID] = None
     no_of_contributors: Optional[int] = None
-    mixture_proportion: Optional[float] = None
     total_rfu: Optional[int] = None
     total_no_of_alleles: Optional[int] = None
 
 
 class PCRCreate(PCRBase):
-    pass
+    contributors: List["PCRContributorCreate"] = []
 
 
 class PCRRead(PCRBase):
@@ -32,6 +30,7 @@ class PCRRead(PCRBase):
     ce_method: Optional["CEMethodRead"] = None
     epg_analysis_method: Optional["EPGAnalysisMethodRead"] = None
     epg_interpretation_method: Optional["EPGInterpretationMethodRead"] = None
+    contributors: List["PCRContributorRead"] = []
 
 
 from app.schemas.pcr_method import PCRMethodRead
@@ -39,3 +38,4 @@ from app.schemas.post_pcr_treatment_method import PostPCRTreatmentMethodRead
 from app.schemas.ce_method import CEMethodRead
 from app.schemas.epg_analysis_method import EPGAnalysisMethodRead
 from app.schemas.epg_interpretation_method import EPGInterpretationMethodRead
+from app.schemas.pcr_contributor import PCRContributorCreate, PCRContributorRead

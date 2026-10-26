@@ -11,11 +11,15 @@ import type { Contact, ContactTemplate, Surface } from '@/api/types'
 // checkbox for the donor surface and one for the recipient surface per
 // actual contact - mirroring the Contacts tab's own table, just with the
 // row's two surfaces made selectable instead of merely displayed.
-const props = defineProps<{ contacts: Contact[]; contactTemplates: ContactTemplate[] }>()
+const props = defineProps<{
+  studyId: string
+  contacts: Contact[]
+  contactTemplates: ContactTemplate[]
+}>()
 
 const surfaceIds = defineModel<string[]>({ default: () => [] })
 
-const { describeIndividual } = useIndividualOptions()
+const { describeIndividual } = useIndividualOptions(props.studyId)
 
 function contactTemplateFor(contact: Contact): ContactTemplate | null {
   return props.contactTemplates.find((t) => t.id === contact.contact_template_id) ?? null

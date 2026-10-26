@@ -9,6 +9,7 @@ from app.schemas.common import SecondsTimedelta
 class CEMethodBase(BaseModel):
     laboratory_id: Optional[UUID] = None
     ce_device_id: Optional[UUID] = None
+    pcr_method_id: Optional[UUID] = None
     application_type: Optional[str] = None
     capillary_length: Optional[int] = None
     polymer_id: Optional[UUID] = None
@@ -42,6 +43,7 @@ class CEMethodRead(CEMethodBase):
     id: UUID
     laboratory: Optional["LaboratoryRead"] = None
     ce_device: Optional["CEDeviceRead"] = None
+    pcr_method: Optional["PCRMethodRead"] = None
     polymer: Optional["PolymerRead"] = None
     dye_set: Optional["DyeSetRead"] = None
     type_of_formamide: Optional["TypeOfFormamideRead"] = None
@@ -50,6 +52,7 @@ class CEMethodRead(CEMethodBase):
 
 from app.schemas.laboratory import LaboratoryRead
 from app.schemas.ce_device import CEDeviceRead
+from app.schemas.pcr_method import PCRMethodRead
 from app.schemas.polymer import PolymerRead
 from app.schemas.dye_set import DyeSetRead
 from app.schemas.type_of_formamide import TypeOfFormamideRead

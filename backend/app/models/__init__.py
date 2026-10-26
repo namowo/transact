@@ -52,6 +52,7 @@ from .manufacturer import Manufacturer
 from .modelled_parameter import ModelledParameter
 from .monitored_transfer_factor import MonitoredTransferFactor
 from .pcr import PCR
+from .pcr_contributor import PCRContributor
 from .pcr_kit import PCRKit
 from .pcr_method import PCRMethod
 from .persistence import Persistence

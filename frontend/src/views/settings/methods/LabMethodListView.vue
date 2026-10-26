@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import DataTable from 'openvue/datatable'
 import Column from 'openvue/column'
 import { FilterMatchMode } from '@openvue/core/api'
-import { getLabMethodConfig } from '@/data/labMethods'
+import { getLabMethodConfig, pcrMethodLabel } from '@/data/labMethods'
 import { useAuthStore } from '@/stores/auth'
 import LabMethodFormModal from './LabMethodFormModal.vue'
 
@@ -132,6 +132,9 @@ async function deleteRow(row: MethodRow) {
 function columnValue(row: MethodRow, key: string) {
   const value = row[key]
   if (typeof value === 'boolean') return value ? 'Yes' : 'No'
+  if (key === 'pcr_method') {
+    return value ? pcrMethodLabel(value as Parameters<typeof pcrMethodLabel>[0]) : '—'
+  }
   if (value && typeof value === 'object' && 'name' in value) {
     return (value as { name?: string | null }).name ?? '—'
   }

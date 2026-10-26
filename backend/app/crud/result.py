@@ -6,12 +6,22 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.crud.base import CRUDBase
 from app.crud.exceptions import DatabaseCommitError
 from app.models.pcr import PCR
+from app.models.pcr_contributor import PCRContributor
 from app.models.result import Result
 from app.schemas.result import ResultCreate, ResultUpdate
 
 
 def _pcrs_from(pcrs) -> list[PCR]:
-    return [PCR(**pcr_in.model_dump(exclude_none=True)) for pcr_in in pcrs]
+    result = []
+    for pcr_in in pcrs:
+        data = pcr_in.model_dump(exclude={"contributors"}, exclude_none=True)
+        pcr = PCR(**data)
+        pcr.contributors = [
+            PCRContributor(**contributor_in.model_dump(exclude_none=True))
+            for contributor_in in pcr_in.contributors
+        ]
+        result.append(pcr)
+    return result
 
 
 class CRUDResult(CRUDBase[Result, ResultCreate, ResultUpdate]):
