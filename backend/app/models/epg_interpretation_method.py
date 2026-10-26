@@ -1,13 +1,28 @@
 import uuid
 from typing import Optional
 
-from sqlalchemy import ForeignKey
+from sqlalchemy import Column, ForeignKey, Table
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from sqlalchemy.sql import text
 
 from app.core.db import Base
+
+epg_interpretation_method_modelled_parameter = Table(
+    "epg_interpretation_method_modelled_parameter",
+    Base.metadata,
+    Column(
+        "epg_interpretation_method_id",
+        ForeignKey("epg_interpretation_method.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column(
+        "modelled_parameter_id",
+        ForeignKey("modelled_parameter.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+)
 
 
 class EPGInterpretationMethod(Base):
@@ -32,7 +47,10 @@ class EPGInterpretationMethod(Base):
     statistical_software: Mapped[Optional["StatisticalSoftware"]] = relationship(
         lazy="selectin", foreign_keys=[statistical_software_id]
     )
-    parameters_modelled_by_software: Mapped[Optional[str]]
+    modelled_parameters: Mapped[list["ModelledParameter"]] = relationship(
+        lazy="selectin",
+        secondary=epg_interpretation_method_modelled_parameter,
+    )
     allele_frequency_database: Mapped[Optional[str]]
     application_analytical_threshold_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         PGUUID(as_uuid=True),
@@ -50,9 +68,11 @@ class EPGInterpretationMethod(Base):
     stutter_filter: Mapped[Optional["StutterFilter"]] = relationship(
         lazy="selectin", foreign_keys=[stutter_filter_id]
     )
+    description: Mapped[Optional[str]]
 
 
 from app.models.application_analytical_threshold import ApplicationAnalyticalThreshold
 from app.models.laboratory import Laboratory
+from app.models.modelled_parameter import ModelledParameter
 from app.models.statistical_software import StatisticalSoftware
 from app.models.stutter_filter import StutterFilter

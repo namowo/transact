@@ -8,9 +8,7 @@ class QuantificationMethodBase(BaseModel):
     laboratory_id: Optional[UUID] = None
     principle_of_quant_method_category_id: Optional[UUID] = None
     kit_id: Optional[UUID] = None
-    manufacturer_id: Optional[UUID] = None
     platform_id: Optional[UUID] = None
-    description_of_protocol: Optional[str] = None
     abbreviations_to_manufacturers_protocol: Optional[str] = None
 
 
@@ -29,12 +27,10 @@ class QuantificationMethodRead(QuantificationMethodBase):
     laboratory: Optional["LaboratoryRead"] = None
     principle_of_quant_method_category: Optional["PrincipleOfQuantMethodCategoryRead"] = None
     kit: Optional["QuantificationKitRead"] = None
-    manufacturer: Optional["ManufacturerRead"] = None
-    platform: Optional["PlatformRead"] = None
+    platform: Optional["QuantificationPlatformRead"] = None
 
 
 from app.schemas.laboratory import LaboratoryRead
 from app.schemas.principle_of_quant_method_category import PrincipleOfQuantMethodCategoryRead
 from app.schemas.quantification_kit import QuantificationKitRead
-from app.schemas.manufacturer import ManufacturerRead
-from app.schemas.platform import PlatformRead
+from app.schemas.quantification_platform import QuantificationPlatformRead

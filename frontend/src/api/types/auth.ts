@@ -40,3 +40,21 @@ export interface WebAuthnCredential {
   created_at: string
   last_used_at: string | null
 }
+
+export interface ApiKey {
+  id: string
+  name: string | null
+  prefix: string
+  created_at: string
+  last_used_at: string | null
+  expires_at: string | null
+}
+
+export interface ApiKeyCreated extends ApiKey {
+  token: string
+}
+
+export interface ApiKeyCreatePayload {
+  name?: string
+  expires_at?: string
+}

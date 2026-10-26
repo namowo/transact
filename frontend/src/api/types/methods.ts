@@ -3,6 +3,19 @@ import type { NamedCategory, Supplier } from './categories'
 
 // Laboratory-scoped methods -------------------------------------------------
 
+export interface ExtractionMethodLysisBufferComponent {
+  id: string
+  lysis_buffer_component_id?: string | null
+  lysis_buffer_component?: NamedCategory | null
+  volume?: number | null
+  position: number
+}
+
+export type ExtractionMethodLysisBufferComponentInput = Omit<
+  ExtractionMethodLysisBufferComponent,
+  'id' | 'lysis_buffer_component'
+>
+
 export interface ExtractionMethod {
   id: string
   laboratory_id?: string | null
@@ -12,19 +25,29 @@ export interface ExtractionMethod {
   extraction_protocol?: string | null
   extraction_platform_id?: string | null
   extraction_platform?: NamedCategory | null
-  additional_lysis_buffer_components?: string | null
-  volume_lysis_buffer_components?: number | null
+  lysis_buffer_components: ExtractionMethodLysisBufferComponent[]
   lysis_incubation_time?: string | null
   lysis_incubation_temperature?: number | null
+  thermoshaker_id?: string | null
+  thermoshaker?: NamedCategory | null
+  rcf?: number | null
   volume_of_lysate_used_for_extraction?: number | null
   application_of_further_purification_step?: boolean | null
   description_of_further_purification_step?: string | null
+  abbreviations_to_manufacturers_protocol?: string | null
 }
 
 export type ExtractionMethodInput = Omit<
   ExtractionMethod,
-  'id' | 'laboratory' | 'principle_of_extraction_method_category'
->
+  | 'id'
+  | 'laboratory'
+  | 'principle_of_extraction_method_category'
+  | 'extraction_platform'
+  | 'thermoshaker'
+  | 'lysis_buffer_components'
+> & {
+  lysis_buffer_components: ExtractionMethodLysisBufferComponentInput[]
+}
 
 export interface PCRMethod {
   id: string
@@ -47,6 +70,7 @@ export interface PCRMethod {
   final_elongation_time?: string | null
   ramping?: number | null
   total_volume_pcr_reaction?: number | null
+  abbreviations_to_manufacturers_protocol?: string | null
 }
 
 export type PCRMethodInput = Omit<PCRMethod, 'id' | 'laboratory'>
@@ -90,11 +114,8 @@ export interface QuantificationMethod {
   principle_of_quant_method_category?: NamedCategory | null
   kit_id?: string | null
   kit?: NamedCategory | null
-  manufacturer_id?: string | null
-  manufacturer?: NamedCategory | null
   platform_id?: string | null
   platform?: NamedCategory | null
-  description_of_protocol?: string | null
   abbreviations_to_manufacturers_protocol?: string | null
 }
 
@@ -103,18 +124,40 @@ export type QuantificationMethodInput = Omit<
   'id' | 'laboratory' | 'principle_of_quant_method_category'
 >
 
+export interface EPGAnalysisMethodDyeChannelThreshold {
+  id: string
+  dye_channel_id?: string | null
+  dye_channel?: NamedCategory | null
+  analytical_threshold?: number | null
+  position: number
+}
+
+export type EPGAnalysisMethodDyeChannelThresholdInput = Omit<
+  EPGAnalysisMethodDyeChannelThreshold,
+  'id' | 'dye_channel'
+>
+
 export interface EPGAnalysisMethod {
   id: string
   laboratory_id?: string | null
   laboratory?: Laboratory | null
   genotyping_software_id?: string | null
   genotyping_software?: NamedCategory | null
-  analytical_threshold?: number | null
+  pcr_kit_id?: string | null
+  pcr_kit?: NamedCategory | null
+  dye_channel_thresholds: EPGAnalysisMethodDyeChannelThreshold[]
   application_analytical_threshold?: string | null
-  stutter_filter?: string | null
+  stutter_filter_id?: string | null
+  stutter_filter?: NamedCategory | null
+  description?: string | null
 }
 
-export type EPGAnalysisMethodInput = Omit<EPGAnalysisMethod, 'id' | 'laboratory'>
+export type EPGAnalysisMethodInput = Omit<
+  EPGAnalysisMethod,
+  'id' | 'laboratory' | 'genotyping_software' | 'pcr_kit' | 'stutter_filter' | 'dye_channel_thresholds'
+> & {
+  dye_channel_thresholds: EPGAnalysisMethodDyeChannelThresholdInput[]
+}
 
 export interface EPGInterpretationMethod {
   id: string
@@ -123,11 +166,26 @@ export interface EPGInterpretationMethod {
   determination_of_noc?: string | null
   statistical_software_id?: string | null
   statistical_software?: NamedCategory | null
-  parameters_modelled_by_software?: string | null
+  modelled_parameters: NamedCategory[]
   allele_frequency_database?: string | null
+  application_analytical_threshold_id?: string | null
+  application_analytical_threshold?: NamedCategory | null
+  stutter_filter_id?: string | null
+  stutter_filter?: NamedCategory | null
+  description?: string | null
 }
 
-export type EPGInterpretationMethodInput = Omit<EPGInterpretationMethod, 'id' | 'laboratory'>
+export type EPGInterpretationMethodInput = Omit<
+  EPGInterpretationMethod,
+  | 'id'
+  | 'laboratory'
+  | 'statistical_software'
+  | 'application_analytical_threshold'
+  | 'stutter_filter'
+  | 'modelled_parameters'
+> & {
+  modelled_parameter_ids: string[]
+}
 
 export interface PostPCRTreatmentMethod {
   id: string
@@ -148,7 +206,7 @@ export interface SwabMethod {
   wetting_agent_id?: string | null
   wetting_agent?: NamedCategory | null
   volume_of_wetting_agent?: number | null
-  specification?: string | null
+  volume_of_wetting_agent_type?: string | null
   description?: string | null
   type_of_swab_category_id?: string | null
   type_of_swab_category?: NamedCategory | null

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 // The underlying v-model is always seconds. The UI splits it into
 // years/days/hours/minutes/seconds fields so composite durations (e.g. "1
@@ -7,9 +7,14 @@ import { ref, watch } from 'vue'
 // interval or disturbance duration can range from seconds to years.
 const seconds = defineModel<number | null>({ default: null })
 
-defineProps<{ invalid?: boolean }>()
+const props = defineProps<{
+  invalid?: boolean
+  // Restrict which unit fields are shown (e.g. ['hours', 'minutes']). Defaults
+  // to all units, for durations that can range from seconds to years.
+  units?: Array<AllUnits[number]['key']>
+}>()
 
-const units = [
+const allUnits = [
   { key: 'years', label: 'y', factor: 31536000 },
   { key: 'days', label: 'd', factor: 86400 },
   { key: 'hours', label: 'h', factor: 3600 },
@@ -17,7 +22,13 @@ const units = [
   { key: 'seconds', label: 's', factor: 1 },
 ] as const
 
-const parts = ref<Record<(typeof units)[number]['key'], number | null>>({
+type AllUnits = typeof allUnits
+
+const activeUnits = computed(() =>
+  props.units ? allUnits.filter(({ key }) => props.units!.includes(key)) : allUnits,
+)
+
+const parts = ref<Record<AllUnits[number]['key'], number | null>>({
   years: null,
   days: null,
   hours: null,
@@ -32,11 +43,11 @@ watch(
   (value) => {
     if (syncing) return
     if (value == null) {
-      for (const { key } of units) parts.value[key] = null
+      for (const { key } of allUnits) parts.value[key] = null
       return
     }
     let remainder = value
-    for (const { key, factor } of units) {
+    for (const { key, factor } of activeUnits.value) {
       const amount = Math.trunc(remainder / factor)
       parts.value[key] = amount === 0 ? null : amount
       remainder -= amount * factor
@@ -47,8 +58,11 @@ watch(
 
 function onPartChange() {
   syncing = true
-  const total = units.reduce((sum, { key, factor }) => sum + (parts.value[key] ?? 0) * factor, 0)
-  const anySet = units.some(({ key }) => parts.value[key] != null)
+  const total = activeUnits.value.reduce(
+    (sum, { key, factor }) => sum + (parts.value[key] ?? 0) * factor,
+    0,
+  )
+  const anySet = activeUnits.value.some(({ key }) => parts.value[key] != null)
   seconds.value = anySet ? total : null
   syncing = false
 }
@@ -56,7 +70,7 @@ function onPartChange() {
 
 <template>
   <div class="flex flex-wrap gap-2">
-    <UFieldGroup v-for="{ key, label } in units" :key="key" class="flex-1 min-w-24">
+    <UFieldGroup v-for="{ key, label } in activeUnits" :key="key" class="flex-1 min-w-24">
       <UInputNumber
         v-model="parts[key]"
         :min="0"

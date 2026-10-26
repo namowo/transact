@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { onKeyStroke } from '@vueuse/core'
 import { useForm } from 'vee-validate'
 import * as yup from 'yup'
 import CategorySelect from '@/components/scenarios/CategorySelect.vue'
@@ -29,10 +30,23 @@ function schemaForFields(fields: MethodFieldConfig[]) {
   return yup.object(shape)
 }
 
-const props = defineProps<{ editingRow?: SamplingMethod | null }>()
+const props = defineProps<{
+  editingRow?: SamplingMethod | null
+  // Pre-fills a new (not editing) entry with another row's values, for the
+  // "Duplicate" action - unlike editingRow, the sub-methods are created
+  // fresh rather than updating the source's records.
+  duplicateFrom?: SamplingMethod | null
+}>()
 const visible = defineModel<boolean>('visible', { required: true })
 
 const emit = defineEmits<{ saved: [] }>()
+
+// :dismissible="false" blocks both outside-click and Escape at the Reka UI
+// level (to stop outside clicks from silently discarding the form) - Escape
+// is wired back up separately so it still closes the modal.
+onKeyStroke('Escape', () => {
+  if (visible.value) visible.value = false
+})
 
 const auth = useAuthStore()
 const laboratoryId = computed(() => auth.user?.laboratory_id ?? null)
@@ -100,11 +114,14 @@ const submitError = ref('')
 watch(visible, (isVisible) => {
   if (!isVisible) return
   submitError.value = ''
+  const source = props.editingRow ?? props.duplicateFrom
   for (const config of subMethodConfigs) {
     const key = config.key as SubMethodKey
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- sub-method field is dynamic per key
-    const subMethod = props.editingRow ? (props.editingRow as any)[`${key}_method`] : null
-    existingSubMethodIds.value[key] = subMethod?.id ?? null
+    const subMethod = source ? (source as any)[`${key}_method`] : null
+    // Duplicating must create new sub-method records, not overwrite the
+    // source's - only track an existing id when actually editing.
+    existingSubMethodIds.value[key] = props.editingRow ? subMethod?.id ?? null : null
     if (subMethod) {
       const next = emptyForm(config.fields)
       for (const field of config.fields) {
@@ -189,6 +206,7 @@ async function onSubmit() {
   <UModal
     v-model:open="visible"
     :title="editingId === null ? 'Add sampling method' : 'Edit sampling method'"
+    :dismissible="false"
     :ui="{ content: 'max-w-3xl', footer: 'justify-end' }"
   >
     <template #body>
@@ -261,6 +279,16 @@ async function onSubmit() {
                   v-else-if="field.type === 'textarea'"
                   :model-value="fieldValue(config.key as typeof subMethodKeys[number], field.key)"
                   :rows="2"
+                  class="w-full"
+                  @update:model-value="
+                    setFieldValue(config.key as typeof subMethodKeys[number], field.key, $event)
+                  "
+                />
+
+                <USelect
+                  v-else-if="field.type === 'select'"
+                  :model-value="fieldValue(config.key as typeof subMethodKeys[number], field.key)"
+                  :items="field.options"
                   class="w-full"
                   @update:model-value="
                     setFieldValue(config.key as typeof subMethodKeys[number], field.key, $event)

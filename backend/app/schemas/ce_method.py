@@ -21,7 +21,7 @@ class CEMethodBase(BaseModel):
     pre_run_time: Optional[SecondsTimedelta] = None
     injection_time: Optional[SecondsTimedelta] = None
     type_of_formamide_id: Optional[UUID] = None
-    volume_formamide: Optional[int] = None
+    volume_formamide: Optional[float] = None
     size_standard_id: Optional[UUID] = None
     volume_size_standard: Optional[float] = None
     input_volume_pcr_product: Optional[float] = None

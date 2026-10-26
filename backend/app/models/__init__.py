@@ -1,5 +1,6 @@
 from app.core.db import Base
 
+from .api_key import ApiKey
 from .user import User
 from .user_token import UserToken
 from .webauthn_credential import WebAuthnCredential
@@ -26,11 +27,14 @@ from .determination_of_shedding_propensity_category_restriction import Determina
 from .determination_of_shedding_propensity_category_shedder_test import DeterminationOfSheddingPropensityCategoryShedderTest
 from .disturbance_category import DisturbanceCategory
 from .dna_shedding_propensity_category import DNASheddingPropensityCategory
+from .dye_channel import DyeChannel
 from .dye_set import DyeSet
 from .epg_analysis_method import EPGAnalysisMethod
+from .epg_analysis_method_dye_channel_threshold import EPGAnalysisMethodDyeChannelThreshold
 from .epg_interpretation_method import EPGInterpretationMethod
 from .experience_level import ExperienceLevel
 from .extraction_method import ExtractionMethod
+from .extraction_method_lysis_buffer_component import ExtractionMethodLysisBufferComponent
 from .friction_applied_estimate import FrictionAppliedEstimate
 from .genotyping_software import GenotypingSoftware
 from .geographic_location_category import GeographicLocationCategory
@@ -43,7 +47,9 @@ from .item import Item
 from .lab_membership_request import LabMembershipRequest
 from .laboratory import Laboratory
 from .location_of_body_category import LocationOfBodyCategory
+from .lysis_buffer_component import LysisBufferComponent
 from .manufacturer import Manufacturer
+from .modelled_parameter import ModelledParameter
 from .monitored_transfer_factor import MonitoredTransferFactor
 from .pcr import PCR
 from .pcr_kit import PCRKit
@@ -58,6 +64,7 @@ from .principle_of_extraction_method_category import PrincipleOfExtractionMethod
 from .principle_of_quant_method_category import PrincipleOfQuantMethodCategory
 from .quantification_kit import QuantificationKit
 from .quantification_method import QuantificationMethod
+from .quantification_platform import QuantificationPlatform
 from .recovery import Recovery
 from .recovery_set import RecoverySet
 from .restriction_prior_to_sampling import RestrictionPriorToSampling
@@ -84,6 +91,7 @@ from .swab_method import SwabMethod
 from .swabbing_technique_category import SwabbingTechniqueCategory
 from .tape_method import TapeMethod
 from .thermocycler import Thermocycler
+from .thermoshaker import Thermoshaker
 from .type_of_formamide import TypeOfFormamide
 from .type_of_swab_category import TypeOfSwabCategory
 from .type_of_tape import TypeOfTape

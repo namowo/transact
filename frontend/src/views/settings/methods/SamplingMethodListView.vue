@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import DataTable from 'openvue/datatable'
-import Column from 'openvue/column'
-import { FilterMatchMode } from '@openvue/core/api'
+import DataView from 'openvue/dataview'
 import { useAuthStore } from '@/stores/auth'
 import { samplingMethodApi } from '@/api/methods'
+import { getLabMethodConfig, type MethodFieldConfig } from '@/data/labMethods'
 import type { SamplingMethod } from '@/api/types'
 import SamplingMethodFormModal from './SamplingMethodFormModal.vue'
 
@@ -15,49 +14,83 @@ const items = ref<SamplingMethod[]>([])
 const loading = ref(false)
 const loadError = ref('')
 
-function describeSubMethod(m: { id: string; description?: string | null } | null | undefined) {
-  if (!m) return '—'
-  return m.description?.trim() || `#${m.id}`
+const subMethodBadges: Array<{
+  key: keyof SamplingMethod
+  configKey: string
+  label: string
+  color: 'primary' | 'secondary' | 'success' | 'warning' | 'error' | 'info' | 'neutral'
+}> = [
+  { key: 'swab_method', configKey: 'swab', label: 'Swab', color: 'primary' },
+  { key: 'tape_method', configKey: 'tape', label: 'Tape', color: 'secondary' },
+  { key: 'vacuum_method', configKey: 'vacuum', label: 'Vacuum', color: 'success' },
+  { key: 'cutting_method', configKey: 'cutting', label: 'Cutting', color: 'warning' },
+  { key: 'scraping_method', configKey: 'scraping', label: 'Scraping', color: 'info' },
+  { key: 'picking_method', configKey: 'picking', label: 'Picking', color: 'error' },
+]
+
+type SamplingMethodEntry = {
+  label: string
+  color: (typeof subMethodBadges)[number]['color']
+  details: Array<{ label: string; value: string }>
 }
 
-function initFilters() {
-  return {
-    global: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    swab_description: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    tape_description: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    vacuum_description: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    cutting_description: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    scraping_description: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    picking_description: { value: null, matchMode: FilterMatchMode.CONTAINS },
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- sub-method record shape is dynamic per method
+function formatFieldValue(field: MethodFieldConfig, record: Record<string, any>): string | null {
+  if (field.type === 'category') {
+    const relationKey = field.key.replace(/_id$/, '')
+    const value = record[relationKey]?.name
+    return value ? String(value) : null
   }
+  if (field.type === 'boolean') {
+    return record[field.key] ? 'Yes' : null
+  }
+  const value = record[field.key]
+  if (value === null || value === undefined || value === '') return null
+  if (field.type === 'number') {
+    return field.unit ? `${value} ${field.unit}` : String(value)
+  }
+  if (field.type === 'select') {
+    return field.options?.find((o) => o.value === value)?.label ?? String(value)
+  }
+  return String(value)
 }
 
-const filters = ref(initFilters())
-
-function clearFilters() {
-  filters.value = initFilters()
-}
-
-type SamplingMethodRow = SamplingMethod & {
-  swab_description: string
-  tape_description: string
-  vacuum_description: string
-  cutting_description: string
-  scraping_description: string
-  picking_description: string
-}
-
-const rows = computed<SamplingMethodRow[]>(() =>
+const rows = computed(() =>
   items.value.map((item) => ({
-    ...item,
-    swab_description: describeSubMethod(item.swab_method),
-    tape_description: describeSubMethod(item.tape_method),
-    vacuum_description: describeSubMethod(item.vacuum_method),
-    cutting_description: describeSubMethod(item.cutting_method),
-    scraping_description: describeSubMethod(item.scraping_method),
-    picking_description: describeSubMethod(item.picking_method),
+    item,
+    entries: subMethodBadges
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- sub-method field is dynamic per key
+      .filter((badge) => (item as any)[badge.key])
+      .map((badge): SamplingMethodEntry => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- sub-method field is dynamic per key
+        const record = (item as any)[badge.key] as Record<string, unknown>
+        const config = getLabMethodConfig(badge.configKey)
+        const details = (config?.fields ?? [])
+          .map((field) => {
+            const value = formatFieldValue(field, record)
+            return value ? { label: field.label, value } : null
+          })
+          .filter((d): d is { label: string; value: string } => !!d)
+        return { label: badge.label, color: badge.color, details }
+      }),
   })),
 )
+
+const searchTerm = ref('')
+
+const filteredRows = computed(() => {
+  const term = searchTerm.value.trim().toLowerCase()
+  if (!term) return rows.value
+  return rows.value.filter(
+    (row) =>
+      row.entries.some((entry) => entry.label.toLowerCase().includes(term)) ||
+      row.entries.some((entry) =>
+        entry.details.some(
+          (d) => d.label.toLowerCase().includes(term) || d.value.toLowerCase().includes(term),
+        ),
+      ),
+  )
+})
 
 async function load() {
   loading.value = true
@@ -76,14 +109,23 @@ onMounted(load)
 
 const modalVisible = ref(false)
 const editingRow = ref<SamplingMethod | null>(null)
+const duplicateFrom = ref<SamplingMethod | null>(null)
 
 function openCreate() {
   editingRow.value = null
+  duplicateFrom.value = null
   modalVisible.value = true
 }
 
 function openEdit(row: SamplingMethod) {
   editingRow.value = row
+  duplicateFrom.value = null
+  modalVisible.value = true
+}
+
+function openDuplicate(row: SamplingMethod) {
+  editingRow.value = null
+  duplicateFrom.value = row
   modalVisible.value = true
 }
 
@@ -107,124 +149,73 @@ async function deleteRow(row: SamplingMethod) {
 
     <UAlert v-if="loadError" color="error" variant="outline" :description="loadError" />
 
-    <div class="overflow-x-auto">
-      <div class="mb-3 flex items-center justify-between gap-3">
-        <UButton type="button" icon="i-lucide-filter-x" variant="outline" size="sm" @click="clearFilters()">
-          Clear Filters
-        </UButton>
-        <UInput
-          v-model="filters['global'].value"
-          type="text"
-          icon="i-lucide-search"
-          placeholder="Keyword Search"
-        />
-      </div>
-
-      <DataTable
-        v-model:filters="filters"
-        :value="rows"
-        :loading="loading"
-        data-key="id"
-        filterDisplay="menu"
-        removableSort
-        paginator
-        :rows="10"
-        :rowsPerPageOptions="[10, 25, 50]"
-        :globalFilterFields="[
-          'swab_description',
-          'tape_description',
-          'vacuum_description',
-          'cutting_description',
-          'scraping_description',
-          'picking_description',
-        ]"
-      >
-        <template #empty>No entries found.</template>
-
-        <Column
-          field="swab_description"
-          header="Swab"
-          sortable
-          :showFilterOperator="false"
-          :showAddButton="false"
-        >
-          <template #filter="{ filterModel }">
-            <UInput v-model="filterModel.value" type="text" placeholder="Search" />
-          </template>
-        </Column>
-        <Column
-          field="tape_description"
-          header="Tape"
-          sortable
-          :showFilterOperator="false"
-          :showAddButton="false"
-        >
-          <template #filter="{ filterModel }">
-            <UInput v-model="filterModel.value" type="text" placeholder="Search" />
-          </template>
-        </Column>
-        <Column
-          field="vacuum_description"
-          header="Vacuum"
-          sortable
-          :showFilterOperator="false"
-          :showAddButton="false"
-        >
-          <template #filter="{ filterModel }">
-            <UInput v-model="filterModel.value" type="text" placeholder="Search" />
-          </template>
-        </Column>
-        <Column
-          field="cutting_description"
-          header="Cutting"
-          sortable
-          :showFilterOperator="false"
-          :showAddButton="false"
-        >
-          <template #filter="{ filterModel }">
-            <UInput v-model="filterModel.value" type="text" placeholder="Search" />
-          </template>
-        </Column>
-        <Column
-          field="scraping_description"
-          header="Scraping"
-          sortable
-          :showFilterOperator="false"
-          :showAddButton="false"
-        >
-          <template #filter="{ filterModel }">
-            <UInput v-model="filterModel.value" type="text" placeholder="Search" />
-          </template>
-        </Column>
-        <Column
-          field="picking_description"
-          header="Picking"
-          sortable
-          :showFilterOperator="false"
-          :showAddButton="false"
-        >
-          <template #filter="{ filterModel }">
-            <UInput v-model="filterModel.value" type="text" placeholder="Search" />
-          </template>
-        </Column>
-        <Column header="" style="width: 6rem">
-          <template #body="{ data }">
-            <div class="flex gap-1 justify-end">
-              <UButton icon="i-lucide-pencil" variant="ghost" square aria-label="Edit" @click="openEdit(data)" />
-              <UButton
-                icon="i-lucide-trash-2"
-                variant="ghost"
-                square
-                color="error"
-                aria-label="Delete"
-                @click="deleteRow(data)"
-              />
-            </div>
-          </template>
-        </Column>
-      </DataTable>
+    <div class="flex items-center justify-end">
+      <UInput
+        v-model="searchTerm"
+        type="text"
+        icon="i-lucide-search"
+        placeholder="Keyword Search"
+      />
     </div>
 
-    <SamplingMethodFormModal v-model:visible="modalVisible" :editing-row="editingRow" @saved="load" />
+    <DataView :value="filteredRows" data-key="item.id" paginator :rows="10">
+      <template #empty>No entries found.</template>
+
+      <template #list="{ items: listItems }">
+        <div class="flex flex-col gap-3">
+          <UCard v-for="row in listItems" :key="row.item.id">
+            <div class="flex items-start justify-between gap-4">
+              <div class="flex flex-col gap-3 min-w-0">
+                <span v-if="!row.entries.length" class="text-sm text-surface-500 dark:text-surface-400">
+                  No sub-methods set
+                </span>
+
+                <div v-for="entry in row.entries" :key="entry.label" class="flex flex-col gap-1">
+                  <UBadge :label="entry.label" :color="entry.color" variant="subtle" class="self-start" />
+                  <dl v-if="entry.details.length" class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 pl-1">
+                    <template v-for="detail in entry.details" :key="detail.label">
+                      <dt class="text-sm text-surface-500 dark:text-surface-400">{{ detail.label }}</dt>
+                      <dd class="text-sm text-surface-700 dark:text-surface-300">{{ detail.value }}</dd>
+                    </template>
+                  </dl>
+                </div>
+              </div>
+
+              <div class="flex gap-1 shrink-0">
+                <UButton
+                  icon="i-lucide-pencil"
+                  variant="ghost"
+                  square
+                  aria-label="Edit"
+                  @click="openEdit(row.item)"
+                />
+                <UButton
+                  icon="i-lucide-copy"
+                  variant="ghost"
+                  square
+                  aria-label="Duplicate"
+                  @click="openDuplicate(row.item)"
+                />
+                <UButton
+                  icon="i-lucide-trash-2"
+                  variant="ghost"
+                  square
+                  color="error"
+                  aria-label="Delete"
+                  @click="deleteRow(row.item)"
+                />
+              </div>
+            </div>
+          </UCard>
+        </div>
+      </template>
+    </DataView>
+
+    <SamplingMethodFormModal
+      v-model:visible="modalVisible"
+      :editing-row="editingRow"
+      :duplicate-from="duplicateFrom"
+      @saved="load"
+    />
   </div>
 </template>

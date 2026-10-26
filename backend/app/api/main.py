@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.api.routers import utils
 from app.api.routers import auth
+from app.api.routers import api_keys
 from app.api.routers import users
 from app.api.routers import webauthn
 
@@ -21,6 +22,7 @@ from app.api.routers import cutting_method
 from app.api.routers import degradation_category
 from app.api.routers import determination_of_shedding_propensity_category
 from app.api.routers import disturbance_category
+from app.api.routers import dye_channel
 from app.api.routers import dye_set
 from app.api.routers import epg_analysis_method
 from app.api.routers import epg_interpretation_method
@@ -36,7 +38,9 @@ from app.api.routers import item_subcategory
 from app.api.routers import lab_membership_requests
 from app.api.routers import laboratory
 from app.api.routers import location_of_body_category
+from app.api.routers import lysis_buffer_component
 from app.api.routers import manufacturer
+from app.api.routers import modelled_parameter
 from app.api.routers import monitored_transfer_factor
 from app.api.routers import pcr_kit
 from app.api.routers import pcr_method
@@ -48,6 +52,7 @@ from app.api.routers import principle_of_extraction_method_category
 from app.api.routers import principle_of_quant_method_category
 from app.api.routers import quantification_kit
 from app.api.routers import quantification_method
+from app.api.routers import quantification_platform
 from app.api.routers import recovery
 from app.api.routers import recovery_set
 from app.api.routers import restriction_prior_to_sampling
@@ -73,6 +78,7 @@ from app.api.routers import swab_method
 from app.api.routers import swabbing_technique_category
 from app.api.routers import tape_method
 from app.api.routers import thermocycler
+from app.api.routers import thermoshaker
 from app.api.routers import type_of_formamide
 from app.api.routers import type_of_swab_category
 from app.api.routers import vacuum_method
@@ -92,6 +98,7 @@ api_router = APIRouter()
 
 api_router.include_router(auth.router, prefix="/auth", tags=["Auth"])
 api_router.include_router(webauthn.router, prefix="/auth/webauthn", tags=["Auth"])
+api_router.include_router(api_keys.router, prefix="/auth/api-keys", tags=["Auth"])
 api_router.include_router(users.router, prefix="/users", tags=["Users"])
 
 # Categories
@@ -104,6 +111,7 @@ api_router.include_router(condition_of_item_part_category.router, prefix="/condi
 api_router.include_router(degradation_category.router, prefix="/degradation-categories", tags=["Categories"])
 api_router.include_router(determination_of_shedding_propensity_category.router, prefix="/determination-of-shedding-propensity-categories", tags=["Categories"])
 api_router.include_router(inhibition_category.router, prefix="/inhibition-categories", tags=["Categories"])
+api_router.include_router(modelled_parameter.router, prefix="/modelled-parameters", tags=["Categories"])
 api_router.include_router(monitored_transfer_factor.router, prefix="/monitored-transfer-factors", tags=["Categories"])
 api_router.include_router(restriction_prior_to_sampling.router, prefix="/restrictions-prior-to-sampling", tags=["Categories"])
 api_router.include_router(shedder_test.router, prefix="/shedder-tests", tags=["Categories"])
@@ -114,6 +122,7 @@ api_router.include_router(item_category.router, prefix="/item-categories", tags=
 api_router.include_router(item_parts_category.router, prefix="/item-parts-categories", tags=["Categories"])
 api_router.include_router(item_subcategory.router, prefix="/item-subcategories", tags=["Categories"])
 api_router.include_router(location_of_body_category.router, prefix="/location-of-body-categories", tags=["Categories"])
+api_router.include_router(lysis_buffer_component.router, prefix="/lysis-buffer-components", tags=["Categories"])
 api_router.include_router(principle_of_extraction_method_category.router, prefix="/principle-of-extraction-method-categories", tags=["Categories"])
 api_router.include_router(principle_of_quant_method_category.router, prefix="/principle-of-quant-method-categories", tags=["Categories"])
 api_router.include_router(scenario_category.router, prefix="/scenario-categories", tags=["Categories"])
@@ -133,14 +142,17 @@ api_router.include_router(experience_level.router, prefix="/experience-levels", 
 api_router.include_router(supplier.router, prefix="/suppliers", tags=["Equipment"])
 api_router.include_router(pcr_kit.router, prefix="/pcr-kits", tags=["Equipment"])
 api_router.include_router(thermocycler.router, prefix="/thermocyclers", tags=["Equipment"])
+api_router.include_router(thermoshaker.router, prefix="/thermoshakers", tags=["Equipment"])
 api_router.include_router(ce_device.router, prefix="/ce-devices", tags=["Equipment"])
 api_router.include_router(polymer.router, prefix="/polymers", tags=["Equipment"])
 api_router.include_router(dye_set.router, prefix="/dye-sets", tags=["Equipment"])
+api_router.include_router(dye_channel.router, prefix="/dye-channels", tags=["Equipment"])
 api_router.include_router(type_of_formamide.router, prefix="/types-of-formamide", tags=["Equipment"])
 api_router.include_router(size_standard.router, prefix="/size-standards", tags=["Equipment"])
 api_router.include_router(genotyping_software.router, prefix="/genotyping-software", tags=["Equipment"])
 api_router.include_router(statistical_software.router, prefix="/statistical-software", tags=["Equipment"])
 api_router.include_router(quantification_kit.router, prefix="/quantification-kits", tags=["Equipment"])
+api_router.include_router(quantification_platform.router, prefix="/quantification-platforms", tags=["Equipment"])
 api_router.include_router(manufacturer.router, prefix="/manufacturers", tags=["Equipment"])
 api_router.include_router(platform.router, prefix="/platforms", tags=["Equipment"])
 api_router.include_router(wetting_agent.router, prefix="/wetting-agents", tags=["Equipment"])

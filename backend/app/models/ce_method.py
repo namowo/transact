@@ -62,7 +62,7 @@ class CEMethod(Base):
     type_of_formamide: Mapped[Optional["TypeOfFormamide"]] = relationship(
         lazy="selectin", foreign_keys=[type_of_formamide_id]
     )
-    volume_formamide: Mapped[Optional[int]]
+    volume_formamide: Mapped[Optional[float]]
     size_standard_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         PGUUID(as_uuid=True),
         ForeignKey("size_standard.id", ondelete="SET NULL")
