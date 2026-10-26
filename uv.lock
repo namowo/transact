@@ -2245,7 +2245,7 @@ wheels = [
 
 [[package]]
 name = "transact-repo"
-version = "0.2.1"
+version = "0.3.2"
 source = { virtual = "." }
 dependencies = [
     { name = "aiosmtplib" },
