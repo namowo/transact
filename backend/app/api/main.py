@@ -31,6 +31,7 @@ from app.api.routers import genotyping_software
 from app.api.routers import geographic_location_category
 from app.api.routers import individual
 from app.api.routers import inhibition_category
+from app.api.routers import item_surface_material_category
 from app.api.routers import item
 from app.api.routers import item_category
 from app.api.routers import item_parts_category
@@ -111,6 +112,7 @@ api_router.include_router(condition_of_item_part_category.router, prefix="/condi
 api_router.include_router(degradation_category.router, prefix="/degradation-categories", tags=["Categories"])
 api_router.include_router(determination_of_shedding_propensity_category.router, prefix="/determination-of-shedding-propensity-categories", tags=["Categories"])
 api_router.include_router(inhibition_category.router, prefix="/inhibition-categories", tags=["Categories"])
+api_router.include_router(item_surface_material_category.router, prefix="/item-surface-material-categories", tags=["Categories"])
 api_router.include_router(modelled_parameter.router, prefix="/modelled-parameters", tags=["Categories"])
 api_router.include_router(monitored_transfer_factor.router, prefix="/monitored-transfer-factors", tags=["Categories"])
 api_router.include_router(restriction_prior_to_sampling.router, prefix="/restrictions-prior-to-sampling", tags=["Categories"])

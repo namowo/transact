@@ -18,7 +18,6 @@ export interface PersistenceDraft {
   changeOverTime: boolean
   durationOfDisturbance: number | null
   descriptionOfDisturbance: string | null
-  disturbanceCategoryId: string | null
   geographicLocationCategoryId: string | null
 }
 
@@ -35,7 +34,6 @@ export function emptyPersistenceDraft(): PersistenceDraft {
     changeOverTime: false,
     durationOfDisturbance: null,
     descriptionOfDisturbance: null,
-    disturbanceCategoryId: null,
     geographicLocationCategoryId: null,
   }
 }
@@ -56,7 +54,6 @@ export function persistenceDraftFromPersistence(
     changeOverTime: !!persistence.change_over_time,
     durationOfDisturbance: persistence.duration_of_disturbance ?? null,
     descriptionOfDisturbance: persistence.description_of_disturbance ?? null,
-    disturbanceCategoryId: persistence.disturbance_category_id ?? null,
     geographicLocationCategoryId: persistence.geographic_location_category_id ?? null,
   }
 }
@@ -88,7 +85,6 @@ function persistenceSubtitle(persistence: Persistence): string | null {
   if (studyLabel) return studyLabel
 
   const categoryParts = [
-    persistence.disturbance_category?.name,
     persistence.geographic_location_category?.name,
   ].filter((part): part is string => !!part)
   return categoryParts.length ? categoryParts.join(' – ') : null
@@ -112,7 +108,6 @@ export function isBlankPersistenceDraft(draft: PersistenceDraft): boolean {
     !draft.changeOverTime &&
     draft.durationOfDisturbance == null &&
     !draft.descriptionOfDisturbance &&
-    !draft.disturbanceCategoryId &&
     !draft.geographicLocationCategoryId
   )
 }
@@ -136,7 +131,6 @@ export async function savePersistenceDraft(
     change_over_time: draft.changeOverTime,
     duration_of_disturbance: draft.durationOfDisturbance,
     description_of_disturbance: draft.descriptionOfDisturbance || null,
-    disturbance_category_id: draft.disturbanceCategoryId,
     geographic_location_category_id: draft.geographicLocationCategoryId,
   }
 

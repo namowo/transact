@@ -22,8 +22,10 @@ export interface Surface {
   condition_of_item_part_category?: NamedCategory | null
   surface_material_category_id?: string | null
   surface_material_category?: NamedCategory | null
-  source_of_dna_category_id?: string | null
-  source_of_dna_category?: NamedCategory | null
+  item_surface_material_category_id?: string | null
+  item_surface_material_category?: NamedCategory | null
+  source_of_dna_category_ids?: string[]
+  source_of_dna_categories?: NamedCategory[]
 }
 
 export interface SurfaceInput {
@@ -34,5 +36,6 @@ export interface SurfaceInput {
   item_parts_category_id?: string | null
   condition_of_item_part_category_id?: string | null
   surface_material_category_id?: string | null
-  source_of_dna_category_id?: string | null
+  item_surface_material_category_id?: string | null
+  source_of_dna_category_ids?: string[]
 }

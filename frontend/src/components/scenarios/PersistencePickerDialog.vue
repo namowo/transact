@@ -113,7 +113,7 @@ function confirmSelection() {
           <div v-else class="flex gap-4 h-full">
             <DataTable
               :value="browsedScenarioPersistencies"
-              :globalFilterFields="['name', 'disturbance_category.name', 'geographic_location_category.name']"
+              :globalFilterFields="['name', 'geographic_location_category.name']"
               :filters="{ global: { value: filter, matchMode: 'contains' } }"
               dataKey="id"
               scrollable

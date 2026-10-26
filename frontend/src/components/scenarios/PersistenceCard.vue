@@ -4,7 +4,7 @@ import Panel from 'openvue/panel'
 import CategorySelect from './CategorySelect.vue'
 import DurationValueInput from './DurationValueInput.vue'
 import FieldLabel from './FieldLabel.vue'
-import { disturbanceCategoryApi, geographicLocationCategoryApi } from '@/api/categories'
+import { geographicLocationCategoryApi } from '@/api/categories'
 import { formatPercent, usePercentModel } from './percent'
 import type { PersistenceDraft } from './persistenceDraft'
 
@@ -155,7 +155,12 @@ function formatDuration(seconds: number | null): string | null {
             />
           </template>
           <UFieldGroup>
-            <UInputNumber v-model="draft.uvIrradiation" orientation="vertical" class="w-full" />
+            <UInputNumber
+              v-model="draft.uvIrradiation"
+              :step="0.0001"
+              orientation="vertical"
+              class="w-full"
+            />
             <UBadge color="neutral" variant="outline" size="lg" label="mW/cm²" />
           </UFieldGroup>
         </UFormField>
@@ -176,11 +181,6 @@ function formatDuration(seconds: number | null): string | null {
           <label :for="`change-over-time-${props.index}`" class="text-sm">Changes over time</label>
         </div>
       </div>
-      <CategorySelect
-        v-model="draft.disturbanceCategoryId"
-        label="Disturbance"
-        :api="disturbanceCategoryApi"
-      />
       <CategorySelect
         v-model="draft.geographicLocationCategoryId"
         label="Geographic location"

@@ -80,6 +80,7 @@ export const dnaSheddingPropensityCategoryApi = namedCategoryApi(
 )
 export const sourceOfDnaCategoryApi = namedCategoryApi('/source-of-dna-categories')
 export const surfaceMaterialCategoryApi = namedCategoryApi('/surface-material-categories')
+export const itemSurfaceMaterialCategoryApi = namedCategoryApi('/item-surface-material-categories')
 export const pressureEstimateApi = namedCategoryApi('/pressure-estimates')
 export const experienceLevelCategoryApi = namedCategoryApi('/experience-levels')
 export const frictionAppliedEstimateApi = namedCategoryApi('/friction-applied-estimates')

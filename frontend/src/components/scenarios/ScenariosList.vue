@@ -190,6 +190,11 @@ const contextMenuItems = computed<MenuItem[]>(() => {
         isScenarioEditable(scenario) ? openEditDialog(scenario) : openViewDialog(scenario),
     },
     {
+      label: 'Duplicate',
+      icon: 'i-lucide-copy-plus',
+      command: () => duplicateScenario(scenario),
+    },
+    {
       label: 'Remove from this study',
       icon: 'i-lucide-x',
       visible: scenario.studies.length > 1,
@@ -227,6 +232,15 @@ async function openViewDialog(scenario: Scenario) {
   } finally {
     viewLoading.value = false
   }
+}
+
+// Reuses the same "Add scenario" form, pre-filled from the source scenario -
+// same mechanism as duplicating from another study, just without the
+// browse dialog since the source is already visible in this study's list.
+function duplicateScenario(scenario: Scenario) {
+  formDialogScenarioId.value = null
+  formDialogDuplicateFromId.value = String(scenario.id)
+  formDialogVisible.value = true
 }
 
 async function unlinkScenario(scenario: Scenario) {
@@ -428,7 +442,16 @@ defineExpose({ load })
 
         <Column header="Contact templates">
           <template #body="{ data }">
-            {{ data.contact_templates.length }}
+            <span v-if="!data.contact_templates.length" class="text-sm text-surface-400 dark:text-surface-500">—</span>
+            <div v-else class="flex flex-wrap gap-1">
+              <UBadge
+                v-for="(contactTemplate, index) in data.contact_templates"
+                :key="contactTemplate.id"
+                :label="contactTemplate.name || `Contact template #${index + 1}`"
+                color="neutral"
+                variant="subtle"
+              />
+            </div>
           </template>
         </Column>
 

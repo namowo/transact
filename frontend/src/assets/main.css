@@ -83,3 +83,16 @@ body {
   margin: 0.75em 0;
   color: var(--ui-text-muted);
 }
+
+/* A page can wrap the part it wants printed in #print-area; everything
+   else (sidebar, header, surrounding chrome) is hidden for that print job
+   regardless of which layout it's nested in. */
+@media print {
+  body:has(#print-area) #print-area {
+    position: absolute;
+    inset: 0;
+  }
+  body:has(#print-area) > *:not(:has(#print-area)) {
+    display: none;
+  }
+}

@@ -22,7 +22,7 @@ const props = defineProps<{
   errors: Partial<Record<string, string | undefined>>
 }>()
 
-const emit = defineEmits<{ remove: [] }>()
+const emit = defineEmits<{ remove: []; duplicate: [] }>()
 
 const draft = defineModel<ContactTemplateDraft>({ required: true })
 const collapsed = defineModel<boolean>('collapsed', { default: false })
@@ -115,7 +115,7 @@ async function deleteSurfaceTemplateSlot(which: 'donor' | 'recipient') {
 
       <UFormField label="Contact area" :error="errorFor('contactArea')">
         <UFieldGroup>
-          <UInputNumber v-model="draft.contactArea" orientation="vertical" class="w-full" />
+          <UInputNumber v-model="draft.contactArea" :step="0.01" orientation="vertical" class="w-full" />
           <UBadge color="neutral" variant="outline" size="lg" label="cm²" />
         </UFieldGroup>
       </UFormField>
@@ -154,7 +154,12 @@ async function deleteSurfaceTemplateSlot(which: 'donor' | 'recipient') {
             />
           </template>
           <UFieldGroup>
-            <UInputNumber v-model="draft.uvIrradiation" orientation="vertical" class="w-full" />
+            <UInputNumber
+              v-model="draft.uvIrradiation"
+              :step="0.0001"
+              orientation="vertical"
+              class="w-full"
+            />
             <UBadge color="neutral" variant="outline" size="lg" label="mW/cm²" />
           </UFieldGroup>
         </UFormField>
@@ -166,15 +171,22 @@ async function deleteSurfaceTemplateSlot(which: 'donor' | 'recipient') {
 
       <USeparator />
 
-      <UButton
-        label="Remove contact template"
-        icon="i-lucide-trash-2"
-        color="error"
-        variant="outline"
-        class="self-start"
-        :disabled="!props.removable"
-        @click="emit('remove')"
-      />
+      <div class="flex gap-2">
+        <UButton
+          label="Duplicate this contact template"
+          icon="i-lucide-copy-plus"
+          variant="outline"
+          @click="emit('duplicate')"
+        />
+        <UButton
+          label="Remove contact template"
+          icon="i-lucide-trash-2"
+          color="error"
+          variant="outline"
+          :disabled="!props.removable"
+          @click="emit('remove')"
+        />
+      </div>
     </div>
   </Panel>
 </template>

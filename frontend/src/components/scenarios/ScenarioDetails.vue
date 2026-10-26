@@ -81,10 +81,6 @@ function formatDuration(seconds: number | null | undefined): string | null {
             </div>
             <div v-if="persistence.indoors">Indoors</div>
             <div v-if="persistence.change_over_time">Changes over time</div>
-            <div v-if="persistence.disturbance_category">
-              <span class="font-medium">Disturbance:</span>
-              {{ persistence.disturbance_category.name }}
-            </div>
             <div v-if="persistence.geographic_location_category">
               <span class="font-medium">Geographic location:</span>
               {{ persistence.geographic_location_category.name }}
@@ -113,7 +109,7 @@ function formatDuration(seconds: number | null | undefined): string | null {
           :key="contactTemplate.id"
           class="flex flex-col gap-1 border border-surface-200 dark:border-surface-700 rounded-md p-3"
         >
-          <span class="font-medium">Contact template #{{ index + 1 }}</span>
+          <span class="font-medium">{{ contactTemplate.name || `Contact template #${index + 1}` }}</span>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-surface-600 dark:text-surface-300">
             <div v-if="contactTemplate.duration != null">
               <span class="font-medium">Duration:</span>

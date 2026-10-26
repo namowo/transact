@@ -15,8 +15,10 @@ export interface SurfaceTemplate {
   condition_of_item_part_category?: NamedCategory | null
   surface_material_category_id?: string | null
   surface_material_category?: NamedCategory | null
-  source_of_dna_category_id?: string | null
-  source_of_dna_category?: NamedCategory | null
+  item_surface_material_category_id?: string | null
+  item_surface_material_category?: NamedCategory | null
+  source_of_dna_category_ids?: string[]
+  source_of_dna_categories?: NamedCategory[]
   photo_path?: string | null
   background_dna?: boolean | null
   prevalence?: boolean | null
@@ -30,9 +32,9 @@ export interface SurfaceTemplateInput {
   item_parts_category_id?: string | null
   condition_of_item_part_category_id?: string | null
   surface_material_category_id?: string | null
-  source_of_dna_category_id?: string | null
+  item_surface_material_category_id?: string | null
+  source_of_dna_category_ids?: string[]
   photo_path?: string | null
   background_dna?: boolean | null
-  prevalence?: boolean | null
   further_description_of_background_and_prevalence?: string | null
 }

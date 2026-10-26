@@ -52,7 +52,7 @@ const stepItems = computed<StepperItem[]>(() => [
     : []),
 ])
 
-const authorTitleOptions = ['Dr.', 'Prof.', 'Prof. Dr.', 'PhD', 'MSc', 'BSc']
+const authorTitleOptions = ['Dr.', 'Prof.', 'Prof. Dr.']
 
 const purposeOptions: { label: string; value: 'transfer' | 'repository' }[] = [
   { label: 'Plan a transfer experiment', value: 'transfer' },
@@ -106,7 +106,6 @@ const schema = yup.object({
     .trim()
     .email('Please enter a valid email address.')
     .defined(),
-  corresponding_author_phone: yup.string().trim().defined(),
   purpose: yup
     .string()
     .nullable()
@@ -126,7 +125,6 @@ const { defineField, errors, handleSubmit, setValues, submitCount } = useForm({
     authors: [emptyAuthor()],
     correspondingAuthorIndex: null as number | null,
     corresponding_author_email: '',
-    corresponding_author_phone: '',
     purpose: null as 'transfer' | 'repository' | null,
     quality_check_passed: false,
   },
@@ -140,7 +138,6 @@ const [abstractField, abstractAttrs] = defineField('abstract')
 const [description, descriptionAttrs] = defineField('description')
 const [correspondingAuthorIndex] = defineField('correspondingAuthorIndex')
 const [correspondingEmail, correspondingEmailAttrs] = defineField('corresponding_author_email')
-const [correspondingPhone, correspondingPhoneAttrs] = defineField('corresponding_author_phone')
 const [purpose] = defineField('purpose')
 
 const {
@@ -181,7 +178,6 @@ const correspondingAuthorOptions = computed(() =>
 function clearCorrespondingAuthor() {
   correspondingAuthorIndex.value = null
   correspondingEmail.value = ''
-  correspondingPhone.value = ''
 }
 
 function onCorrespondingAuthorChange(value: number | null) {
@@ -241,7 +237,6 @@ onMounted(async () => {
       authors,
       correspondingAuthorIndex: correspondingIndex >= 0 ? correspondingIndex : null,
       corresponding_author_email: study.corresponding_author_email ?? '',
-      corresponding_author_phone: study.corresponding_author_phone ?? '',
       purpose: study.plan_a_transfer_experiment
         ? 'transfer'
         : study.add_data_to_repository
@@ -281,7 +276,6 @@ const onSubmit = handleSubmit(async (values) => {
         ? formatAuthorName(correspondingAuthor) || null
         : null,
       corresponding_author_email: values.corresponding_author_email.trim() || null,
-      corresponding_author_phone: values.corresponding_author_phone.trim() || null,
       plan_a_transfer_experiment: values.purpose === 'transfer',
       add_data_to_repository: values.purpose === 'repository',
       quality_check_passed: values.quality_check_passed,
@@ -305,7 +299,8 @@ const onSubmit = handleSubmit(async (values) => {
         router.push({ name: 'studies-laboratory' })
       }
     }
-  } catch {
+  } catch (error) {
+    console.error(error)
     submitError.value = 'Could not save the study. Please try again.'
   } finally {
     submitting.value = false
@@ -522,27 +517,16 @@ function confirmDeleteStudy() {
               />
             </UFormField>
 
-            <div class="grid grid-cols-2 gap-4">
-              <UFormField label="Email" hint="Optional" :error="errors.corresponding_author_email">
-                <UInput
-                  id="study-contact-email"
-                  v-model="correspondingEmail"
-                  v-bind="correspondingEmailAttrs"
-                  :disabled="correspondingAuthorIndex == null"
-                  type="email"
-                  class="w-full"
-                />
-              </UFormField>
-              <UFormField label="Phone number" hint="Optional">
-                <UInput
-                  id="study-contact-phone"
-                  v-model="correspondingPhone"
-                  v-bind="correspondingPhoneAttrs"
-                  :disabled="correspondingAuthorIndex == null"
-                  class="w-full"
-                />
-              </UFormField>
-            </div>
+            <UFormField label="Email" hint="Optional" :error="errors.corresponding_author_email">
+              <UInput
+                id="study-contact-email"
+                v-model="correspondingEmail"
+                v-bind="correspondingEmailAttrs"
+                :disabled="correspondingAuthorIndex == null"
+                type="email"
+                class="w-full"
+              />
+            </UFormField>
 
             <UAlert v-if="submitError" color="error" variant="outline" :description="submitError" />
 
@@ -642,6 +626,15 @@ function confirmDeleteStudy() {
         </template>
 
         <template #2>
+          <div v-if="editingId !== null" class="flex justify-end mb-2">
+            <UButton
+              label="Print planning checklist"
+              icon="i-lucide-printer"
+              variant="outline"
+              size="sm"
+              @click="router.push({ name: 'studies-checklist', params: { id: editingId } })"
+            />
+          </div>
           <ScenariosList v-if="editingId !== null" :study-id="editingId" />
           <div class="flex justify-between mt-4">
             <UButton label="Previous step" icon="i-lucide-arrow-left" variant="ghost" type="button" @click="activeStep = '1'" />

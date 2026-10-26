@@ -92,6 +92,13 @@ const router = createRouter({
               props: true,
               meta: { requiresAuth: true, breadcrumb: 'Data entry' },
             },
+            {
+              path: ':id/checklist',
+              name: 'studies-checklist',
+              component: () => import('@/views/studies/StudyChecklistView.vue'),
+              props: true,
+              meta: { requiresAuth: true, breadcrumb: 'Planning checklist' },
+            },
           ],
         },
         {

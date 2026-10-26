@@ -49,9 +49,6 @@ function formatDuration(seconds: number | null | undefined): string | null {
       </div>
       <div v-if="persistence.indoors">Indoors</div>
       <div v-if="persistence.change_over_time">Changes over time</div>
-      <div v-if="persistence.disturbance_category">
-        <span class="font-medium">Disturbance:</span> {{ persistence.disturbance_category.name }}
-      </div>
       <div v-if="persistence.geographic_location_category">
         <span class="font-medium">Geographic location:</span>
         {{ persistence.geographic_location_category.name }}

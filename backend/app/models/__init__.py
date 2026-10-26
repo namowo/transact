@@ -85,6 +85,7 @@ from .study_author import StudyAuthor
 from .stutter_filter import StutterFilter
 from .supplier import Supplier
 from .surface_material_category import SurfaceMaterialCategory
+from .item_surface_material_category import ItemSurfaceMaterialCategory
 from .surface import Surface
 from .surface_template import SurfaceTemplate
 from .swab_method import SwabMethod

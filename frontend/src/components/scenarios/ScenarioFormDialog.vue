@@ -93,26 +93,38 @@ interface ScenarioFormValues {
   contactTemplates: ContactTemplateDraft[]
 }
 
+// UInputNumber emits NaN (not null) when cleared, so every optional numeric
+// field needs this transform before its other checks run - otherwise
+// clearing the field makes yup's nullable() type check fail with a
+// confusing "must be a number" error on a field the user left empty.
+const nanToNull = (value: unknown) => (typeof value === 'number' && Number.isNaN(value) ? null : value)
+
 const persistenceSchema = yup.object({
   intervalOfPersistence: yup
     .number()
+    .transform(nanToNull)
     .nullable()
     .min(0, 'Interval of persistence must be zero or greater.'),
-  temperature: yup.number().nullable().defined(),
+  temperature: yup.number().transform(nanToNull).nullable().defined(),
   humidity: yup
     .number()
+    .transform(nanToNull)
     .nullable()
     .min(0, 'Humidity must be between 0 and 100%.')
     .max(1, 'Humidity must be between 0 and 100%.'),
-  uvIrradiation: yup.number().nullable().min(0, 'UV irradiation must be zero or greater.'),
+  uvIrradiation: yup
+    .number()
+    .transform(nanToNull)
+    .nullable()
+    .min(0, 'UV irradiation must be zero or greater.'),
   indoors: yup.boolean().defined(),
   changeOverTime: yup.boolean().defined(),
   durationOfDisturbance: yup
     .number()
+    .transform(nanToNull)
     .nullable()
     .min(0, 'Duration of disturbance must be zero or greater.'),
   descriptionOfDisturbance: yup.string().nullable().defined(),
-  disturbanceCategoryId: yup.string().nullable().defined(),
   geographicLocationCategoryId: yup.string().nullable().defined(),
 })
 
@@ -122,15 +134,24 @@ const schema = yup.object({
   persistencies: yup.array().of(persistenceSchema),
   contactTemplates: yup.array().of(
     yup.object({
-      duration: yup.number().nullable().min(0, 'Duration must be zero or greater.'),
-      contactArea: yup.number().nullable().min(0, 'Contact area must be zero or greater.'),
-      temperature: yup.number().nullable().defined(),
+      duration: yup.number().transform(nanToNull).nullable().min(0, 'Duration must be zero or greater.'),
+      contactArea: yup
+        .number()
+        .transform(nanToNull)
+        .nullable()
+        .min(0, 'Contact area must be zero or greater.'),
+      temperature: yup.number().transform(nanToNull).nullable().defined(),
       humidity: yup
         .number()
+        .transform(nanToNull)
         .nullable()
         .min(0, 'Humidity must be between 0 and 100%.')
         .max(1, 'Humidity must be between 0 and 100%.'),
-      uvIrradiation: yup.number().nullable().min(0, 'UV irradiation must be zero or greater.'),
+      uvIrradiation: yup
+        .number()
+        .transform(nanToNull)
+        .nullable()
+        .min(0, 'UV irradiation must be zero or greater.'),
     }),
   ),
 })
@@ -377,6 +398,17 @@ function addContactTemplate() {
 function removeContactTemplate(index: number) {
   removeContactTemplateField(index)
   collapsedContactTemplates.value.splice(index, 1)
+}
+
+// Copies this card's own values into a new card in the same scenario - a
+// quick way to reuse one contact template as the starting point for a
+// near-identical one, without round-tripping through another study.
+function duplicateContactTemplate(index: number) {
+  collapsedContactTemplates.value = collapsedContactTemplates.value.map(() => true)
+  pushContactTemplate(
+    cloneContactTemplateDraftForDuplication(contactTemplateFields.value[index]!.value),
+  )
+  collapsedContactTemplates.value.push(false)
 }
 
 // The workflow mirrors the study stepper: details, persistence, contact
@@ -633,6 +665,7 @@ const title = computed(() =>
                 :removable="contactTemplateFields.length > 1"
                 @update:collapsed="collapsedContactTemplates[index] = $event"
                 @remove="removeContactTemplate(index)"
+                @duplicate="duplicateContactTemplate(index)"
               />
 
               <UButton

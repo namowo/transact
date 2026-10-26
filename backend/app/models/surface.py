@@ -1,13 +1,28 @@
 import uuid
 from typing import Optional
 
-from sqlalchemy import ForeignKey
+from sqlalchemy import Column, ForeignKey, Table
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from sqlalchemy.sql import text
 
 from app.core.db import Base
+
+surface_source_of_dna = Table(
+    "surface_source_of_dna",
+    Base.metadata,
+    Column(
+        "surface_id",
+        ForeignKey("surface.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column(
+        "source_of_dna_category_id",
+        ForeignKey("source_of_dna_category.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+)
 
 
 class Surface(Base):
@@ -70,12 +85,15 @@ class Surface(Base):
     surface_material_category: Mapped[Optional["SurfaceMaterialCategory"]] = (
         relationship(lazy="selectin", foreign_keys=[surface_material_category_id])
     )
-    source_of_dna_category_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    item_surface_material_category_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         PGUUID(as_uuid=True),
-        ForeignKey("source_of_dna_category.id", ondelete="SET NULL")
+        ForeignKey("item_surface_material_category.id", ondelete="SET NULL")
     )
-    source_of_dna_category: Mapped[Optional["SourceOfDNACategory"]] = relationship(
-        lazy="selectin", foreign_keys=[source_of_dna_category_id]
+    item_surface_material_category: Mapped[Optional["ItemSurfaceMaterialCategory"]] = (
+        relationship(lazy="selectin", foreign_keys=[item_surface_material_category_id])
+    )
+    source_of_dna_categories: Mapped[list["SourceOfDNACategory"]] = relationship(
+        secondary=surface_source_of_dna, lazy="selectin"
     )
 
 
@@ -86,4 +104,5 @@ from app.models.body_part_condition_category import BodyPartConditionCategory
 from app.models.item_parts_category import ItemPartsCategory
 from app.models.condition_of_item_part_category import ConditionOfItemPartCategory
 from app.models.surface_material_category import SurfaceMaterialCategory
+from app.models.item_surface_material_category import ItemSurfaceMaterialCategory
 from app.models.source_of_dna_category import SourceOfDNACategory
