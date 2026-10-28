@@ -43,6 +43,7 @@ class Contact(Base):
     recipient_surface: Mapped[Optional["Surface"]] = relationship(
         lazy="selectin", foreign_keys=[recipient_surface_id]
     )
+    name: Mapped[Optional[str]]
     # The following override the corresponding ContactTemplate attribute when set;
     # a null value means the template's value applies.
     duration: Mapped[Optional[timedelta]]

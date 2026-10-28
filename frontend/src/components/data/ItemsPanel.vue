@@ -10,11 +10,10 @@ import DataTableSkeleton from '@/components/data/DataTableSkeleton.vue'
 import ItemCategoryFields from '@/components/scenarios/ItemCategoryFields.vue'
 import { useConfirm } from '@/composables/useConfirm'
 import { createItem, deleteItem, listItems, updateItem } from '@/api/items'
-import type { Item } from '@/api/types'
+import type { ContactTemplate, Item } from '@/api/types'
 import type { MenuItem } from 'openvue/menuitem'
-import type { DropdownMenuItem } from '@nuxt/ui'
 
-const props = defineProps<{ studyId: string }>()
+const props = defineProps<{ studyId: string; contactTemplates?: ContactTemplate[] }>()
 
 const confirm = useConfirm()
 
@@ -262,23 +261,95 @@ function openPicker() {
   pickerVisible.value = true
 }
 
-const addItemMenuItems: DropdownMenuItem[] = [
-  { label: 'New item', icon: 'i-lucide-plus', onSelect: () => openCreateItemDialog() },
-  { label: 'Existing item', icon: 'i-lucide-search', onSelect: () => openPicker() },
-]
+// Jumps from "no match in the catalog" straight into creating one, instead
+// of making the user close the picker and reopen the separate create
+// dialog - the catalog is shared across studies (as used elsewhere, e.g.
+// contact templates), so most of the time the item already exists.
+function openCreateItemDialogFromPicker() {
+  pickerVisible.value = false
+  openCreateItemDialog()
+}
+
+// -- Load items referenced by this study's planned scenario templates --
+// A contact template's donor/recipient slot can point at an Item (planned
+// during scenario setup), but instantiating that template into an actual
+// Contact doesn't itself add the item to this study's item list - so items
+// used in planning can be invisible here even though they're in use. This
+// surfaces them in one step instead of requiring each to be found and
+// added one by one through the picker.
+
+function templateItemIds(templates: ContactTemplate[]): Set<string> {
+  const ids = new Set<string>()
+  for (const template of templates) {
+    const donorId = template.donor_surface_template?.item_id
+    const recipientId = template.recipient_surface_template?.item_id
+    if (donorId) ids.add(donorId)
+    if (recipientId) ids.add(recipientId)
+  }
+  return ids
+}
+
+const itemsFromTemplatesNotInStudy = computed(() => {
+  const ids = templateItemIds(props.contactTemplates ?? [])
+  return allItems.value.filter(
+    (item) => ids.has(item.id) && !item.studies?.some((study) => study.id === props.studyId),
+  )
+})
+
+const loadingTemplateItems = ref(false)
+
+async function loadItemsFromTemplates() {
+  loadingTemplateItems.value = true
+  try {
+    for (const item of itemsFromTemplatesNotInStudy.value) {
+      const studyIds = [...(item.studies ?? []).map((study) => study.id), props.studyId]
+      const updated = await updateItem(item.id, { study_ids: studyIds })
+      replaceItem(updated)
+    }
+  } finally {
+    loadingTemplateItems.value = false
+  }
+}
 </script>
 
 <template>
   <div class="flex flex-col gap-4">
     <UAlert v-if="loadError" color="error" variant="outline" :description="loadError" />
 
-    <div class="flex items-center justify-between">
+    <div v-if="loading || items.length" class="flex items-center justify-between">
       <h4 class="font-medium">Items</h4>
-      <UDropdownMenu :items="addItemMenuItems" :content="{ align: 'end' }">
-        <UButton label="Add item" icon="i-lucide-plus" variant="outline" trailing-icon="i-lucide-chevron-down" />
-      </UDropdownMenu>
+      <div class="flex gap-2">
+        <UButton
+          v-if="itemsFromTemplatesNotInStudy.length"
+          :label="`Load ${itemsFromTemplatesNotInStudy.length} item${itemsFromTemplatesNotInStudy.length === 1 ? '' : 's'} from scenario templates`"
+          icon="i-lucide-download"
+          variant="outline"
+          :loading="loadingTemplateItems"
+          @click="loadItemsFromTemplates"
+        />
+        <UButton label="Add item" icon="i-lucide-search" variant="outline" @click="openPicker" />
+      </div>
     </div>
-    <div class="overflow-x-auto">
+
+    <DataTableSkeleton v-if="loading" :columns="4" />
+
+    <div v-else-if="!items.length" class="flex flex-col items-center gap-3 py-16">
+      <h4 class="font-medium">Items</h4>
+      <p class="text-sm text-surface-500 dark:text-surface-400">No items added to this study yet.</p>
+      <div class="flex gap-2">
+        <UButton
+          v-if="itemsFromTemplatesNotInStudy.length"
+          :label="`Load ${itemsFromTemplatesNotInStudy.length} item${itemsFromTemplatesNotInStudy.length === 1 ? '' : 's'} from scenario templates`"
+          icon="i-lucide-download"
+          variant="outline"
+          :loading="loadingTemplateItems"
+          @click="loadItemsFromTemplates"
+        />
+        <UButton label="Add item" icon="i-lucide-search" variant="outline" @click="openPicker" />
+      </div>
+    </div>
+
+    <div v-else class="overflow-x-auto">
       <div class="mb-3 flex items-center justify-between gap-3">
         <UButton
           type="button"
@@ -299,9 +370,7 @@ const addItemMenuItems: DropdownMenuItem[] = [
 
       <ContextMenu ref="contextMenu" :model="contextMenuItems" />
 
-      <DataTableSkeleton v-if="loading" :columns="4" />
       <DataTable
-        v-else
         v-model:filters="itemFilters"
         v-model:context-menu-selection="selectedItem"
         :value="items"
@@ -405,7 +474,7 @@ const addItemMenuItems: DropdownMenuItem[] = [
 
     <UModal
       v-model:open="pickerVisible"
-      title="Add an existing item"
+      title="Add item"
       :ui="{ content: 'max-w-3xl', footer: 'justify-end' }"
     >
       <template #body>
@@ -414,7 +483,7 @@ const addItemMenuItems: DropdownMenuItem[] = [
             v-model="pickerFilters['global'].value"
             type="text"
             icon="i-lucide-search"
-            placeholder="Keyword Search"
+            placeholder="Search the item catalog"
             class="w-full"
           />
 
@@ -429,7 +498,18 @@ const addItemMenuItems: DropdownMenuItem[] = [
             :row-class="() => 'cursor-pointer hover:bg-elevated'"
             @row-click="({ data }) => addExistingItem(data)"
           >
-            <template #empty>No other items in the catalog to add.</template>
+            <template #empty>
+              <div class="flex flex-col items-center gap-2 py-4">
+                <p class="text-sm text-surface-500 dark:text-surface-400">No matching item in the catalog.</p>
+                <UButton
+                  label="Create new item"
+                  icon="i-lucide-plus"
+                  variant="outline"
+                  size="sm"
+                  @click="openCreateItemDialogFromPicker"
+                />
+              </div>
+            </template>
             <Column header="Item">
               <template #body="{ data }">{{ describeCatalogItem(data) }}</template>
             </Column>
@@ -438,6 +518,12 @@ const addItemMenuItems: DropdownMenuItem[] = [
         </div>
       </template>
       <template #footer>
+        <UButton
+          label="Create new item"
+          icon="i-lucide-plus"
+          variant="outline"
+          @click="openCreateItemDialogFromPicker"
+        />
         <UButton label="Close" icon="i-lucide-x" variant="ghost" @click="pickerVisible = false" />
       </template>
     </UModal>

@@ -330,6 +330,13 @@ function onRecoverySetCreated(created: { id: string; name?: string | null }) {
 
     <DataTableSkeleton v-if="loading" :columns="5" />
 
+    <UAlert
+      v-else-if="!groupedRecoveries.length"
+      color="neutral"
+      variant="outline"
+      description="No recoveries yet."
+    />
+
     <div
       v-else
       v-for="group in groupedRecoveries"

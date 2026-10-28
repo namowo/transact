@@ -27,6 +27,7 @@ class Individual(Base):
     study: Mapped[Optional["Study"]] = relationship(
         lazy="selectin", foreign_keys=[study_id]
     )
+    name: Mapped[Optional[str]]
     sex_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         PGUUID(as_uuid=True),
         ForeignKey("sex.id", ondelete="SET NULL")

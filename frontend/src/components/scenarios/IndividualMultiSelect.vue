@@ -15,7 +15,7 @@ import type { Individual } from '@/api/types'
 const props = defineProps<{ studyId: string }>()
 const individualIds = defineModel<string[]>({ default: () => [] })
 
-const { individuals, loading } = useIndividualOptions(props.studyId)
+const { individuals, loading, individualName } = useIndividualOptions(props.studyId)
 
 const groups = computed(() => groupIndividuals(individuals.value))
 
@@ -45,11 +45,6 @@ function toggleMember(individual: Individual) {
   if (next.has(individual.id)) next.delete(individual.id)
   else next.add(individual.id)
   individualIds.value = [...next]
-}
-
-function memberLabel(individual: Individual, group: IndividualGroup): string {
-  const position = group.members.findIndex((candidate) => candidate.id === individual.id)
-  return `Individual ${position + 1}`
 }
 
 const expandedRows = ref<Record<string, boolean>>({})
@@ -125,7 +120,7 @@ const expandedRows = ref<Record<string, boolean>>({})
               </template>
             </Column>
             <Column header="Individual">
-              <template #body="{ data }">{{ memberLabel(data, group) }}</template>
+              <template #body="{ data }">{{ individualName(data) }}</template>
             </Column>
             <Column header="Sex">
               <template #body="{ data }">

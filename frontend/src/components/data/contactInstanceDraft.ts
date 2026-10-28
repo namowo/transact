@@ -9,6 +9,7 @@ import type { Contact, ContactTemplate, Surface, SurfaceTemplate } from '@/api/t
 
 export interface ContactInstanceDraft {
   contactTemplateId: string | null
+  name: string | null
   donorSurface: SurfaceInstanceDraft
   recipientSurface: SurfaceInstanceDraft
 }
@@ -16,6 +17,7 @@ export interface ContactInstanceDraft {
 export function emptyContactInstanceDraft(): ContactInstanceDraft {
   return {
     contactTemplateId: null,
+    name: null,
     donorSurface: emptySurfaceInstanceDraft(),
     recipientSurface: emptySurfaceInstanceDraft(),
   }
@@ -60,6 +62,7 @@ export async function saveContactInstanceDraft(
     contact_template_id: contactTemplate.id,
     donor_surface_id: donorSurface?.id ?? null,
     recipient_surface_id: recipientSurface?.id ?? null,
+    name: draft.name,
   })
 }
 

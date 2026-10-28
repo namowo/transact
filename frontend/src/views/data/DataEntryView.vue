@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import DataTable from 'openvue/datatable'
 import Column from 'openvue/column'
@@ -16,7 +16,7 @@ import { templateName, surfaceInstanceIcon, surfaceInstanceDetail } from '@/comp
 import { useIndividualOptions } from '@/components/scenarios/individualOptions'
 import { useConfirm } from '@/composables/useConfirm'
 import { listScenarios } from '@/api/scenarios'
-import { listContacts, deleteContact } from '@/api/contacts'
+import { listContacts, deleteContact, updateContact } from '@/api/contacts'
 import type { Contact, ContactTemplate, Recovery } from '@/api/types'
 
 const confirm = useConfirm()
@@ -62,6 +62,15 @@ async function load() {
 onMounted(load)
 
 const dialogVisible = ref(false)
+const editingNames = ref(false)
+
+// Expand every group when entering edit-names mode, so the inputs this
+// mode adds to each group's member table are actually visible right away
+// instead of requiring each group to be expanded by hand first.
+watch(editingNames, (isEditing) => {
+  if (!isEditing) return
+  expandedContactRows.value = Object.fromEntries(contactGroups.value.map((group) => [group.key, true]))
+})
 
 function onContactSaved(newContacts: Contact[]) {
   contacts.value = [...contacts.value, ...newContacts]
@@ -132,6 +141,23 @@ function sideDisplay(contact: Contact, side: 'donor_surface' | 'recipient_surfac
   return { icon: surfaceInstanceIcon(surface), label }
 }
 
+// Variants of sideDisplay for the expanded member table, which shows sex/age
+// as separate badges next to the individual's name instead of baked into one
+// string (describeIndividual's "Name (sex, age)") - they're already visible
+// elsewhere on the row, no need to repeat them in prose form too.
+function sideIcon(contact: Contact, side: 'donor_surface' | 'recipient_surface'): string | null {
+  return surfaceInstanceIcon(contact[side])
+}
+
+function sideIndividual(contact: Contact, side: 'donor_surface' | 'recipient_surface') {
+  return contact[side]?.individual ?? null
+}
+
+function sideIndividualLabel(contact: Contact, side: 'donor_surface' | 'recipient_surface'): string | null {
+  const individual = sideIndividual(contact, side)
+  return individual ? individualName(individual) : null
+}
+
 // Donor/Recipient column display for a group row: the fixed item side
 // shows the item once; the individual side shows either the single
 // individual (ungrouped contact) or a count badge (batch group).
@@ -169,6 +195,81 @@ function confirmDeleteContact(contact: Contact) {
   })
 }
 
+// -- Rename contact --
+
+const renameDialogVisible = ref(false)
+const renamingContact = ref<Contact | null>(null)
+const renameValue = ref('')
+const renaming = ref(false)
+
+function openRenameDialog(contact: Contact) {
+  renamingContact.value = contact
+  renameValue.value = contact.name ?? ''
+  renameDialogVisible.value = true
+}
+
+// Patches a contact's name on the existing object in place, rather than
+// replacing `contacts.value` with a new array/objects - contactGroups
+// rebuilds group.members from contacts.value on every change, so swapping
+// in fresh object references on every rename made rows visibly reorder
+// mid-edit (the table's row identity depends on these objects staying the
+// same instance, not just the same id).
+function patchContactName(id: string, name: string | null) {
+  const contact = contacts.value.find((c) => c.id === id)
+  if (contact) contact.name = name
+}
+
+// Unnamed contacts are numbered by their position across all of this
+// study's contacts (not just within their group), so a given contact's
+// number stays meaningful and doesn't shift just because a different group
+// gets expanded or collapsed.
+function contactFallbackName(contact: Contact): string {
+  const position = contacts.value.findIndex((c) => c.id === contact.id)
+  return `Contact ${position + 1}`
+}
+
+// Edit-names mode keeps every row's input mounted at once (so several
+// contacts can be renamed in one pass without re-opening anything per row),
+// bypassing PrimeVue's single-row cell-edit machinery entirely.
+const pendingMemberNames = new Map<string, string>()
+
+function onMemberNameInput(contact: Contact, value: string) {
+  pendingMemberNames.set(contact.id, value)
+}
+
+async function onMemberNameBlur(contact: Contact) {
+  const pending = pendingMemberNames.get(contact.id)
+  pendingMemberNames.delete(contact.id)
+  if (pending === undefined) return
+  const trimmed = pending.trim() || null
+  if (trimmed === (contact.name ?? null)) return
+  await updateContact(contact.id, { name: trimmed })
+  patchContactName(contact.id, trimmed)
+}
+
+async function saveRename() {
+  if (!renamingContact.value) return
+  renaming.value = true
+  try {
+    const name = renameValue.value.trim() || null
+    await updateContact(renamingContact.value.id, { name })
+    patchContactName(renamingContact.value.id, name)
+    renameDialogVisible.value = false
+  } finally {
+    renaming.value = false
+  }
+}
+
+// Inline cell edit on the expanded member table's Name column - a quicker
+// path to the same rename than opening the dialog, for renaming several
+// contacts in a row.
+async function onMemberNameEditComplete(event: { data: Contact; newValue: string; field: string }) {
+  const trimmed = event.newValue.trim() || null
+  if (trimmed === (event.data.name ?? null)) return
+  await updateContact(event.data.id, { name: trimmed })
+  patchContactName(event.data.id, trimmed)
+}
+
 function confirmDeleteGroup(group: ContactGroup) {
   const count = group.members.length
   confirm.require({
@@ -193,19 +294,31 @@ const contextMenuContact = ref<Contact>()
 const groupContextMenuItems = computed<MenuItem[]>(() => {
   const group = contextMenuGroup.value
   if (!group) return []
-  return [
-    {
-      label: group.members.length > 1 ? `Delete all ${group.members.length} contacts` : 'Delete',
-      icon: 'i-lucide-trash-2',
-      command: () => confirmDeleteGroup(group),
-    },
-  ]
+  const items: MenuItem[] = []
+  if (group.members.length === 1) {
+    items.push({
+      label: 'Rename',
+      icon: 'i-lucide-pencil',
+      command: () => openRenameDialog(group.members[0]),
+    })
+  }
+  items.push({
+    label: group.members.length > 1 ? `Delete all ${group.members.length} contacts` : 'Delete',
+    icon: 'i-lucide-trash-2',
+    command: () => confirmDeleteGroup(group),
+  })
+  return items
 })
 
 const memberContextMenuItems = computed<MenuItem[]>(() => {
   const contact = contextMenuContact.value
   if (!contact) return []
   return [
+    {
+      label: 'Rename',
+      icon: 'i-lucide-pencil',
+      command: () => openRenameDialog(contact),
+    },
     {
       label: 'Delete',
       icon: 'i-lucide-trash-2',
@@ -281,7 +394,7 @@ const activeTab = computed<string>({
       </template>
 
       <template #items>
-        <ItemsPanel :study-id="studyId" />
+        <ItemsPanel :study-id="studyId" :contact-templates="contactTemplates" />
       </template>
 
       <template #contacts>
@@ -308,15 +421,26 @@ const activeTab = computed<string>({
 
           <div class="overflow-x-auto">
             <div class="mb-3 flex items-center justify-between gap-3">
-              <UButton
-                type="button"
-                icon="i-lucide-filter-x"
-                variant="outline"
-                size="sm"
-                @click="clearContactFilters()"
-              >
-                Clear Filters
-              </UButton>
+              <div class="flex gap-2">
+                <UButton
+                  type="button"
+                  icon="i-lucide-filter-x"
+                  variant="outline"
+                  size="sm"
+                  @click="clearContactFilters()"
+                >
+                  Clear Filters
+                </UButton>
+                <UButton
+                  type="button"
+                  :label="editingNames ? 'Done' : 'Edit names'"
+                  :icon="editingNames ? 'i-lucide-check' : 'i-lucide-pencil'"
+                  :variant="editingNames ? 'solid' : 'outline'"
+                  size="sm"
+                  :disabled="!contacts.length"
+                  @click="editingNames = !editingNames"
+                />
+              </div>
               <UInput
                 v-model="contactFilters['global'].value"
                 type="text"
@@ -358,6 +482,9 @@ const activeTab = computed<string>({
                   </span>
                 </template>
               </Column>
+              <Column header="Contacts" style="width: 6rem">
+                <template #body="{ data }">{{ data.members.length }}</template>
+              </Column>
               <Column header="" style="width: 3rem">
                 <template #body="{ data }">
                   <UButton
@@ -375,34 +502,55 @@ const activeTab = computed<string>({
                 <DataTable
                   :value="group.members"
                   data-key="id"
+                  edit-mode="cell"
                   :row-class="() => 'hover:bg-elevated'"
                   @row-contextmenu="(event: { originalEvent: Event; data: Contact }) => openMemberContextMenu(event.originalEvent, event.data)"
+                  @cell-edit-complete="onMemberNameEditComplete"
                 >
-                  <Column header="Individual">
+                  <Column header="Name" field="name">
+                    <template #body="{ data }">
+                      <UInput
+                        v-if="editingNames"
+                        :model-value="data.name"
+                        :placeholder="contactFallbackName(data)"
+                        class="w-full"
+                        @update:model-value="(value: string) => onMemberNameInput(data, value)"
+                        @blur="onMemberNameBlur(data)"
+                        @keyup.enter="($event.target as HTMLElement)?.blur()"
+                      />
+                      <template v-else>{{ data.name || contactFallbackName(data) }}</template>
+                    </template>
+                    <template v-if="!editingNames" #editor="{ data, field }">
+                      <UInput v-model="data[field]" autofocus class="w-full" @keyup.enter="($event.target as HTMLElement)?.blur()" />
+                    </template>
+                  </Column>
+                  <Column header="Donor">
                     <template #body="{ data }">
                       <span class="flex items-center gap-1.5">
-                        <UIcon name="i-lucide-user" class="shrink-0" />
-                        <template v-if="memberIndividual(data, group.itemSide)">
-                          {{ individualName(memberIndividual(data, group.itemSide)!) }}
-                        </template>
-                        <template v-else>—</template>
+                        <UIcon v-if="sideIcon(data, 'donor_surface')" :name="sideIcon(data, 'donor_surface')!" class="shrink-0" />
+                        {{ sideIndividualLabel(data, 'donor_surface') ?? sideDisplay(data, 'donor_surface').label }}
+                        <UBadge v-if="sideIndividual(data, 'donor_surface')?.sex?.name" color="neutral" variant="outline">
+                          {{ sideIndividual(data, 'donor_surface')!.sex!.name }}
+                        </UBadge>
+                        <UBadge v-if="sideIndividual(data, 'donor_surface')?.age != null" color="neutral" variant="outline">
+                          {{ sideIndividual(data, 'donor_surface')!.age }}y
+                        </UBadge>
                       </span>
                     </template>
                   </Column>
-                  <Column header="Sex">
+                  <Column header="Recipient">
                     <template #body="{ data }">
-                      <UBadge
-                        v-if="memberIndividual(data, group.itemSide)?.sex?.name"
-                        color="neutral"
-                        variant="outline"
-                      >
-                        {{ memberIndividual(data, group.itemSide)!.sex!.name }}
-                      </UBadge>
-                      <span v-else>—</span>
+                      <span class="flex items-center gap-1.5">
+                        <UIcon v-if="sideIcon(data, 'recipient_surface')" :name="sideIcon(data, 'recipient_surface')!" class="shrink-0" />
+                        {{ sideIndividualLabel(data, 'recipient_surface') ?? sideDisplay(data, 'recipient_surface').label }}
+                        <UBadge v-if="sideIndividual(data, 'recipient_surface')?.sex?.name" color="neutral" variant="outline">
+                          {{ sideIndividual(data, 'recipient_surface')!.sex!.name }}
+                        </UBadge>
+                        <UBadge v-if="sideIndividual(data, 'recipient_surface')?.age != null" color="neutral" variant="outline">
+                          {{ sideIndividual(data, 'recipient_surface')!.age }}y
+                        </UBadge>
+                      </span>
                     </template>
-                  </Column>
-                  <Column header="Age">
-                    <template #body="{ data }">{{ memberIndividual(data, group.itemSide)?.age ?? '—' }}</template>
                   </Column>
                   <Column header="" style="width: 3rem">
                     <template #body="{ data }">
@@ -428,6 +576,22 @@ const activeTab = computed<string>({
             :contacts="contacts"
             @saved="onContactSaved"
           />
+
+          <UModal
+            v-model:open="renameDialogVisible"
+            title="Rename contact"
+            :ui="{ content: 'max-w-sm', footer: 'justify-end' }"
+          >
+            <template #body>
+              <UFormField label="Name" hint="Optional - helps tell otherwise identical contacts apart">
+                <UInput v-model="renameValue" class="w-full" @keyup.enter="saveRename" />
+              </UFormField>
+            </template>
+            <template #footer>
+              <UButton label="Cancel" icon="i-lucide-x" variant="ghost" @click="renameDialogVisible = false" />
+              <UButton label="Save" icon="i-lucide-save" :loading="renaming" @click="saveRename" />
+            </template>
+          </UModal>
         </div>
       </template>
 

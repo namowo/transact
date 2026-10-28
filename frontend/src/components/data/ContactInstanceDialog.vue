@@ -282,6 +282,9 @@ async function save() {
             :template="selectedTemplate.recipient_surface_template ?? null"
             :existing-surfaces="recipientExistingSurfaces"
           />
+          <UFormField label="Name" hint="Optional - helps tell otherwise identical contacts apart">
+            <UInput v-model="draft.name" class="w-full" />
+          </UFormField>
         </template>
 
         <UAlert v-if="submitError" color="error" variant="outline" :description="submitError" />
