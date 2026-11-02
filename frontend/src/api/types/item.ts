@@ -9,6 +9,7 @@ export interface Item {
   description?: string | null
   picture_path?: string | null
   studies?: { id: string }[]
+  scenario_ids?: string[]
 }
 
 export interface ItemInput {
@@ -17,6 +18,7 @@ export interface ItemInput {
   description?: string | null
   picture_path?: string | null
   study_ids?: string[]
+  scenario_ids?: string[]
 }
 
 export interface ItemGroup {

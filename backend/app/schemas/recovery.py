@@ -8,6 +8,7 @@ class RecoveryBase(BaseModel):
     name: Optional[str] = None
     study_id: Optional[UUID] = None
     recovery_set_id: Optional[UUID] = None
+    contact_id: Optional[UUID] = None
     surface_id: Optional[UUID] = None
     sampling_method_id: Optional[UUID] = None
     extraction_method_id: Optional[UUID] = None

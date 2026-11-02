@@ -369,7 +369,7 @@ const submitForm = handleSubmit(async (formValues) => {
                   :model-value="row[rowField.key]"
                   :label="rowField.label"
                   :api="rowField.categoryApi!"
-                  @update:model-value="setRowValue(field, index, rowField.key, $event)"
+                  @update:model-value="setRowValue(field, Number(index), rowField.key, $event)"
                 />
 
                 <template v-else>
@@ -380,7 +380,7 @@ const submitForm = handleSubmit(async (formValues) => {
                       :model-value="row[rowField.key]"
                       orientation="vertical"
                       class="w-full"
-                      @update:model-value="setRowValue(field, index, rowField.key, $event)"
+                      @update:model-value="setRowValue(field, Number(index), rowField.key, $event)"
                     />
                     <UBadge color="neutral" variant="outline" size="lg" :label="rowField.unit" />
                   </UFieldGroup>
@@ -390,14 +390,14 @@ const submitForm = handleSubmit(async (formValues) => {
                     :model-value="row[rowField.key]"
                     orientation="vertical"
                     class="w-full"
-                    @update:model-value="setRowValue(field, index, rowField.key, $event)"
+                    @update:model-value="setRowValue(field, Number(index), rowField.key, $event)"
                   />
 
                   <UInput
                     v-else
                     :model-value="row[rowField.key]"
                     class="w-full"
-                    @update:model-value="setRowValue(field, index, rowField.key, $event)"
+                    @update:model-value="setRowValue(field, Number(index), rowField.key, $event)"
                   />
                 </template>
               </div>
@@ -407,7 +407,7 @@ const submitForm = handleSubmit(async (formValues) => {
                 color="error"
                 variant="ghost"
                 :aria-label="`Remove ${field.label.toLowerCase()} row`"
-                @click="removeRow(field, index)"
+                @click="removeRow(field, Number(index))"
               />
             </UCard>
 

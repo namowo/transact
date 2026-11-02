@@ -15,10 +15,12 @@ class ItemCreate(ItemBase):
     # Items live in a shared catalog; each study explicitly adds the
     # specific items it uses.
     study_ids: list[UUID] = []
+    scenario_ids: list[UUID] = []
 
 
 class ItemUpdate(ItemBase):
     study_ids: Optional[list[UUID]] = None
+    scenario_ids: Optional[list[UUID]] = None
 
 
 class ItemReadNested(ItemBase):
@@ -36,6 +38,7 @@ class ItemReadNested(ItemBase):
 
 
 class ItemRead(ItemReadNested):
+    scenario_ids: list[UUID] = []
     studies: list["StudyReadNested"] = []
 
 

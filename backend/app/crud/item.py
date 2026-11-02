@@ -7,11 +7,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.crud.base import CRUDBase
 from app.models.item import Item
 from app.models.item_category import ItemCategory
+from app.models.scenario import Scenario
 from app.models.study import Study
 from app.schemas.item import ItemCreate, ItemUpdate
 
 ASSOCIATION_FIELDS = {
     "study_ids": (Study, "studies"),
+    "scenario_ids": (Scenario, "scenarios"),
 }
 
 

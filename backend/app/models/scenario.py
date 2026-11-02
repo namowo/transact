@@ -39,6 +39,7 @@ class Scenario(Base):
         PGUUID(as_uuid=True), primary_key=True, index=True,
         server_default=text("gen_random_uuid()")
     )
+    name: Mapped[str]
     realistic: Mapped[bool]
     scenario_category_id: Mapped[uuid.UUID] = mapped_column(
         PGUUID(as_uuid=True),

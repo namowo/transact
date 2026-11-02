@@ -87,6 +87,7 @@ const stepItems = computed<StepperItem[]>(() => [
 ])
 
 interface ScenarioFormValues {
+  name: string
   realistic: boolean
   scenarioCategoryId: string | null
   persistencies: PersistenceDraft[]
@@ -129,6 +130,7 @@ const persistenceSchema = yup.object({
 })
 
 const schema = yup.object({
+  name: yup.string().trim().required('Please name this scenario.'),
   realistic: yup.boolean().defined(),
   scenarioCategoryId: yup.string().nullable().required('Please select a scenario category.'),
   persistencies: yup.array().of(persistenceSchema),
@@ -159,6 +161,7 @@ const schema = yup.object({
 const { defineField, errors, handleSubmit, setValues, values, resetForm } = useForm<ScenarioFormValues>({
   validationSchema: schema,
   initialValues: {
+    name: '',
     realistic: true,
     scenarioCategoryId: null,
     persistencies: [],
@@ -166,6 +169,7 @@ const { defineField, errors, handleSubmit, setValues, values, resetForm } = useF
   },
 })
 
+const [name] = defineField('name')
 const [realistic] = defineField('realistic')
 const [scenarioCategoryId] = defineField('scenarioCategoryId')
 
@@ -288,6 +292,7 @@ async function loadForm() {
         ? scenario.contact_templates.map(contactTemplateDraftFromContactTemplate)
         : [emptyContactTemplateDraft()]
       setValues({
+        name: scenario.name,
         realistic: !!scenario.realistic,
         scenarioCategoryId: scenario.scenario_category_id ?? null,
         persistencies,
@@ -326,6 +331,7 @@ async function loadForm() {
         )
       : [emptyContactTemplateDraft()]
     setValues({
+      name: `${scenario.name} (copy)`,
       realistic: !!scenario.realistic,
       scenarioCategoryId: scenario.scenario_category_id ?? null,
       persistencies,
@@ -415,6 +421,9 @@ function duplicateContactTemplate(index: number) {
 // templates. Saving is only allowed once each step has real content -
 // otherwise the user is nudged back to whichever step is still empty.
 function firstIncompleteStep(): { step: StepName; message: string } | null {
+  if (!values.name?.trim()) {
+    return { step: 'details', message: 'Please name this scenario before saving.' }
+  }
   if (!values.scenarioCategoryId) {
     return { step: 'details', message: 'Please choose a scenario category before saving.' }
   }
@@ -494,6 +503,7 @@ async function saveScenario(formValues: ScenarioFormValues) {
     }
 
     const payload = {
+      name: formValues.name.trim(),
       realistic: formValues.realistic,
       scenario_category_id: formValues.scenarioCategoryId,
       study_ids: [studyId.value],
@@ -571,6 +581,10 @@ const title = computed(() =>
         >
           <template #1>
             <div class="flex flex-col gap-4">
+              <UFormField label="Name" required :error="errors.name">
+                <UInput v-model="name" placeholder="e.g. Handshake, dry hands" class="w-full" />
+              </UFormField>
+
               <div class="flex flex-col gap-2">
                 <CategorySelect
                   v-model="scenarioCategoryId"

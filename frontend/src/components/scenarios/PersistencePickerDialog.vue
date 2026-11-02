@@ -31,7 +31,7 @@ watch(visible, (isVisible) => {
 })
 
 function scenarioLabel(scenario: Scenario): string {
-  return `${scenario.scenario_category?.name ?? 'Uncategorized'} — Scenario #${scenario.id}`
+  return scenario.name
 }
 
 function openScenarioFolder(scenario: Scenario) {

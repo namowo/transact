@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, watchEffect } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { useForm } from 'vee-validate'
 import * as yup from 'yup'
 import { startRegistration } from '@simplewebauthn/browser'
@@ -146,27 +146,41 @@ async function copyApiKeyToken() {
 
 onMounted(loadApiKeys)
 
+const localeCodes = ['en-US', 'en-GB', 'de-DE', 'de-AT', 'de-CH', 'fr-FR', 'es-ES', 'it-IT', 'nl-NL', 'pt-BR', 'sv-SE', 'da-DK', 'pl-PL']
+const languageNames = new Intl.DisplayNames(['en'], { type: 'language' })
+const localeOptions = localeCodes.map((code) => ({
+  value: code,
+  label: `${languageNames.of(code) ?? code} - ${new Intl.NumberFormat(code).format(1234.5)}`,
+}))
+
 const schema = yup.object({
+  locale: yup.string().required(),
   firstName: yup.string().trim().required('First name is required.'),
   lastName: yup.string().trim().required('Last name is required.'),
 })
 
 const { defineField, errors, handleSubmit, resetForm } = useForm({
   validationSchema: schema,
-  initialValues: { firstName: '', lastName: '' },
+  initialValues: { firstName: '', lastName: '', locale: 'en-US' },
 })
 
 const [firstName] = defineField('firstName')
 const [lastName] = defineField('lastName')
+const [locale] = defineField('locale')
 
-watchEffect(() => {
-  resetForm({
-    values: {
-      firstName: auth.user?.first_name ?? '',
-      lastName: auth.user?.last_name ?? '',
-    },
-  })
-})
+watch(
+  () => auth.user,
+  (user) => {
+    resetForm({
+      values: {
+        firstName: user?.first_name ?? '',
+        lastName: user?.last_name ?? '',
+        locale: user?.locale ?? 'en-US',
+      },
+    })
+  },
+  { immediate: true },
+)
 
 const onSubmit = handleSubmit(async (values) => {
   loading.value = true
@@ -176,6 +190,7 @@ const onSubmit = handleSubmit(async (values) => {
     await auth.updateProfile({
       first_name: values.firstName.trim(),
       last_name: values.lastName.trim(),
+      locale: values.locale,
     })
     successMessage.value = 'Profile updated.'
   } catch (err) {
@@ -317,6 +332,15 @@ const onPasswordSubmit = handlePasswordSubmit(async (values) => {
                 :description="errors.lastName"
               />
             </div>
+          </div>
+
+          <div class="flex flex-col gap-2">
+            <label for="locale" class="font-medium text-sm">Number format</label>
+            <USelect id="locale" v-model="locale" :items="localeOptions" class="w-full" />
+            <p class="text-sm text-surface-500 dark:text-surface-400">
+              Decides how you type and read numbers, for example whether the decimal separator is a point or a
+              comma. It is also the default for CSV downloads and uploads.
+            </p>
           </div>
 
           <div class="flex flex-col gap-2">

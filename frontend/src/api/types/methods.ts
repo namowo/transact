@@ -79,6 +79,7 @@ export interface CEMethod {
   id: string
   laboratory_id?: string | null
   laboratory?: Laboratory | null
+  pcr_method_id?: string | null
   ce_device_id?: string | null
   ce_device?: NamedCategory | null
   application_type?: string | null

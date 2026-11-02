@@ -28,6 +28,7 @@ function initFilters() {
   return {
     global: { value: null, matchMode: FilterMatchMode.CONTAINS },
     'scenario_category.name': { value: null, matchMode: FilterMatchMode.CONTAINS },
+    name: { value: null, matchMode: FilterMatchMode.CONTAINS },
     realistic: { value: null, matchMode: FilterMatchMode.EQUALS },
   }
 }
@@ -69,7 +70,7 @@ function confirmDelete(scenario: Scenario) {
 }
 
 function scenarioLabel(scenario: Scenario): string {
-  return `${scenario.scenario_category?.name ?? 'Uncategorized'} — Scenario #${scenario.id}`
+  return scenario.name
 }
 
 // Bibliography-style citation (Author, A., Author, B. (Year). Title. Journal.)
@@ -375,7 +376,7 @@ defineExpose({ load })
         data-key="id"
         filterDisplay="menu"
         removableSort
-        :globalFilterFields="['scenario_category.name']"
+        :globalFilterFields="['name', 'scenario_category.name']"
         :row-class="() => 'cursor-pointer hover:bg-elevated'"
         @row-click="onRowClick"
         @row-contextmenu="onRowContextMenu"
@@ -383,6 +384,10 @@ defineExpose({ load })
         <template #empty>
           <div class="text-center text-surface-500 dark:text-surface-400 py-8">No scenarios yet.</div>
         </template>
+
+        <Column field="name" header="Name" sortable>
+          <template #body="{ data }">{{ data.name }}</template>
+        </Column>
 
         <Column
           field="scenario_category.name"
@@ -447,7 +452,7 @@ defineExpose({ load })
               <UBadge
                 v-for="(contactTemplate, index) in data.contact_templates"
                 :key="contactTemplate.id"
-                :label="contactTemplate.name || `Contact template #${index + 1}`"
+                :label="contactTemplate.name || `Contact template #${Number(index) + 1}`"
                 color="neutral"
                 variant="subtle"
               />
@@ -527,7 +532,7 @@ defineExpose({ load })
           <div v-else class="flex gap-4 h-full">
             <DataTable
               :value="browsedStudyScenarios"
-              :globalFilterFields="['scenario_category.name']"
+              :globalFilterFields="['name', 'scenario_category.name']"
               :filters="{ global: { value: browseFilter, matchMode: 'contains' } }"
               dataKey="id"
               scrollable

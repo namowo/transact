@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useForm } from 'vee-validate'
 import * as yup from 'yup'
 import DataTable from 'openvue/datatable'
@@ -10,10 +10,18 @@ import DataTableSkeleton from '@/components/data/DataTableSkeleton.vue'
 import ItemCategoryFields from '@/components/scenarios/ItemCategoryFields.vue'
 import { useConfirm } from '@/composables/useConfirm'
 import { createItem, deleteItem, listItems, updateItem } from '@/api/items'
-import type { ContactTemplate, Item } from '@/api/types'
+import ScenarioBadges from '@/components/data/ScenarioBadges.vue'
+import ScenarioMultiSelect from '@/components/data/ScenarioMultiSelect.vue'
+import type { ContactTemplate, Item, Scenario } from '@/api/types'
 import type { MenuItem } from 'openvue/menuitem'
 
-const props = defineProps<{ studyId: string; contactTemplates?: ContactTemplate[] }>()
+const props = defineProps<{
+  studyId: string
+  contactTemplates?: ContactTemplate[]
+  scenarios: Scenario[]
+  scenarioId: string | null
+}>()
+const emit = defineEmits<{ 'update:count': [count: number] }>()
 
 const confirm = useConfirm()
 
@@ -21,8 +29,14 @@ const confirm = useConfirm()
 // explicitly added to itself, not every item in the whole catalog.
 const allItems = ref<Item[]>([])
 const items = computed(() =>
-  allItems.value.filter((item) => item.studies?.some((study) => study.id === props.studyId)),
+  allItems.value.filter(
+    (item) =>
+      item.studies?.some((study) => study.id === props.studyId) &&
+      (props.scenarioId === null || !item.scenario_ids?.length || item.scenario_ids.includes(props.scenarioId)),
+  ),
 )
+watch(() => items.value.length, (count) => emit('update:count', count), { immediate: true })
+
 const loading = ref(false)
 const loadError = ref('')
 
@@ -50,6 +64,7 @@ function initItemFilters() {
     'item_category.name': { value: null, matchMode: FilterMatchMode.CONTAINS },
     'item_subcategory.name': { value: null, matchMode: FilterMatchMode.CONTAINS },
     description: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    scenarioNames: { value: null, matchMode: FilterMatchMode.CONTAINS },
   }
 }
 
@@ -102,8 +117,11 @@ const editingItemId = ref<string | null>(null)
 const savingItem = ref(false)
 const itemSaveError = ref('')
 
+const itemScenarioIds = ref<string[]>([])
+
 function openCreateItemDialog() {
   editingItemId.value = null
+  itemScenarioIds.value = props.scenarioId ? [props.scenarioId] : []
   resetItemForm({ values: emptyItemForm(null) })
   itemSaveError.value = ''
   itemDialogVisible.value = true
@@ -111,6 +129,7 @@ function openCreateItemDialog() {
 
 function openEditItemDialog(item: Item) {
   editingItemId.value = item.id
+  itemScenarioIds.value = [...(item.scenario_ids ?? [])]
   resetItemForm({ values: emptyItemForm(item) })
   itemSaveError.value = ''
   itemDialogVisible.value = true
@@ -124,6 +143,7 @@ const saveItemForm = handleItemSubmit(async (values) => {
       item_category_id: values.itemCategoryId,
       item_subcategory_id: values.itemSubcategoryId,
       description: values.description?.trim() ?? null,
+      scenario_ids: itemScenarioIds.value,
     }
     if (editingItemId.value === null) {
       const created = await Promise.all(
@@ -220,14 +240,37 @@ function onRowClick(event: { data: Item }) {
   openEditItemDialog(event.data)
 }
 
+function itemScenarioNames(item: Item): string[] {
+  // Items without scenario links are usable in every scenario.
+  if (!item.scenario_ids?.length) return ['All scenarios']
+  return props.scenarios.filter((s) => item.scenario_ids?.includes(s.id)).map((s) => s.name)
+}
+
+const itemRows = computed(() =>
+  items.value.map((item) => ({ ...item, scenarioNames: itemScenarioNames(item).join(', ') })),
+)
+
 // -- Add existing item (from the shared catalog) --
 
 const pickerVisible = ref(false)
 const addingExistingItem = ref(false)
 
-const catalogItemsNotInStudy = computed(() =>
-  allItems.value.filter((item) => !item.studies?.some((study) => study.id === props.studyId)),
-)
+// Items not yet part of the current view: not in the study at all, or in
+// the study but not used in the selected scenario.
+const catalogItemsNotInStudy = computed(() => {
+  const visible = new Set(items.value.map((item) => item.id))
+  return allItems.value.filter((item) => !visible.has(item.id))
+})
+
+// Study + scenario links an existing item needs to appear in the current view.
+function linksForCurrentView(item: Item) {
+  const studyIds = new Set((item.studies ?? []).map((study) => study.id))
+  studyIds.add(props.studyId)
+  const scenarioIds = new Set(item.scenario_ids ?? [])
+  // An item with no scenario links already serves every scenario.
+  if (props.scenarioId && scenarioIds.size) scenarioIds.add(props.scenarioId)
+  return { study_ids: [...studyIds], scenario_ids: [...scenarioIds] }
+}
 
 function describeCatalogItem(item: Item): string {
   return (
@@ -247,8 +290,7 @@ const pickerFilters = ref(initPickerFilters())
 async function addExistingItem(item: Item) {
   addingExistingItem.value = true
   try {
-    const studyIds = [...(item.studies ?? []).map((study) => study.id), props.studyId]
-    const updated = await updateItem(item.id, { study_ids: studyIds })
+    const updated = await updateItem(item.id, linksForCurrentView(item))
     replaceItem(updated)
     pickerVisible.value = false
   } finally {
@@ -291,9 +333,8 @@ function templateItemIds(templates: ContactTemplate[]): Set<string> {
 
 const itemsFromTemplatesNotInStudy = computed(() => {
   const ids = templateItemIds(props.contactTemplates ?? [])
-  return allItems.value.filter(
-    (item) => ids.has(item.id) && !item.studies?.some((study) => study.id === props.studyId),
-  )
+  const visible = new Set(items.value.map((item) => item.id))
+  return allItems.value.filter((item) => ids.has(item.id) && !visible.has(item.id))
 })
 
 const loadingTemplateItems = ref(false)
@@ -302,8 +343,7 @@ async function loadItemsFromTemplates() {
   loadingTemplateItems.value = true
   try {
     for (const item of itemsFromTemplatesNotInStudy.value) {
-      const studyIds = [...(item.studies ?? []).map((study) => study.id), props.studyId]
-      const updated = await updateItem(item.id, { study_ids: studyIds })
+      const updated = await updateItem(item.id, linksForCurrentView(item))
       replaceItem(updated)
     }
   } finally {
@@ -325,6 +365,7 @@ async function loadItemsFromTemplates() {
           icon="i-lucide-download"
           variant="outline"
           :loading="loadingTemplateItems"
+         
           @click="loadItemsFromTemplates"
         />
         <UButton label="Add item" icon="i-lucide-search" variant="outline" @click="openPicker" />
@@ -343,6 +384,7 @@ async function loadItemsFromTemplates() {
           icon="i-lucide-download"
           variant="outline"
           :loading="loadingTemplateItems"
+         
           @click="loadItemsFromTemplates"
         />
         <UButton label="Add item" icon="i-lucide-search" variant="outline" @click="openPicker" />
@@ -373,12 +415,12 @@ async function loadItemsFromTemplates() {
       <DataTable
         v-model:filters="itemFilters"
         v-model:context-menu-selection="selectedItem"
-        :value="items"
+        :value="itemRows"
         :loading="deletingItem"
         data-key="id"
         filterDisplay="menu"
         context-menu
-        :globalFilterFields="['item_category.name', 'item_subcategory.name', 'description']"
+        :globalFilterFields="['item_category.name', 'item_subcategory.name', 'description', 'scenarioNames']"
         :row-class="() => 'cursor-pointer hover:bg-elevated'"
         @row-contextmenu="onRowContextMenu"
         @row-click="onRowClick"
@@ -421,6 +463,18 @@ async function loadItemsFromTemplates() {
             <UInput v-model="filterModel.value" type="text" placeholder="Search by description" />
           </template>
         </Column>
+        <Column
+          field="scenarioNames"
+          header="Scenario"
+          sortable
+          :showFilterOperator="false"
+          :showAddButton="false"
+        >
+          <template #body="{ data }"><ScenarioBadges :names="itemScenarioNames(data)" /></template>
+          <template #filter="{ filterModel }">
+            <UInput v-model="filterModel.value" type="text" placeholder="Search by scenario" />
+          </template>
+        </Column>
         <Column header="" style="width: 4rem">
           <template #body="{ data }">
             <UButton
@@ -443,6 +497,7 @@ async function loadItemsFromTemplates() {
     >
       <template #body>
         <div class="flex flex-col gap-4">
+          <ScenarioMultiSelect v-model="itemScenarioIds" :scenarios="scenarios" />
           <ItemCategoryFields
             v-model:category-id="itemCategoryId"
             v-model:subcategory-id="itemSubcategoryId"

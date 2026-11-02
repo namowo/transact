@@ -16,6 +16,15 @@ study_item = Table(
     Column("item_id", ForeignKey("item.id", ondelete="CASCADE"), primary_key=True),
 )
 
+item_scenario = Table(
+    "item_scenario",
+    Base.metadata,
+    Column("item_id", ForeignKey("item.id", ondelete="CASCADE"), primary_key=True),
+    Column(
+        "scenario_id", ForeignKey("scenario.id", ondelete="CASCADE"), primary_key=True
+    ),
+)
+
 
 class Item(Base):
     __tablename__ = "item"
@@ -48,7 +57,17 @@ class Item(Base):
         back_populates="items",
     )
 
+    # Items may be used across several scenarios.
+    scenarios: Mapped[list["Scenario"]] = relationship(
+        lazy="selectin", secondary=item_scenario
+    )
 
+    @property
+    def scenario_ids(self) -> list[uuid.UUID]:
+        return [scenario.id for scenario in self.scenarios]
+
+
+from app.models.scenario import Scenario
 from app.models.item_category import ItemCategory
 from app.models.item_subcategory import ItemSubcategory
 from app.models.study import Study

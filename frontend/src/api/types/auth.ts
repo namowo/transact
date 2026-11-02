@@ -11,6 +11,7 @@ export interface User {
   can_quality_check: boolean
   can_manage_lab_users: boolean
   passkey_prompt_dismissed: boolean
+  locale: string
   laboratory_id: string | null
   laboratory?: Laboratory | null
   created_at: string

@@ -58,7 +58,7 @@ watch(
 
 function onPartChange() {
   syncing = true
-  const total = activeUnits.value.reduce(
+  const total = (activeUnits.value as readonly { key: AllUnits[number]['key']; factor: number }[]).reduce(
     (sum, { key, factor }) => sum + (parts.value[key] ?? 0) * factor,
     0,
   )

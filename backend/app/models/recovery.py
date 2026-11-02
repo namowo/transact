@@ -32,6 +32,13 @@ class Recovery(Base):
     recovery_set: Mapped[Optional["RecoverySet"]] = relationship(
         lazy="selectin", back_populates="recoveries", foreign_keys=[recovery_set_id]
     )
+    # The actual contact this sample was taken after. A batch of contacts can
+    # share one item surface, so the surface alone doesn't identify which
+    # contact a recovery belongs to.
+    contact_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("contact.id", ondelete="SET NULL")
+    )
     surface_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         PGUUID(as_uuid=True),
         ForeignKey("surface.id", ondelete="SET NULL")

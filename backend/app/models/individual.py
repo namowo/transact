@@ -1,13 +1,26 @@
 import uuid
 from typing import Optional
 
-from sqlalchemy import ForeignKey
+from sqlalchemy import Column, ForeignKey, Table
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from sqlalchemy.sql import text
 
 from app.core.db import Base
+
+individual_scenario = Table(
+    "individual_scenario",
+    Base.metadata,
+    Column(
+        "individual_id",
+        ForeignKey("individual.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column(
+        "scenario_id", ForeignKey("scenario.id", ondelete="CASCADE"), primary_key=True
+    ),
+)
 
 
 class Individual(Base):
@@ -58,7 +71,17 @@ class Individual(Base):
         lazy="selectin", foreign_keys=[determination_of_shedding_propensity_category_id]
     )
 
+    # Individuals may be used across several of the study's scenarios.
+    scenarios: Mapped[list["Scenario"]] = relationship(
+        lazy="selectin", secondary=individual_scenario
+    )
 
+    @property
+    def scenario_ids(self) -> list[uuid.UUID]:
+        return [scenario.id for scenario in self.scenarios]
+
+
+from app.models.scenario import Scenario
 from app.models.skin_disease_category import SkinDiseaseCategory
 from app.models.determination_of_shedding_propensity_category import DeterminationOfSheddingPropensityCategory
 from app.models.sex import Sex

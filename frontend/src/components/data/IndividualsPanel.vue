@@ -19,10 +19,13 @@ import {
   updateIndividual,
 } from '@/api/individuals'
 import { listContacts } from '@/api/contacts'
-import type { Individual } from '@/api/types'
+import ScenarioBadges from '@/components/data/ScenarioBadges.vue'
+import ScenarioMultiSelect from '@/components/data/ScenarioMultiSelect.vue'
+import type { Individual, Scenario } from '@/api/types'
 import type { MenuItem } from 'openvue/menuitem'
 
-const props = defineProps<{ studyId: string }>()
+const props = defineProps<{ studyId: string; scenarios: Scenario[]; scenarioId: string | null }>()
+const emit = defineEmits<{ 'update:count': [count: number] }>()
 
 const confirm = useConfirm()
 
@@ -67,6 +70,16 @@ async function load() {
 
 onMounted(load)
 
+// With a scenario selected, only individuals used in that scenario show.
+const visibleIndividuals = computed(() =>
+  props.scenarioId === null
+    ? individuals.value
+    : individuals.value.filter((individual) => !individual.scenario_ids?.length || individual.scenario_ids.includes(props.scenarioId!),
+    ),
+)
+
+watch(() => visibleIndividuals.value.length, (count) => emit('update:count', count), { immediate: true })
+
 interface IndividualGroup {
   key: string
   sexId: string | null
@@ -75,6 +88,7 @@ interface IndividualGroup {
   skinDiseaseCategoryId: string | null
   determinationCategoryId: string | null
   members: Individual[]
+  scenarioNames: string
 }
 
 function groupKey(individual: Individual): string {
@@ -91,7 +105,7 @@ function groupKey(individual: Individual): string {
 
 const individualGroups = computed<IndividualGroup[]>(() => {
   const groups = new Map<string, IndividualGroup>()
-  for (const individual of individuals.value) {
+  for (const individual of visibleIndividuals.value) {
     const key = groupKey(individual)
     const existing = groups.get(key)
     if (existing) {
@@ -105,11 +119,25 @@ const individualGroups = computed<IndividualGroup[]>(() => {
         skinDiseaseCategoryId: individual.skin_disease_category_id ?? null,
         determinationCategoryId: individual.determination_of_shedding_propensity_category_id ?? null,
         members: [individual],
+        scenarioNames: '',
       })
     }
   }
-  return [...groups.values()]
+  return [...groups.values()].map((group) => ({
+    ...group,
+    scenarioNames: groupScenarioNames(group).join(', '),
+  }))
 })
+
+function scenarioNames(ids: string[]): string[] {
+  return props.scenarios.filter((s) => ids.includes(s.id)).map((s) => s.name)
+}
+
+function groupScenarioNames(group: IndividualGroup): string[] {
+  // Individuals without scenario links are usable in every scenario.
+  const names = scenarioNames([...new Set(group.members.flatMap((member) => member.scenario_ids ?? []))])
+  return group.members.some((member) => !member.scenario_ids?.length) ? ['All scenarios', ...names] : names
+}
 
 function usedMembers(group: IndividualGroup): Individual[] {
   return group.members.filter((member) => usedIndividualIds.value.has(member.id))
@@ -126,6 +154,7 @@ function initIndividualFilters() {
     global: { value: null, matchMode: FilterMatchMode.CONTAINS },
     'sex.name': { value: null, matchMode: FilterMatchMode.CONTAINS },
     age: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    scenarioNames: { value: null, matchMode: FilterMatchMode.CONTAINS },
     'skin_disease_category.name': { value: null, matchMode: FilterMatchMode.CONTAINS },
   }
 }
@@ -195,8 +224,11 @@ const savingIndividual = ref(false)
 const individualSaveError = ref('')
 const savingIndividualProgress = ref({ done: 0, total: 0 })
 
+const editScenarioIds = ref<string[]>([])
+
 function openEditGroupDialog(group: IndividualGroup) {
   editingGroup.value = group
+  editScenarioIds.value = [...new Set(group.members.flatMap((member) => member.scenario_ids ?? []))]
   resetIndividualForm({ values: emptyIndividualForm(group) })
   individualSaveError.value = ''
   individualDialogVisible.value = true
@@ -244,6 +276,7 @@ async function applyIndividualFormSave(values: IndividualFormState) {
     dna_shedding_propensity_category_id: values.dnaSheddingPropensityCategoryId,
     skin_disease_category_id: values.skinDiseaseCategoryId,
     determination_of_shedding_propensity_category_id: values.determinationCategoryId,
+    scenario_ids: editScenarioIds.value,
   }
   try {
     const members = editingGroup.value.members
@@ -351,7 +384,10 @@ const savingBatch = ref(false)
 const batchSaveError = ref('')
 const batchProgress = ref({ done: 0, total: 0 })
 
+const batchScenarioIds = ref<string[]>([])
+
 function openBatchDialog() {
+  batchScenarioIds.value = props.scenarioId ? [props.scenarioId] : []
   resetBatchForm({ values: emptyBatchForm() })
   batchSaveError.value = ''
   batchDialogVisible.value = true
@@ -368,6 +404,7 @@ const saveBatchForm = handleBatchSubmit(async (values) => {
     dna_shedding_propensity_category_id: values.dnaSheddingPropensityCategoryId,
     skin_disease_category_id: values.skinDiseaseCategoryId,
     determination_of_shedding_propensity_category_id: values.determinationCategoryId,
+    scenario_ids: batchScenarioIds.value,
   }
   try {
     const created: Individual[] = []
@@ -456,8 +493,8 @@ function openRowContextMenu(event: Event, group: IndividualGroup) {
 // -- Expansion + inline editing of individual members --
 
 const expandedGroupRows = ref<Record<string, boolean>>({})
-const sexOptions = ref<{ id: string; name: string }[]>([])
-const skinDiseaseOptions = ref<{ id: string; name: string }[]>([])
+const sexOptions = ref<{ id: string; name?: string | null }[]>([])
+const skinDiseaseOptions = ref<{ id: string; name?: string | null }[]>([])
 
 async function loadInlineEditOptions() {
   const [sexes, skinDiseases] = await Promise.all([
@@ -578,7 +615,7 @@ async function saveMemberField(member: Individual, patch: Partial<Individual>) {
         data-key="key"
         filterDisplay="menu"
         context-menu
-        :globalFilterFields="['sex.name', 'age', 'skin_disease_category.name']"
+        :globalFilterFields="['sex.name', 'age', 'skin_disease_category.name', 'scenarioNames']"
         :row-class="() => 'hover:bg-elevated'"
         @row-contextmenu="onRowContextMenu"
       >
@@ -637,6 +674,18 @@ async function saveMemberField(member: Individual, patch: Partial<Individual>) {
           </template>
           <template #filter="{ filterModel }">
             <UInput v-model="filterModel.value" type="text" placeholder="Search by skin disease" />
+          </template>
+        </Column>
+        <Column
+          field="scenarioNames"
+          header="Scenario"
+          sortable
+          :showFilterOperator="false"
+          :showAddButton="false"
+        >
+          <template #body="{ data }"><ScenarioBadges :names="groupScenarioNames(data)" /></template>
+          <template #filter="{ filterModel }">
+            <UInput v-model="filterModel.value" type="text" placeholder="Search by scenario" />
           </template>
         </Column>
         <Column header="" style="width: 6rem">
@@ -746,7 +795,7 @@ async function saveMemberField(member: Individual, patch: Partial<Individual>) {
                     variant="ghost"
                     square
                     aria-label="Delete individual"
-                    @click.stop="confirmDeleteGroup({ key: member.id, sexId: member.sex_id ?? null, age: member.age ?? null, dnaSheddingPropensityCategoryId: member.dna_shedding_propensity_category_id ?? null, skinDiseaseCategoryId: member.skin_disease_category_id ?? null, determinationCategoryId: member.determination_of_shedding_propensity_category_id ?? null, members: [member] })"
+                    @click.stop="confirmDeleteGroup({ key: member.id, sexId: member.sex_id ?? null, age: member.age ?? null, dnaSheddingPropensityCategoryId: member.dna_shedding_propensity_category_id ?? null, skinDiseaseCategoryId: member.skin_disease_category_id ?? null, determinationCategoryId: member.determination_of_shedding_propensity_category_id ?? null, members: [member], scenarioNames: '' })"
                   />
                 </template>
               </Column>
@@ -767,6 +816,7 @@ async function saveMemberField(member: Individual, patch: Partial<Individual>) {
             These individuals currently share the same details. Changes here apply to all
             {{ editingGroup.members.length }} of them.
           </p>
+          <ScenarioMultiSelect v-model="editScenarioIds" :scenarios="scenarios" />
           <UFormField label="Count" :error="individualErrors.count">
             <UInputNumber v-model="individualCount" :min="1" :max="500" class="w-full" />
           </UFormField>
@@ -830,6 +880,7 @@ async function saveMemberField(member: Individual, patch: Partial<Individual>) {
             sharing the same details below. They'll show up as a single grouped row until you
             change one of them.
           </p>
+          <ScenarioMultiSelect v-model="batchScenarioIds" :scenarios="scenarios" />
           <UFormField label="Number of individuals" :error="batchErrors.count">
             <UInputNumber v-model="batchCount" :min="1" :max="500" class="w-full" />
           </UFormField>

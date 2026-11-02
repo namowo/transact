@@ -19,6 +19,7 @@ export interface Recovery {
   study_id?: string | null
   recovery_set_id?: string | null
   recovery_set?: RecoverySet | null
+  contact_id?: string | null
   surface_id?: string | null
   surface?: Surface | null
   sampling_method_id?: string | null
@@ -35,6 +36,7 @@ export interface RecoveryInput {
   name: string | null
   study_id: string | null
   recovery_set_id: string | null
+  contact_id?: string | null
   surface_id: string | null
   sampling_method_id: string | null
   extraction_method_id: string | null

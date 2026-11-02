@@ -15,14 +15,17 @@ class IndividualBase(BaseModel):
 
 
 class IndividualCreate(IndividualBase):
-    pass
+    scenario_ids: list[UUID] = []
 
 
 class IndividualUpdate(IndividualBase):
-    pass
+    scenario_ids: Optional[list[UUID]] = None
 
 
-class IndividualRead(IndividualBase):
+class IndividualReadNested(IndividualBase):
+    """Individual as embedded in Surface/PCRContributor reads - omits
+    `scenario_ids`, whose relationship is too deep to lazy-load there."""
+
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
@@ -30,6 +33,10 @@ class IndividualRead(IndividualBase):
     dna_shedding_propensity_category: Optional["DNASheddingPropensityCategoryRead"] = None
     skin_disease_category: Optional["SkinDiseaseCategoryRead"] = None
     determination_of_shedding_propensity_category: Optional["DeterminationOfSheddingPropensityCategoryRead"] = None
+
+
+class IndividualRead(IndividualReadNested):
+    scenario_ids: list[UUID] = []
 
 
 from app.schemas.skin_disease_category import SkinDiseaseCategoryRead

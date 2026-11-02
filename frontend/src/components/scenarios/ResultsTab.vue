@@ -12,6 +12,11 @@ import EntitySelect from '@/components/scenarios/EntitySelect.vue'
 import NamedCategoryRadioGroup from '@/components/scenarios/NamedCategoryRadioGroup.vue'
 import RecoveryPicker from '@/components/scenarios/RecoveryPicker.vue'
 import { surfaceLabel } from '@/components/data/recoveryLabel'
+import ScenarioBadges from '@/components/data/ScenarioBadges.vue'
+import { useAuthStore } from '@/stores/auth'
+import CsvRoundTrip from '@/components/data/CsvRoundTrip.vue'
+import { parseNumber, type DecimalSeparator } from '@/components/data/csv'
+import { useToast } from '@nuxt/ui/composables'
 import { useIndividualOptions } from '@/components/scenarios/individualOptions'
 import {
   resultApi,
@@ -24,6 +29,7 @@ import {
 } from '@/api/methods'
 import { degradationCategoryApi } from '@/api/categories'
 import type {
+  Contact,
   Recovery,
   Result,
   ResultInput,
@@ -38,7 +44,17 @@ import type {
   EPGInterpretationMethod,
 } from '@/api/types'
 
-const props = defineProps<{ recoveries: Recovery[]; studyId: string }>()
+const props = defineProps<{
+  recoveries: Recovery[]
+  studyId: string
+  surfaceScenarios: Record<string, string[]>
+  contacts?: Contact[]
+  exportName?: string
+}>()
+
+const auth = useAuthStore()
+const FIXED4 = { minimumFractionDigits: 4, maximumFractionDigits: 4 }
+const toast = useToast()
 
 const { individualOptions } = useIndividualOptions(props.studyId)
 
@@ -58,6 +74,26 @@ const contributorOptions = computed(() => [
   })),
   ...unknownPersonOptions,
 ])
+
+// Only individuals that took part in the recovery's contact can have left the
+// DNA (its donor and recipient); unknown persons stay selectable. Individuals
+// already chosen on a row stay listed so existing data never disappears.
+function possibleIndividualIds(recoveryId: string | null | undefined): Set<string> | null {
+  const recovery = props.recoveries.find((candidate) => candidate.id === recoveryId)
+  if (!recovery) return null
+  const contact = props.contacts?.find((candidate) => candidate.id === recovery.contact_id)
+  const ids = contact
+    ? [contact.donor_surface?.individual_id, contact.recipient_surface?.individual_id]
+    : [recovery.surface?.individual_id]
+  return new Set(ids.filter((id): id is string => !!id))
+}
+
+function contributorOptionsFor(recoveryId: string | null | undefined, selected: PCRContributorInput[]) {
+  const possible = possibleIndividualIds(recoveryId)
+  if (possible === null) return contributorOptions.value
+  const keep = new Set([...possible, ...selected.map((c) => c.individual_id).filter((id): id is string => !!id)])
+  return contributorOptions.value.filter((option) => option.unknownLabel !== null || keep.has(option.id))
+}
 
 function contributorKey(contributor: PCRContributorInput): string | null {
   if (contributor.individual_id) return contributor.individual_id
@@ -95,6 +131,311 @@ const loadError = ref('')
 const results = computed(() =>
   allResults.value.filter((result) => result.recovery_id != null && recoveryIds.value.has(result.recovery_id)),
 )
+
+const resultRows = computed(() =>
+  results.value.map((result) => ({
+    ...result,
+    scenarioNames: (props.surfaceScenarios[result.recovery?.surface_id ?? ''] ?? []).join(', '),
+  })),
+)
+
+// -- Quick entry: one result per recovery, then fill in the numbers --
+
+const recoveriesWithoutResult = computed(() => {
+  const withResult = new Set(allResults.value.map((result) => result.recovery_id))
+  return props.recoveries.filter((recovery) => !withResult.has(recovery.id))
+})
+
+const addingAll = ref(false)
+const editMode = ref(false)
+
+async function addResultsForAllRecoveries() {
+  const missing = recoveriesWithoutResult.value
+  if (!missing.length) return
+  addingAll.value = true
+  try {
+    const created = await Promise.all(
+      missing.map((recovery) =>
+        resultApi.create({
+          recovery_id: recovery.id,
+          quantification_method_id: null,
+          dna_concentration: null,
+          degradation_category_id: null,
+          inhibition_category_id: null,
+        }),
+      ),
+    )
+    allResults.value = [...allResults.value, ...created]
+    editMode.value = true
+    toast.add({
+      color: 'success',
+      title: `Added ${created.length} result${created.length === 1 ? '' : 's'}`,
+      description: 'Enter the DNA concentrations in the table, or use the CSV download and upload.',
+    })
+  } catch {
+    loadError.value = 'Could not add the results. Please try again.'
+  } finally {
+    addingAll.value = false
+  }
+}
+
+const numberOrNull = (value: number | null | undefined) =>
+  value == null || Number.isNaN(value) ? null : value
+
+function resultInputFrom(result: Result, dnaConcentration: number | null): ResultInput {
+  return {
+    recovery_id: result.recovery_id ?? null,
+    quantification_method_id: result.quantification_method_id ?? null,
+    dna_concentration: dnaConcentration,
+    degradation_category_id: result.degradation_category_id ?? null,
+    inhibition_category_id: result.inhibition_category_id ?? null,
+  }
+}
+
+// Edit mode: each DNA concentration is saved as soon as it is committed.
+async function saveConcentration(result: Result, value: number | null | undefined) {
+  const next = numberOrNull(value)
+  if (next === (result.dna_concentration ?? null)) return
+  try {
+    const updated = await resultApi.update(result.id, resultInputFrom(result, next))
+    allResults.value = allResults.value.map((item) => (item.id === updated.id ? updated : item))
+  } catch {
+    loadError.value = 'Could not save this change. Please try again.'
+  }
+}
+
+// -- CSV round trip --
+// One row per genotyping result (or one empty row for a result without any).
+// The two id columns identify rows and stay untouched; info_* columns give
+// context; the numeric columns are editable. To add a genotyping result to a
+// result, copy one of its rows, clear genotyping_id_do_not_edit and enter the
+// values. New results inherit the methods of the result's latest genotyping run.
+
+const CSV_ID = 'id_do_not_edit'
+const CSV_PCR_ID = 'genotyping_id_do_not_edit'
+const CSV_CONCENTRATION = 'dna_concentration_ng_ul'
+const CSV_PCR_COLUMNS = {
+  sample_input_volume_in_pcr: 'sample_input_volume_in_pcr_ul',
+  dna_input_amount_in_pcr: 'dna_input_amount_in_pcr_pg',
+  no_of_contributors: 'no_of_contributors',
+  total_rfu: 'total_rfu',
+  total_no_of_alleles: 'total_no_of_alleles',
+} as const
+type PcrNumericField = keyof typeof CSV_PCR_COLUMNS
+const PCR_INTEGER_FIELDS: PcrNumericField[] = ['no_of_contributors', 'total_no_of_alleles']
+const PCR_FIELDS = Object.keys(CSV_PCR_COLUMNS) as PcrNumericField[]
+
+const CSV_EDITABLE_COLUMNS = [CSV_CONCENTRATION, ...Object.values(CSV_PCR_COLUMNS)]
+const CSV_INFO_COLUMNS = [
+  'info_scenario',
+  'info_recovery_name',
+  'info_surface',
+  'info_elution_volume_ul',
+  'info_dna_quantity_ng',
+  'info_pcr_method',
+]
+const CSV_NOTES = [
+  'To add a genotyping result, copy a row of the same result, clear the cell in genotyping_id_do_not_edit and enter the values. Its methods are taken from the latest genotyping result of that result; set them in the table afterwards if needed.',
+  'Genotyping results can not be deleted through the file; rows you remove are simply left unchanged.',
+]
+
+function scenarioNamesOf(result: Result): string {
+  return (props.surfaceScenarios[result.recovery?.surface_id ?? ''] ?? []).join('; ')
+}
+
+function buildCsvRows() {
+  const header = [
+    CSV_ID,
+    CSV_PCR_ID,
+    'info_scenario',
+    'info_recovery_name',
+    'info_surface',
+    'info_elution_volume_ul',
+    CSV_CONCENTRATION,
+    'info_dna_quantity_ng',
+    'info_pcr_method',
+    ...Object.values(CSV_PCR_COLUMNS),
+  ]
+  const rows = results.value.flatMap((result) => {
+    const base = [
+      result.id,
+      null as string | null,
+      scenarioNamesOf(result),
+      result.recovery?.name,
+      surfaceLabel(result.recovery?.surface),
+      result.recovery?.elution_volume,
+    ]
+    const pcrs: (PCR | null)[] = result.pcrs.length ? result.pcrs : [null]
+    return pcrs.map((pcr) => [
+      base[0],
+      pcr?.id ?? null,
+      ...base.slice(2),
+      result.dna_concentration,
+      result.dna_quantity,
+      pcr?.pcr_method ? methodLabel(pcr.pcr_method) : null,
+      ...PCR_FIELDS.map((field) => pcr?.[field] ?? null),
+    ])
+  })
+  return [header, ...rows]
+}
+
+interface CsvFailure {
+  ok: false
+  title: string
+  description: string
+}
+
+async function applyCsvImport(table: string[][], decimal: DecimalSeparator) {
+  const header = (table[0] ?? []).map((cell) => cell.trim().toLowerCase())
+  const idCol = header.includes(CSV_ID) ? header.indexOf(CSV_ID) : header.indexOf('id')
+  const pcrIdCol = header.indexOf(CSV_PCR_ID)
+  const concentrationCol = header.indexOf(CSV_CONCENTRATION)
+  const pcrCols = Object.fromEntries(PCR_FIELDS.map((field) => [field, header.indexOf(CSV_PCR_COLUMNS[field])])) as Record<
+    PcrNumericField,
+    number
+  >
+  const hasPcrCols = PCR_FIELDS.some((field) => pcrCols[field] !== -1)
+  if (idCol === -1 || (concentrationCol === -1 && !hasPcrCols)) {
+    return {
+      ok: false,
+      title: 'Unrecognized CSV',
+      description: `Use a file downloaded from this table: it needs the column ${CSV_ID} and at least one of ${CSV_EDITABLE_COLUMNS.join(', ')}.`,
+    } satisfies CsvFailure
+  }
+
+  const byId = new Map(results.value.map((result) => [result.id, result]))
+  const problems: string[] = []
+
+  // Per result: the new concentration and the full list of genotyping results to save.
+  interface Plan {
+    result: Result
+    concentration: number | null | undefined
+    pcrs: PCRInput[]
+    pcrsChanged: boolean
+    touchedPcrIds: Set<string>
+  }
+  const plans = new Map<string, Plan>()
+
+  const parse = (cells: string[], col: number) => (col === -1 ? undefined : parseNumber(cells[col] ?? '', decimal))
+  const invalid = (value: number | null | undefined, integer = false) =>
+    value != null && (Number.isNaN(value) || value < 0 || (integer && !Number.isInteger(value)))
+
+  table.slice(1).forEach((cells, index) => {
+    const line = index + 2
+    const result = byId.get((cells[idCol] ?? '').trim())
+    if (!result) {
+      problems.push(`line ${line}: unknown id`)
+      return
+    }
+    let plan = plans.get(result.id)
+    if (!plan) {
+      plan = {
+        result,
+        concentration: undefined,
+        pcrs: result.pcrs.map(pcrInputOf),
+        pcrsChanged: false,
+        touchedPcrIds: new Set(),
+      }
+      plans.set(result.id, plan)
+    }
+
+    // DNA concentration belongs to the result, so every row of it must agree.
+    const concentration = parse(cells, concentrationCol)
+    if (invalid(concentration)) {
+      problems.push(`line ${line}: DNA concentration ${JSON.stringify(cells[concentrationCol])} is not a number of zero or more written with a "${decimal}" decimal separator`)
+      return
+    }
+    if (concentration !== undefined) {
+      if (plan.concentration !== undefined && plan.concentration !== concentration) {
+        problems.push(`line ${line}: DNA concentration differs between rows of the same result`)
+        return
+      }
+      plan.concentration = concentration
+    }
+
+    const values = {} as Record<PcrNumericField, number | null | undefined>
+    for (const field of PCR_FIELDS) {
+      values[field] = parse(cells, pcrCols[field])
+      if (invalid(values[field], PCR_INTEGER_FIELDS.includes(field))) {
+        problems.push(
+          `line ${line}: ${CSV_PCR_COLUMNS[field]} ${JSON.stringify(cells[pcrCols[field]])} must be ${PCR_INTEGER_FIELDS.includes(field) ? 'a whole number' : 'a number'} of zero or more${PCR_INTEGER_FIELDS.includes(field) ? '' : ` written with a "${decimal}" decimal separator`}`,
+        )
+        return
+      }
+    }
+
+    const pcrId = pcrIdCol === -1 ? '' : (cells[pcrIdCol] ?? '').trim()
+    const apply = (target: PCRInput) => {
+      let changed = false
+      for (const field of PCR_FIELDS) {
+        const value = values[field]
+        if (value !== undefined && value !== target[field]) {
+          target[field] = value
+          changed = true
+        }
+      }
+      if (changed && values.no_of_contributors !== undefined) {
+        target.contributors = syncContributors(target.contributors ?? [], target.no_of_contributors)
+      }
+      return changed
+    }
+
+    if (pcrId) {
+      const position = result.pcrs.findIndex((pcr) => pcr.id === pcrId)
+      if (position === -1) {
+        problems.push(`line ${line}: unknown genotyping result id`)
+        return
+      }
+      if (plan.touchedPcrIds.has(pcrId)) {
+        problems.push(`line ${line}: genotyping result id appears more than once`)
+        return
+      }
+      plan.touchedPcrIds.add(pcrId)
+      if (apply(plan.pcrs[position]!)) plan.pcrsChanged = true
+    } else if (PCR_FIELDS.some((field) => values[field] != null)) {
+      // No genotyping id but values: a new genotyping result, with the methods
+      // of the latest existing one.
+      const latest = plan.pcrs.length ? plan.pcrs[plan.pcrs.length - 1] : null
+      const fresh: PCRInput = latest
+        ? { ...latest, contributors: [], ...Object.fromEntries(PCR_FIELDS.map((field) => [field, null])) }
+        : emptyPcrForm()
+      apply(fresh)
+      plan.pcrs.push(fresh)
+      plan.pcrsChanged = true
+    }
+  })
+
+  if (problems.length) {
+    return {
+      ok: false,
+      title: 'Nothing imported',
+      description: `${problems.length} problem${problems.length === 1 ? '' : 's'}: ${problems.slice(0, 5).join('; ')}${problems.length > 5 ? ' …' : ''}`,
+    } satisfies CsvFailure
+  }
+
+  const jobs = [...plans.values()].filter(
+    (plan) =>
+      plan.pcrsChanged ||
+      (plan.concentration !== undefined && plan.concentration !== (plan.result.dna_concentration ?? null)),
+  )
+  const updated = await Promise.all(
+    jobs.map((plan) => {
+      const input: ResultInput = {
+        ...resultInputOf(plan.result),
+        dna_concentration:
+          plan.concentration === undefined ? (plan.result.dna_concentration ?? null) : plan.concentration,
+      }
+      if (plan.pcrsChanged) input.pcrs = plan.pcrs
+      return resultApi.update(plan.result.id, input)
+    }),
+  )
+  const updatedById = new Map(updated.map((result) => [result.id, result]))
+  allResults.value = allResults.value.map((item) => updatedById.get(item.id) ?? item)
+  return {
+    ok: true,
+    title: jobs.length ? `Updated ${jobs.length} result${jobs.length === 1 ? '' : 's'}` : 'No changes found',
+  }
+}
 
 async function load() {
   loading.value = true
@@ -160,6 +501,7 @@ function methodLabel(
 function initFilters() {
   return {
     global: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    scenarioNames: { value: null, matchMode: FilterMatchMode.CONTAINS },
   }
 }
 
@@ -321,7 +663,7 @@ const submitError = ref('')
 const activeStep = ref('result')
 const stepItems = computed<StepperItem[]>(() => [
   { value: 'result', title: 'Result', slot: 'result' },
-  { value: 'pcr', title: 'First PCR run', slot: 'pcr' },
+  { value: 'pcr', title: 'First genotyping result', slot: 'pcr' },
 ])
 
 function openCreateDialog() {
@@ -460,7 +802,7 @@ const submitPcrForm = handlePcrSubmit(async (formValues) => {
     allResults.value = allResults.value.map((item) => (item.id === updated.id ? updated : item))
     pcrDialogVisible.value = false
   } catch {
-    submitPcrError.value = 'Could not save this PCR run. Please try again.'
+    submitPcrError.value = 'Could not save this genotyping result. Please try again.'
   } finally {
     submittingPcr.value = false
   }
@@ -477,13 +819,13 @@ function resultInputOf(result: Result): ResultInput {
 }
 
 async function deletePcr(result: Result, pcr: PCR) {
-  if (!window.confirm('Delete this PCR run? This cannot be undone.')) return
+  if (!window.confirm('Delete this genotyping result? This cannot be undone.')) return
   try {
     const nextPcrs = result.pcrs.filter((p) => p.id !== pcr.id).map(pcrInputOf)
     const updated = await resultApi.update(result.id, { ...resultInputOf(result), pcrs: nextPcrs })
     allResults.value = allResults.value.map((item) => (item.id === updated.id ? updated : item))
   } catch {
-    loadError.value = 'Could not delete this PCR run. Please try again.'
+    loadError.value = 'Could not delete this genotyping result. Please try again.'
   }
 }
 
@@ -513,13 +855,23 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
       <p class="text-sm text-surface-500 dark:text-surface-400">
         Lab results derived from this scenario's recoveries.
       </p>
-      <UButton
-        label="Add quantification result"
-        icon="i-lucide-plus"
-        variant="outline"
-        :disabled="!recoveries.length"
-        @click="openCreateDialog"
-      />
+      <div class="flex flex-wrap gap-2">
+        <UButton
+          label="Add result for every recovery"
+          icon="i-lucide-list-plus"
+          variant="outline"
+          :loading="addingAll"
+          :disabled="!recoveriesWithoutResult.length"
+          @click="addResultsForAllRecoveries"
+        />
+        <UButton
+          label="Add quantification result"
+          icon="i-lucide-plus"
+          variant="outline"
+          :disabled="!recoveries.length"
+          @click="openCreateDialog"
+        />
+      </div>
     </div>
 
     <UAlert
@@ -533,9 +885,31 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
 
     <div class="overflow-x-auto">
       <div class="mb-3 flex items-center justify-between gap-3">
-        <UButton type="button" icon="i-lucide-filter-x" variant="outline" size="sm" @click="clearFilters()">
-          Clear Filters
-        </UButton>
+        <div class="flex flex-wrap gap-2">
+          <UButton type="button" icon="i-lucide-filter-x" variant="outline" size="sm" @click="clearFilters()">
+            Clear Filters
+          </UButton>
+          <UButton
+            type="button"
+            :label="editMode ? 'Done' : 'Edit values'"
+            :icon="editMode ? 'i-lucide-check' : 'i-lucide-pencil'"
+            :variant="editMode ? 'solid' : 'outline'"
+            size="sm"
+            :disabled="!results.length"
+            @click="editMode = !editMode"
+          />
+          <CsvRoundTrip
+            :disabled="!results.length"
+            :filename="`${exportName ? `${exportName}_` : ''}results`"
+            hint-key="results"
+            :build-rows="buildCsvRows"
+            :editable-columns="CSV_EDITABLE_COLUMNS"
+            :info-columns="CSV_INFO_COLUMNS"
+            :id-column="`${CSV_ID} and ${CSV_PCR_ID}`"
+            :notes="CSV_NOTES"
+            :apply-import="applyCsvImport"
+          />
+        </div>
         <UInput
           v-model="(filters['global'] as { value: string | null }).value"
           type="text"
@@ -549,12 +923,15 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
       <DataTable
         v-model:filters="filters"
         v-model:expanded-rows="expandedRows"
-        :value="results"
+        :value="resultRows"
         :loading="loading"
         data-key="id"
+        paginator
+        :rows="25"
+        :rowsPerPageOptions="[25, 50, 100, 200]"
         filterDisplay="menu"
         removableSort
-        :globalFilterFields="['recovery.surface.id', 'dna_concentration']"
+        :globalFilterFields="['recovery.surface.id', 'dna_concentration', 'scenarioNames']"
         @row-contextmenu="({ originalEvent, data }: { originalEvent: Event; data: Result }) => openResultContextMenu(originalEvent, data)"
       >
         <template #empty>No results recorded yet.</template>
@@ -562,18 +939,48 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
         <Column header="Recovery">
           <template #body="{ data }">{{ recoveryLabel(data.recovery) }}</template>
         </Column>
+        <Column header="Name">
+          <template #body="{ data }">{{ data.recovery?.name || '—' }}</template>
+        </Column>
+        <Column
+          field="scenarioNames"
+          header="Scenario"
+          sortable
+          :showFilterOperator="false"
+          :showAddButton="false"
+        >
+          <template #body="{ data }"><ScenarioBadges :names="surfaceScenarios[data.recovery?.surface_id] ?? []" /></template>
+          <template #filter="{ filterModel }">
+            <UInput v-model="filterModel.value" type="text" placeholder="Search by scenario" />
+          </template>
+        </Column>
         <Column
           field="dna_concentration"
           header="DNA concentration"
           sortable
         >
           <template #body="{ data }">
-            {{ data.dna_concentration != null ? `${data.dna_concentration.toFixed(4)} ng/µL` : '—' }}
+            <UFieldGroup v-if="editMode" class="w-full min-w-44">
+              <UInputNumber
+                :model-value="data.dna_concentration ?? undefined"
+                :min="0"
+                :step="0.1"
+                :step-snapping="false"
+                :format-options="{ maximumFractionDigits: 6 }"
+                orientation="vertical"
+                class="w-full"
+                @update:model-value="(value: number | null) => saveConcentration(data, value)"
+              />
+              <UBadge color="neutral" variant="outline" size="lg" label="ng/µL" />
+            </UFieldGroup>
+            <template v-else>
+              {{ data.dna_concentration != null ? `${auth.formatNumber(data.dna_concentration, FIXED4)} ng/µL` : '—' }}
+            </template>
           </template>
         </Column>
         <Column header="DNA quantity">
           <template #body="{ data }">
-            {{ data.dna_quantity != null ? `${data.dna_quantity.toFixed(4)} ng` : '—' }}
+            {{ data.dna_quantity != null ? `${auth.formatNumber(data.dna_quantity, FIXED4)} ng` : '—' }}
           </template>
         </Column>
         <Column header="Degradation Index">
@@ -667,7 +1074,7 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
 
           <UFormField label="DNA concentration" :error="errors.dna_concentration">
             <UFieldGroup>
-              <UInputNumber v-model="dnaConcentration" :step="0.0001" orientation="vertical" class="w-full" />
+              <UInputNumber v-model="dnaConcentration" :min="0" :step="0.1" :step-snapping="false" :format-options="{ maximumFractionDigits: 6 }" orientation="vertical" class="w-full" />
               <UBadge color="neutral" variant="outline" size="lg" label="ng/µL" />
             </UFieldGroup>
           </UFormField>
@@ -709,7 +1116,7 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
 
               <UFormField label="DNA concentration" :error="errors.dna_concentration">
                 <UFieldGroup>
-                  <UInputNumber v-model="dnaConcentration" :step="0.0001" orientation="vertical" class="w-full" />
+                  <UInputNumber v-model="dnaConcentration" :step="0.0001" :step-snapping="false" :format-options="{ maximumFractionDigits: 6 }" orientation="vertical" class="w-full" />
                   <UBadge color="neutral" variant="outline" size="lg" label="ng/µL" />
                 </UFieldGroup>
               </UFormField>
@@ -814,13 +1221,13 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <UFormField label="Sample input volume in PCR" :error="pcrErrors.sample_input_volume_in_pcr">
                   <UFieldGroup>
-                    <UInputNumber v-model="sampleInputVolumeInPcr" :step="0.1" orientation="vertical" class="w-full" />
+                    <UInputNumber v-model="sampleInputVolumeInPcr" :step="0.1" :step-snapping="false" :format-options="{ maximumFractionDigits: 6 }" orientation="vertical" class="w-full" />
                     <UBadge color="neutral" variant="outline" size="lg" label="µL" />
                   </UFieldGroup>
                 </UFormField>
                 <UFormField label="DNA input amount in PCR" :error="pcrErrors.dna_input_amount_in_pcr">
                   <UFieldGroup>
-                    <UInputNumber v-model="dnaInputAmountInPcr" :step="0.001" orientation="vertical" class="w-full" />
+                    <UInputNumber v-model="dnaInputAmountInPcr" :step="0.001" :step-snapping="false" :format-options="{ maximumFractionDigits: 6 }" orientation="vertical" class="w-full" />
                     <UBadge color="neutral" variant="outline" size="lg" label="pg" />
                   </UFieldGroup>
                 </UFormField>
@@ -829,7 +1236,7 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
                 </UFormField>
                 <UFormField label="Total RFU" :error="pcrErrors.total_rfu">
                   <UFieldGroup>
-                    <UInputNumber v-model="totalRfu" orientation="vertical" class="w-full" />
+                    <UInputNumber v-model="totalRfu" :min="0" :step="0.1" :step-snapping="false" :format-options="{ maximumFractionDigits: 6 }" orientation="vertical" class="w-full" />
                     <UBadge color="neutral" variant="outline" size="lg" label="RFU" />
                   </UFieldGroup>
                 </UFormField>
@@ -848,7 +1255,7 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
                   <UFormField :label="`Contributor ${index + 1}`" class="flex-1">
                     <USelectMenu
                       :model-value="contributorKey(contributor)"
-                      :items="contributorOptions"
+                      :items="contributorOptionsFor(recoveryId, pcrFormValues.contributors ?? [])"
                       value-key="id"
                       placeholder="Select an individual or unknown person"
                       clear
@@ -862,6 +1269,8 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
                       :min="0"
                       :max="1"
                       :step="0.01"
+                      :step-snapping="false"
+                      :format-options="{ maximumFractionDigits: 6 }"
                       orientation="vertical"
                       class="w-full"
                     />
@@ -972,13 +1381,13 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <UFormField label="Sample input volume in PCR" :error="pcrErrors.sample_input_volume_in_pcr">
               <UFieldGroup>
-                <UInputNumber v-model="sampleInputVolumeInPcr" :step="0.1" orientation="vertical" class="w-full" />
+                <UInputNumber v-model="sampleInputVolumeInPcr" :step="0.1" :step-snapping="false" :format-options="{ maximumFractionDigits: 6 }" orientation="vertical" class="w-full" />
                 <UBadge color="neutral" variant="outline" size="lg" label="µL" />
               </UFieldGroup>
             </UFormField>
             <UFormField label="DNA input amount in PCR" :error="pcrErrors.dna_input_amount_in_pcr">
               <UFieldGroup>
-                <UInputNumber v-model="dnaInputAmountInPcr" :step="0.001" orientation="vertical" class="w-full" />
+                <UInputNumber v-model="dnaInputAmountInPcr" :step="0.001" :step-snapping="false" :format-options="{ maximumFractionDigits: 6 }" orientation="vertical" class="w-full" />
                 <UBadge color="neutral" variant="outline" size="lg" label="pg" />
               </UFieldGroup>
             </UFormField>
@@ -987,7 +1396,7 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
             </UFormField>
             <UFormField label="Total RFU" :error="pcrErrors.total_rfu">
               <UFieldGroup>
-                <UInputNumber v-model="totalRfu" orientation="vertical" class="w-full" />
+                <UInputNumber v-model="totalRfu" :min="0" :step="0.1" :step-snapping="false" :format-options="{ maximumFractionDigits: 6 }" orientation="vertical" class="w-full" />
                 <UBadge color="neutral" variant="outline" size="lg" label="RFU" />
               </UFieldGroup>
             </UFormField>
@@ -1006,7 +1415,7 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
               <UFormField :label="`Contributor ${index + 1}`" class="flex-1">
                 <USelectMenu
                   :model-value="contributorKey(contributor)"
-                  :items="contributorOptions"
+                  :items="contributorOptionsFor(pcrDialogResult?.recovery_id, pcrFormValues.contributors ?? [])"
                   value-key="id"
                   placeholder="Select an individual or unknown person"
                   clear
@@ -1020,6 +1429,8 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
                   :min="0"
                   :max="1"
                   :step="0.01"
+                  :step-snapping="false"
+                  :format-options="{ maximumFractionDigits: 6 }"
                   orientation="vertical"
                   class="w-full"
                 />

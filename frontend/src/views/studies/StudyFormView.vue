@@ -83,20 +83,39 @@ const authorSchema = yup.object({
   last_name: yup.string().trim().required('Last name is required.'),
 })
 
+const MIN_YEAR = 1900
+const MAX_YEAR = new Date().getFullYear() + 1
+
+const DOI_PREFIX = /^(?:https?:\/\/(?:dx\.)?doi\.org\/|doi:\s*)/i
+const normalizeDoi = (value: string) => value.trim().replace(DOI_PREFIX, '')
+const DOI_PATTERN = /^10\.\d{4,9}\/\S+$/
+
 const schema = yup.object({
   title: yup.string().trim().required('Title is required.'),
-  doi: yup.string().trim().defined(),
+  doi: yup
+    .string()
+    .trim()
+    .transform((value) => (typeof value === 'string' ? normalizeDoi(value) : value))
+    .defined()
+    .test(
+      'doi-format',
+      'Invalid DOI. Expected format: 10.1234/abc (a https://doi.org/ prefix is removed automatically).',
+      (value) => !value || DOI_PATTERN.test(value),
+    ),
   journal: yup.string().trim().defined(),
   year: yup
     .number()
     .nullable()
     .transform((value, original) => (original === '' || original == null ? null : value))
     .typeError('Year must be a number.')
+    .integer('Year must be a whole number.')
     .test(
       'four-digits',
       'Year must be a 4-digit number.',
       (value) => value == null || (value >= 1000 && value <= 9999),
-    ),
+    )
+    .min(MIN_YEAR, `Year must be ${MIN_YEAR} or later.`)
+    .max(MAX_YEAR, `Year must not be later than ${MAX_YEAR}.`),
   abstract: yup.string().trim().defined(),
   description: yup.string().trim().defined(),
   authors: yup.array().of(authorSchema).min(1, 'Please add at least one author.'),
@@ -267,7 +286,7 @@ const onSubmit = handleSubmit(async (values) => {
 
     const shared = {
       title: values.title.trim(),
-      doi: values.doi.trim() || null,
+      doi: normalizeDoi(values.doi) || null,
       journal: values.journal.trim() || null,
       year: values.year != null ? String(values.year) : null,
       abstract: values.abstract.trim() || null,
@@ -473,19 +492,25 @@ function confirmDeleteStudy() {
 
               <div class="grid grid-cols-2 gap-4">
                 <UFormField label="Year" hint="Optional" :error="errors.year">
-                  <!-- TODO: number formatting (was :use-grouping="false") -->
                   <UInputNumber
                     id="study-year"
                     v-model="year"
                     v-bind="yearAttrs"
-                    :min="1000"
-                    :max="9999"
+                    :min="MIN_YEAR"
+                    :max="MAX_YEAR"
+                    :format-options="{ useGrouping: false }"
                     orientation="vertical"
                     class="w-full"
                   />
                 </UFormField>
-                <UFormField label="DOI" hint="Optional">
-                  <UInput id="study-doi" v-model="doi" v-bind="doiAttrs" class="w-full" />
+                <UFormField label="DOI" hint="Optional" :error="errors.doi">
+                  <UInput
+                    id="study-doi"
+                    v-model="doi"
+                    v-bind="doiAttrs"
+                    class="w-full"
+                    @blur="doi = normalizeDoi(doi ?? '')"
+                  />
                 </UFormField>
               </div>
 

@@ -24,7 +24,7 @@ class PCRContributorRead(PCRContributorBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
-    individual: Optional["IndividualRead"] = None
+    individual: Optional["IndividualReadNested"] = None
 
 
-from app.schemas.individual import IndividualRead
+from app.schemas.individual import IndividualReadNested

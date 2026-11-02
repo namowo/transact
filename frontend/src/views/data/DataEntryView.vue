@@ -7,6 +7,7 @@ import ContextMenu from 'openvue/contextmenu'
 import { FilterMatchMode } from '@openvue/core/api'
 import type { TabsItem } from '@nuxt/ui'
 import type { MenuItem } from 'openvue/menuitem'
+import ScenarioBadges from '@/components/data/ScenarioBadges.vue'
 import ContactInstanceDialog from '@/components/data/ContactInstanceDialog.vue'
 import IndividualsPanel from '@/components/data/IndividualsPanel.vue'
 import ItemsPanel from '@/components/data/ItemsPanel.vue'
@@ -16,8 +17,9 @@ import { templateName, surfaceInstanceIcon, surfaceInstanceDetail } from '@/comp
 import { useIndividualOptions } from '@/components/scenarios/individualOptions'
 import { useConfirm } from '@/composables/useConfirm'
 import { listScenarios } from '@/api/scenarios'
+import { getStudy } from '@/api/studies'
 import { listContacts, deleteContact, updateContact } from '@/api/contacts'
-import type { Contact, ContactTemplate, Recovery } from '@/api/types'
+import type { Contact, ContactTemplate, Recovery, Scenario } from '@/api/types'
 
 const confirm = useConfirm()
 const route = useRoute()
@@ -27,11 +29,13 @@ const props = defineProps<{ studyId: string }>()
 
 const studyId = computed(() => props.studyId)
 
-const { describeIndividual, individualName } = useIndividualOptions(props.studyId)
+const { individuals, describeIndividual, individualName } = useIndividualOptions(props.studyId)
 
 const loading = ref(false)
 const loadError = ref('')
 
+const studyScenarios = ref<Scenario[]>([])
+const studyTitle = ref<string | null>(null)
 const contactTemplates = ref<ContactTemplate[]>([])
 const contacts = ref<Contact[]>([])
 const scopedRecoveries = ref<Recovery[]>([])
@@ -40,11 +44,14 @@ async function load() {
   loading.value = true
   loadError.value = ''
   try {
+    // The title only names exported files, so a failure here must not block loading.
+    getStudy(studyId.value).then((study) => (studyTitle.value = study.title ?? null)).catch(() => {})
     const allScenarios = await listScenarios()
-    const studyScenarios = allScenarios.filter((scenario) =>
+    const scenariosOfStudy = allScenarios.filter((scenario) =>
       scenario.studies.some((study) => study.id === studyId.value),
     )
-    const templates = studyScenarios.flatMap((scenario) => scenario.contact_templates)
+    studyScenarios.value = scenariosOfStudy
+    const templates = scenariosOfStudy.flatMap((scenario) => scenario.contact_templates)
     contactTemplates.value = templates
 
     const templateIds = new Set(templates.map((t) => t.id))
@@ -92,12 +99,91 @@ function itemSideOf(template: ContactTemplate): 'donor_surface' | 'recipient_sur
   return null
 }
 
+// -- Scenario scope --
+// 'all' shows everything recorded for the study; picking a scenario narrows
+// every tab to that scenario. Contacts belong to a scenario through their
+// contact template; recoveries and results follow their contact.
+
+const selectedScenarioId = computed<string | null>({
+  get() {
+    const id = route.query.scenario
+    return typeof id === 'string' && studyScenarios.value.some((s) => s.id === id) ? id : null
+  },
+  set(value) {
+    const { scenario: _drop, ...rest } = route.query
+    router.replace({ query: value ? { ...rest, scenario: value } : rest })
+  },
+})
+
+const scenarioOptions = computed(() => [
+  { label: 'All data', value: 'all' },
+  ...studyScenarios.value.map((scenario) => ({ label: scenario.name, value: scenario.id })),
+])
+
+const scenarioSelectValue = computed({
+  get: () => selectedScenarioId.value ?? 'all',
+  set: (value: string) => {
+    selectedScenarioId.value = value === 'all' ? null : value
+  },
+})
+
+// Base name for downloaded files: study title plus the selected scenario.
+const exportName = computed(() => {
+  const slug = (text: string) =>
+    text
+      .normalize('NFKD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 40)
+  const study = slug(studyTitle.value ?? '') || `study-${studyId.value.slice(0, 8)}`
+  const scenario = studyScenarios.value.find((s) => s.id === selectedScenarioId.value)
+  return [study, scenario ? slug(scenario.name) : ''].filter(Boolean).join('_')
+})
+
+const visibleTemplates = computed<ContactTemplate[]>(() => {
+  if (selectedScenarioId.value === null) return contactTemplates.value
+  return (
+    studyScenarios.value.find((s) => s.id === selectedScenarioId.value)?.contact_templates ?? []
+  )
+})
+
+// Scenario names a contact belongs to, via its template; recoveries and
+// results inherit them through the contact surface they were taken from.
+function contactScenarioNames(contact: Contact): string[] {
+  return studyScenarios.value
+    .filter((s) => s.contact_templates.some((t) => t.id === contact.contact_template_id))
+    .map((s) => s.name)
+}
+
+const surfaceScenarios = computed<Record<string, string[]>>(() => {
+  const map: Record<string, Set<string>> = {}
+  for (const contact of contacts.value) {
+    const names = contactScenarioNames(contact)
+    for (const surface of [contact.donor_surface, contact.recipient_surface]) {
+      if (!surface) continue
+      for (const name of names) (map[surface.id] ??= new Set()).add(name)
+    }
+  }
+  return Object.fromEntries(Object.entries(map).map(([id, names]) => [id, [...names]]))
+})
+
+const visibleContacts = computed<Contact[]>(() => {
+  if (selectedScenarioId.value === null) return contacts.value
+  const templateIds = new Set(visibleTemplates.value.map((t) => t.id))
+  return contacts.value.filter(
+    (contact) => contact.contact_template_id != null && templateIds.has(contact.contact_template_id),
+  )
+})
+
 interface ContactGroup {
   key: string
   template: ContactTemplate | null
   itemSide: 'donor_surface' | 'recipient_surface' | null
   itemSurfaceId: string | null
   members: Contact[]
+  scenarioNames: string
 }
 
 // Contacts sharing the same template and the same item-side surface
@@ -106,7 +192,7 @@ interface ContactGroup {
 // details once per individual.
 const contactGroups = computed<ContactGroup[]>(() => {
   const groups = new Map<string, ContactGroup>()
-  for (const contact of contacts.value) {
+  for (const contact of visibleContacts.value) {
     const template = contactTemplateFor(contact)
     const itemSide = template ? itemSideOf(template) : null
     const itemSurfaceId = itemSide ? contact[itemSide]?.id ?? null : null
@@ -124,10 +210,14 @@ const contactGroups = computed<ContactGroup[]>(() => {
         itemSide,
         itemSurfaceId,
         members: [contact],
+        scenarioNames: '',
       })
     }
   }
-  return [...groups.values()]
+  return [...groups.values()].map((group) => ({
+    ...group,
+    scenarioNames: [...new Set(group.members.flatMap(contactScenarioNames))].join(', '),
+  }))
 })
 
 // Icon + text for one side ('donor_surface' | 'recipient_surface') of a
@@ -299,7 +389,7 @@ const groupContextMenuItems = computed<MenuItem[]>(() => {
     items.push({
       label: 'Rename',
       icon: 'i-lucide-pencil',
-      command: () => openRenameDialog(group.members[0]),
+      command: () => openRenameDialog(group.members[0]!),
     })
   }
   items.push({
@@ -348,6 +438,7 @@ const expandedContactRows = ref<Record<string, boolean>>({})
 function initContactFilters() {
   return {
     global: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    scenarioNames: { value: null, matchMode: FilterMatchMode.CONTAINS },
   }
 }
 
@@ -357,11 +448,17 @@ function clearContactFilters() {
   contactFilters.value = initContactFilters()
 }
 
+// Panel edits override the initially loaded count.
+const individualCountOverride = ref<number | null>(null)
+const individualCount = computed(() => individualCountOverride.value ?? individuals.value.length)
+
+const itemCount = ref(0)
+
 const tabItems = computed<TabsItem[]>(() => [
-  { label: 'Individuals', value: 'individuals', slot: 'individuals' },
-  { label: 'Items', value: 'items', slot: 'items' },
-  { label: 'Contacts', value: 'contacts', slot: 'contacts', badge: contacts.value.length },
-  { label: 'Recoveries', value: 'recoveries', slot: 'recoveries' },
+  { label: 'Individuals', value: 'individuals', slot: 'individuals', badge: individualCount.value },
+  { label: 'Items', value: 'items', slot: 'items', badge: itemCount.value },
+  { label: 'Contacts', value: 'contacts', slot: 'contacts', badge: visibleContacts.value.length },
+  { label: 'Recoveries', value: 'recoveries', slot: 'recoveries', badge: scopedRecoveries.value.length },
   { label: 'Results', value: 'results', slot: 'results' },
 ])
 
@@ -388,13 +485,25 @@ const activeTab = computed<string>({
 
     <UAlert v-else-if="loadError" color="error" variant="outline" :description="loadError" />
 
-    <UTabs v-else v-model="activeTab" :items="tabItems" class="w-full">
+    <div v-if="!loading && !loadError" class="flex flex-wrap items-end gap-3">
+      <UFormField label="Scenario" hint="Choose a scenario to add data to it, or view all data">
+        <USelect v-model="scenarioSelectValue" :items="scenarioOptions" class="w-72" />
+      </UFormField>
+      <p v-if="!studyScenarios.length" class="text-sm text-warning pb-2">
+        Plan a scenario for this study first.
+      </p>
+      <p v-else-if="selectedScenarioId === null" class="text-sm text-surface-500 dark:text-surface-400 pb-2">
+        Individuals and items without a scenario are used in all scenarios.
+      </p>
+    </div>
+
+    <UTabs v-if="!loading && !loadError" v-model="activeTab" :items="tabItems" :unmount-on-hide="false" class="w-full">
       <template #individuals>
-        <IndividualsPanel :study-id="studyId" />
+        <IndividualsPanel :study-id="studyId" :scenarios="studyScenarios" :scenario-id="selectedScenarioId" @update:count="individualCountOverride = $event" />
       </template>
 
       <template #items>
-        <ItemsPanel :study-id="studyId" :contact-templates="contactTemplates" />
+        <ItemsPanel :study-id="studyId" :contact-templates="visibleTemplates" :scenarios="studyScenarios" :scenario-id="selectedScenarioId" @update:count="itemCount = $event" />
       </template>
 
       <template #contacts>
@@ -407,13 +516,13 @@ const activeTab = computed<string>({
               label="Add actual contact"
               icon="i-lucide-plus"
               variant="outline"
-              :disabled="!contactTemplates.length"
+              :disabled="!visibleTemplates.length"
               @click="dialogVisible = true"
             />
           </div>
 
           <UAlert
-            v-if="!contactTemplates.length"
+            v-if="!visibleTemplates.length"
             color="info"
             variant="outline"
             description="Plan a scenario with at least one contact template before entering actual data."
@@ -437,7 +546,7 @@ const activeTab = computed<string>({
                   :icon="editingNames ? 'i-lucide-check' : 'i-lucide-pencil'"
                   :variant="editingNames ? 'solid' : 'outline'"
                   size="sm"
-                  :disabled="!contacts.length"
+                  :disabled="!visibleContacts.length"
                   @click="editingNames = !editingNames"
                 />
               </div>
@@ -456,8 +565,11 @@ const activeTab = computed<string>({
               v-model:expanded-rows="expandedContactRows"
               :value="contactGroups"
               data-key="key"
+              paginator
+              :rows="25"
+              :rows-per-page-options="[25, 50, 100, 200]"
               filter-display="menu"
-              :global-filter-fields="['template.name']"
+              :global-filter-fields="['template.name', 'scenarioNames']"
               :row-class="() => 'hover:bg-elevated'"
               @row-contextmenu="onGroupRowContextMenu"
             >
@@ -482,6 +594,18 @@ const activeTab = computed<string>({
                   </span>
                 </template>
               </Column>
+              <Column
+          field="scenarioNames"
+          header="Scenario"
+          sortable
+          :showFilterOperator="false"
+          :showAddButton="false"
+        >
+          <template #body="{ data }"><ScenarioBadges :names="[...new Set<string>(data.members.flatMap(contactScenarioNames))]" /></template>
+          <template #filter="{ filterModel }">
+            <UInput v-model="filterModel.value" type="text" placeholder="Search by scenario" />
+          </template>
+        </Column>
               <Column header="Contacts" style="width: 6rem">
                 <template #body="{ data }">{{ data.members.length }}</template>
               </Column>
@@ -572,8 +696,8 @@ const activeTab = computed<string>({
           <ContactInstanceDialog
             v-model:visible="dialogVisible"
             :study-id="studyId"
-            :contact-templates="contactTemplates"
-            :contacts="contacts"
+            :contact-templates="visibleTemplates"
+            :contacts="visibleContacts"
             @saved="onContactSaved"
           />
 
@@ -598,14 +722,17 @@ const activeTab = computed<string>({
       <template #recoveries>
         <RecoveriesPanel
           :study-id="studyId"
-          :contacts="contacts"
-          :contact-templates="contactTemplates"
+          :contacts="visibleContacts"
+          :contact-templates="visibleTemplates"
+          :surface-scenarios="surfaceScenarios"
+          :scenarios="studyScenarios"
+          :export-name="exportName"
           @update:recoveries="scopedRecoveries = $event"
         />
       </template>
 
       <template #results>
-        <ResultsTab :recoveries="scopedRecoveries" :study-id="studyId" />
+        <ResultsTab :recoveries="scopedRecoveries" :study-id="studyId" :surface-scenarios="surfaceScenarios" :contacts="contacts" :export-name="exportName" />
       </template>
     </UTabs>
   </div>
