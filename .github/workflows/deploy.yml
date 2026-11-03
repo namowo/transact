@@ -30,6 +30,7 @@ jobs:
             cd ${{ secrets.DEPLOY_PATH }}
             git checkout -- uv.lock
             git pull origin main
+            git fetch --tags --force
 
       - name: Deploy backend
         uses: appleboy/ssh-action@v1.2.0
