@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/namowo/transact/compare/v0.4.0...v0.4.1) (2026-11-03)
+
+
+### Bug Fixes
+
+* copy referenced platforms into quantification_platform during migration ([#13](https://github.com/namowo/transact/issues/13)) ([ffb6751](https://github.com/namowo/transact/commit/ffb675187031923ad042bbd16608aa1149cc5fdb))
+
 ## [0.4.0](https://github.com/namowo/transact/compare/v0.3.2...v0.4.0) (2026-11-03)
 
 
