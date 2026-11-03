@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, watchEffect } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { useForm } from 'vee-validate'
 import * as yup from 'yup'
 import { startRegistration } from '@simplewebauthn/browser'
@@ -7,7 +7,8 @@ import PasswordField from '@/components/auth/PasswordField.vue'
 import { useAuthStore } from '@/stores/auth'
 import { getErrorMessage } from '@/api/errors'
 import * as webauthnApi from '@/api/webauthn'
-import type { WebAuthnCredential } from '@/api/types'
+import * as apiKeysApi from '@/api/apiKeys'
+import type { ApiKey, WebAuthnCredential } from '@/api/types'
 
 const auth = useAuthStore()
 
@@ -71,27 +72,115 @@ async function onDeletePasskey(credential: WebAuthnCredential) {
 
 onMounted(loadCredentials)
 
+const apiKeys = ref<ApiKey[]>([])
+const apiKeysLoading = ref(false)
+const apiKeysError = ref('')
+const showAddApiKeyDialog = ref(false)
+const newApiKeyName = ref('')
+const newApiKeyExpiresAt = ref('')
+const creatingApiKey = ref(false)
+const createdApiKeyToken = ref('')
+const showNewApiKeyDialog = ref(false)
+
+async function loadApiKeys() {
+  apiKeysLoading.value = true
+  apiKeysError.value = ''
+  try {
+    apiKeys.value = await apiKeysApi.listApiKeys()
+  } catch (err) {
+    apiKeysError.value = getErrorMessage(err, 'Could not load your API keys.')
+  } finally {
+    apiKeysLoading.value = false
+  }
+}
+
+function openAddApiKeyDialog() {
+  newApiKeyName.value = ''
+  newApiKeyExpiresAt.value = ''
+  apiKeysError.value = ''
+  showAddApiKeyDialog.value = true
+}
+
+async function onAddApiKey() {
+  creatingApiKey.value = true
+  apiKeysError.value = ''
+  try {
+    const created = await apiKeysApi.createApiKey({
+      name: newApiKeyName.value.trim() || undefined,
+      expires_at: newApiKeyExpiresAt.value
+        ? new Date(newApiKeyExpiresAt.value).toISOString()
+        : undefined,
+    })
+    showAddApiKeyDialog.value = false
+    createdApiKeyToken.value = created.token
+    showNewApiKeyDialog.value = true
+    await loadApiKeys()
+  } catch (err) {
+    apiKeysError.value = getErrorMessage(err, 'Could not create this API key.')
+  } finally {
+    creatingApiKey.value = false
+  }
+}
+
+async function onRevokeApiKey(apiKey: ApiKey) {
+  const label = apiKey.name || `Key ${apiKey.prefix}…`
+  if (!confirm(`Revoke ${label}? Anything using this key will stop working immediately.`)) return
+
+  apiKeysError.value = ''
+  try {
+    await apiKeysApi.revokeApiKey(apiKey.id)
+    await loadApiKeys()
+  } catch (err) {
+    apiKeysError.value = getErrorMessage(err, 'Could not revoke this API key.')
+  }
+}
+
+async function copyApiKeyToken() {
+  try {
+    await navigator.clipboard.writeText(createdApiKeyToken.value)
+  } catch {
+    // Clipboard access can fail silently (e.g. insecure context); the token
+    // stays visible in the dialog so the user can copy it manually.
+  }
+}
+
+onMounted(loadApiKeys)
+
+const localeCodes = ['en-US', 'en-GB', 'de-DE', 'de-AT', 'de-CH', 'fr-FR', 'es-ES', 'it-IT', 'nl-NL', 'pt-BR', 'sv-SE', 'da-DK', 'pl-PL']
+const languageNames = new Intl.DisplayNames(['en'], { type: 'language' })
+const localeOptions = localeCodes.map((code) => ({
+  value: code,
+  label: `${languageNames.of(code) ?? code} - ${new Intl.NumberFormat(code).format(1234.5)}`,
+}))
+
 const schema = yup.object({
+  locale: yup.string().required(),
   firstName: yup.string().trim().required('First name is required.'),
   lastName: yup.string().trim().required('Last name is required.'),
 })
 
 const { defineField, errors, handleSubmit, resetForm } = useForm({
   validationSchema: schema,
-  initialValues: { firstName: '', lastName: '' },
+  initialValues: { firstName: '', lastName: '', locale: 'en-US' },
 })
 
 const [firstName] = defineField('firstName')
 const [lastName] = defineField('lastName')
+const [locale] = defineField('locale')
 
-watchEffect(() => {
-  resetForm({
-    values: {
-      firstName: auth.user?.first_name ?? '',
-      lastName: auth.user?.last_name ?? '',
-    },
-  })
-})
+watch(
+  () => auth.user,
+  (user) => {
+    resetForm({
+      values: {
+        firstName: user?.first_name ?? '',
+        lastName: user?.last_name ?? '',
+        locale: user?.locale ?? 'en-US',
+      },
+    })
+  },
+  { immediate: true },
+)
 
 const onSubmit = handleSubmit(async (values) => {
   loading.value = true
@@ -101,6 +190,7 @@ const onSubmit = handleSubmit(async (values) => {
     await auth.updateProfile({
       first_name: values.firstName.trim(),
       last_name: values.lastName.trim(),
+      locale: values.locale,
     })
     successMessage.value = 'Profile updated.'
   } catch (err) {
@@ -242,6 +332,15 @@ const onPasswordSubmit = handlePasswordSubmit(async (values) => {
                 :description="errors.lastName"
               />
             </div>
+          </div>
+
+          <div class="flex flex-col gap-2">
+            <label for="locale" class="font-medium text-sm">Number format</label>
+            <USelect id="locale" v-model="locale" :items="localeOptions" class="w-full" />
+            <p class="text-sm text-surface-500 dark:text-surface-400">
+              Decides how you type and read numbers, for example whether the decimal separator is a point or a
+              comma. It is also the default for CSV downloads and uploads.
+            </p>
           </div>
 
           <div class="flex flex-col gap-2">
@@ -499,6 +598,66 @@ const onPasswordSubmit = handlePasswordSubmit(async (values) => {
         </div>
     </UCard>
 
+    <UCard>
+        <div class="flex flex-col gap-4">
+          <div class="flex items-center justify-between">
+            <h2 class="text-lg font-medium text-surface-900 dark:text-surface-0">API keys</h2>
+            <UButton
+              label="Create API key"
+              icon="i-lucide-plus"
+              size="sm"
+              @click="openAddApiKeyDialog"
+            />
+          </div>
+
+          <p class="text-sm text-surface-500 dark:text-surface-400">
+            Use an API key to authenticate requests to the API instead of signing in.
+          </p>
+
+          <UAlert
+            v-if="apiKeysError"
+            color="error"
+            variant="outline"
+            :description="apiKeysError"
+          />
+
+          <p v-if="!apiKeysLoading && apiKeys.length === 0" class="text-sm text-surface-500 dark:text-surface-400">
+            No API keys yet.
+          </p>
+
+          <ul v-else class="flex flex-col gap-2 list-none p-0 m-0">
+            <li
+              v-for="apiKey in apiKeys"
+              :key="apiKey.id"
+              class="flex items-center justify-between gap-4 py-2 border-b border-surface-200 dark:border-surface-700 last:border-b-0"
+            >
+              <div class="flex flex-col">
+                <span class="text-sm font-medium text-surface-900 dark:text-surface-0">
+                  {{ apiKey.name || 'Unnamed key' }}
+                  <code class="text-xs text-surface-500 dark:text-surface-400">{{ apiKey.prefix }}…</code>
+                </span>
+                <span class="text-xs text-surface-500 dark:text-surface-400">
+                  Created {{ new Date(apiKey.created_at).toLocaleDateString() }}
+                  <template v-if="apiKey.last_used_at">
+                    · Last used {{ new Date(apiKey.last_used_at).toLocaleDateString() }}
+                  </template>
+                  <template v-if="apiKey.expires_at">
+                    · Expires {{ new Date(apiKey.expires_at).toLocaleDateString() }}
+                  </template>
+                </span>
+              </div>
+              <UButton
+                icon="i-lucide-trash-2"
+                color="error"
+                variant="ghost"
+                aria-label="Revoke API key"
+                @click="onRevokeApiKey(apiKey)"
+              />
+            </li>
+          </ul>
+        </div>
+    </UCard>
+
     <UModal
       v-model:open="showAddPasskeyDialog"
       title="Add a passkey"
@@ -526,6 +685,76 @@ const onPasswordSubmit = handlePasswordSubmit(async (values) => {
       <template #footer>
         <UButton label="Cancel" icon="i-lucide-x" variant="ghost" @click="showAddPasskeyDialog = false" />
         <UButton label="Continue" icon="i-lucide-check" :loading="addingPasskey" @click="onAddPasskey" />
+      </template>
+    </UModal>
+
+    <UModal
+      v-model:open="showAddApiKeyDialog"
+      title="Create API key"
+      :ui="{ content: 'max-w-md', footer: 'justify-end' }"
+    >
+      <template #body>
+      <div class="flex flex-col gap-4">
+        <div class="flex flex-col gap-2">
+          <label for="api-key-name" class="font-medium text-sm">Name (optional)</label>
+          <UInput
+            id="api-key-name"
+            v-model="newApiKeyName"
+            placeholder="e.g. CI pipeline"
+            class="w-full"
+          />
+        </div>
+        <div class="flex flex-col gap-2">
+          <label for="api-key-expires-at" class="font-medium text-sm">Expiration (optional)</label>
+          <UInput
+            id="api-key-expires-at"
+            v-model="newApiKeyExpiresAt"
+            type="date"
+            class="w-full"
+          />
+        </div>
+        <UAlert
+          v-if="apiKeysError"
+          color="error"
+          variant="outline"
+          :description="apiKeysError"
+        />
+      </div>
+      </template>
+      <template #footer>
+        <UButton label="Cancel" icon="i-lucide-x" variant="ghost" @click="showAddApiKeyDialog = false" />
+        <UButton label="Create" icon="i-lucide-check" :loading="creatingApiKey" @click="onAddApiKey" />
+      </template>
+    </UModal>
+
+    <UModal
+      v-model:open="showNewApiKeyDialog"
+      title="API key created"
+      :ui="{ content: 'max-w-md', footer: 'justify-end' }"
+    >
+      <template #body>
+      <div class="flex flex-col gap-4">
+        <UAlert
+          color="warning"
+          variant="outline"
+          description="Copy this key now. You won't be able to see it again."
+        />
+        <UInput :model-value="createdApiKeyToken" readonly class="w-full font-mono text-xs">
+          <template #trailing>
+            <UButton
+              icon="i-lucide-copy"
+              color="neutral"
+              variant="link"
+              size="sm"
+              aria-label="Copy API key"
+              @click="copyApiKeyToken"
+            />
+          </template>
+        </UInput>
+      </div>
+      </template>
+      <template #footer>
+        <UButton label="Done" icon="i-lucide-check" @click="showNewApiKeyDialog = false" />
       </template>
     </UModal>
   </div>

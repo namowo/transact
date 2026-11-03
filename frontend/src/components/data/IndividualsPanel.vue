@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useForm } from 'vee-validate'
 import * as yup from 'yup'
 import DataTable from 'openvue/datatable'
@@ -11,7 +11,7 @@ import SkinDiseaseCategorySelect from '@/components/scenarios/SkinDiseaseCategor
 import DeterminationOfSheddingPropensityCategorySelect from '@/components/scenarios/DeterminationOfSheddingPropensityCategorySelect.vue'
 import NamedCategoryRadioGroup from '@/components/scenarios/NamedCategoryRadioGroup.vue'
 import { useConfirm } from '@/composables/useConfirm'
-import { sexApi, dnaSheddingPropensityCategoryApi } from '@/api/categories'
+import { sexApi, dnaSheddingPropensityCategoryApi, skinDiseaseCategoryApi } from '@/api/categories'
 import {
   createIndividual,
   deleteIndividual,
@@ -19,8 +19,13 @@ import {
   updateIndividual,
 } from '@/api/individuals'
 import { listContacts } from '@/api/contacts'
-import type { Individual } from '@/api/types'
+import ScenarioBadges from '@/components/data/ScenarioBadges.vue'
+import ScenarioMultiSelect from '@/components/data/ScenarioMultiSelect.vue'
+import type { Individual, Scenario } from '@/api/types'
 import type { MenuItem } from 'openvue/menuitem'
+
+const props = defineProps<{ studyId: string; scenarios: Scenario[]; scenarioId: string | null }>()
+const emit = defineEmits<{ 'update:count': [count: number] }>()
 
 const confirm = useConfirm()
 
@@ -45,7 +50,10 @@ async function load() {
   loading.value = true
   loadError.value = ''
   try {
-    const [loadedIndividuals, contacts] = await Promise.all([listIndividuals(), listContacts()])
+    const [loadedIndividuals, contacts] = await Promise.all([
+      listIndividuals(props.studyId),
+      listContacts(),
+    ])
     individuals.value = loadedIndividuals
     const used = new Set<string>()
     for (const contact of contacts) {
@@ -62,6 +70,16 @@ async function load() {
 
 onMounted(load)
 
+// With a scenario selected, only individuals used in that scenario show.
+const visibleIndividuals = computed(() =>
+  props.scenarioId === null
+    ? individuals.value
+    : individuals.value.filter((individual) => !individual.scenario_ids?.length || individual.scenario_ids.includes(props.scenarioId!),
+    ),
+)
+
+watch(() => visibleIndividuals.value.length, (count) => emit('update:count', count), { immediate: true })
+
 interface IndividualGroup {
   key: string
   sexId: string | null
@@ -70,6 +88,7 @@ interface IndividualGroup {
   skinDiseaseCategoryId: string | null
   determinationCategoryId: string | null
   members: Individual[]
+  scenarioNames: string
 }
 
 function groupKey(individual: Individual): string {
@@ -86,7 +105,7 @@ function groupKey(individual: Individual): string {
 
 const individualGroups = computed<IndividualGroup[]>(() => {
   const groups = new Map<string, IndividualGroup>()
-  for (const individual of individuals.value) {
+  for (const individual of visibleIndividuals.value) {
     const key = groupKey(individual)
     const existing = groups.get(key)
     if (existing) {
@@ -100,14 +119,34 @@ const individualGroups = computed<IndividualGroup[]>(() => {
         skinDiseaseCategoryId: individual.skin_disease_category_id ?? null,
         determinationCategoryId: individual.determination_of_shedding_propensity_category_id ?? null,
         members: [individual],
+        scenarioNames: '',
       })
     }
   }
-  return [...groups.values()]
+  return [...groups.values()].map((group) => ({
+    ...group,
+    scenarioNames: groupScenarioNames(group).join(', '),
+  }))
 })
+
+function scenarioNames(ids: string[]): string[] {
+  return props.scenarios.filter((s) => ids.includes(s.id)).map((s) => s.name)
+}
+
+function groupScenarioNames(group: IndividualGroup): string[] {
+  // Individuals without scenario links are usable in every scenario.
+  const names = scenarioNames([...new Set(group.members.flatMap((member) => member.scenario_ids ?? []))])
+  return group.members.some((member) => !member.scenario_ids?.length) ? ['All scenarios', ...names] : names
+}
 
 function usedMembers(group: IndividualGroup): Individual[] {
   return group.members.filter((member) => usedIndividualIds.value.has(member.id))
+}
+
+function memberLabel(member: Individual, group: IndividualGroup): string {
+  if (member.name) return member.name
+  const position = group.members.indexOf(member) + 1
+  return `Individual ${position}`
 }
 
 function initIndividualFilters() {
@@ -115,6 +154,7 @@ function initIndividualFilters() {
     global: { value: null, matchMode: FilterMatchMode.CONTAINS },
     'sex.name': { value: null, matchMode: FilterMatchMode.CONTAINS },
     age: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    scenarioNames: { value: null, matchMode: FilterMatchMode.CONTAINS },
     'skin_disease_category.name': { value: null, matchMode: FilterMatchMode.CONTAINS },
   }
 }
@@ -184,8 +224,11 @@ const savingIndividual = ref(false)
 const individualSaveError = ref('')
 const savingIndividualProgress = ref({ done: 0, total: 0 })
 
+const editScenarioIds = ref<string[]>([])
+
 function openEditGroupDialog(group: IndividualGroup) {
   editingGroup.value = group
+  editScenarioIds.value = [...new Set(group.members.flatMap((member) => member.scenario_ids ?? []))]
   resetIndividualForm({ values: emptyIndividualForm(group) })
   individualSaveError.value = ''
   individualDialogVisible.value = true
@@ -233,6 +276,7 @@ async function applyIndividualFormSave(values: IndividualFormState) {
     dna_shedding_propensity_category_id: values.dnaSheddingPropensityCategoryId,
     skin_disease_category_id: values.skinDiseaseCategoryId,
     determination_of_shedding_propensity_category_id: values.determinationCategoryId,
+    scenario_ids: editScenarioIds.value,
   }
   try {
     const members = editingGroup.value.members
@@ -256,7 +300,7 @@ async function applyIndividualFormSave(values: IndividualFormState) {
     }
     const created: Individual[] = []
     for (let i = 0; i < toCreate; i++) {
-      created.push(await createIndividual(payload))
+      created.push(await createIndividual({ ...payload, study_id: props.studyId }))
       savingIndividualProgress.value.done += 1
     }
 
@@ -340,7 +384,10 @@ const savingBatch = ref(false)
 const batchSaveError = ref('')
 const batchProgress = ref({ done: 0, total: 0 })
 
+const batchScenarioIds = ref<string[]>([])
+
 function openBatchDialog() {
+  batchScenarioIds.value = props.scenarioId ? [props.scenarioId] : []
   resetBatchForm({ values: emptyBatchForm() })
   batchSaveError.value = ''
   batchDialogVisible.value = true
@@ -357,11 +404,12 @@ const saveBatchForm = handleBatchSubmit(async (values) => {
     dna_shedding_propensity_category_id: values.dnaSheddingPropensityCategoryId,
     skin_disease_category_id: values.skinDiseaseCategoryId,
     determination_of_shedding_propensity_category_id: values.determinationCategoryId,
+    scenario_ids: batchScenarioIds.value,
   }
   try {
     const created: Individual[] = []
     for (let i = 0; i < total; i++) {
-      created.push(await createIndividual(payload))
+      created.push(await createIndividual({ ...payload, study_id: props.studyId }))
       batchProgress.value = { done: i + 1, total }
     }
     individuals.value = [...individuals.value, ...created]
@@ -442,8 +490,73 @@ function openRowContextMenu(event: Event, group: IndividualGroup) {
   contextMenu.value?.show(event)
 }
 
-function onRowClick(event: { data: IndividualGroup }) {
-  openEditGroupDialog(event.data)
+// -- Expansion + inline editing of individual members --
+
+const expandedGroupRows = ref<Record<string, boolean>>({})
+const sexOptions = ref<{ id: string; name?: string | null }[]>([])
+const skinDiseaseOptions = ref<{ id: string; name?: string | null }[]>([])
+
+async function loadInlineEditOptions() {
+  const [sexes, skinDiseases] = await Promise.all([
+    sexApi.list(),
+    skinDiseaseCategoryApi.list(),
+  ])
+  sexOptions.value = sexes
+  skinDiseaseOptions.value = skinDiseases
+}
+
+const editMode = ref(false)
+
+function toggleEditMode() {
+  editMode.value = !editMode.value
+  if (editMode.value) {
+    void loadInlineEditOptions()
+    // Expand every group so a member that moves into a different group
+    // after an inline edit (e.g. its age changes) stays visible and
+    // editable instead of silently collapsing into a hidden row.
+    const expanded: Record<string, boolean> = {}
+    for (const group of individualGroups.value) expanded[group.key] = true
+    expandedGroupRows.value = expanded
+  }
+}
+
+// Keep every group expanded while in edit mode, even as inline edits
+// re-shuffle members into newly created/split groups with keys that
+// weren't expanded yet.
+watch(individualGroups, (groups) => {
+  if (!editMode.value) return
+  const expanded = { ...expandedGroupRows.value }
+  for (const group of groups) expanded[group.key] = true
+  expandedGroupRows.value = expanded
+})
+
+const savingMemberIds = ref<Set<string>>(new Set())
+
+async function saveMemberField(member: Individual, patch: Partial<Individual>) {
+  const next = new Set(savingMemberIds.value)
+  next.add(member.id)
+  savingMemberIds.value = next
+  try {
+    const updated = await updateIndividual(member.id, {
+      name: patch.name !== undefined ? patch.name : member.name,
+      sex_id: patch.sex_id !== undefined ? patch.sex_id : member.sex_id,
+      age: patch.age !== undefined ? patch.age : member.age,
+      skin_disease_category_id:
+        patch.skin_disease_category_id !== undefined
+          ? patch.skin_disease_category_id
+          : member.skin_disease_category_id,
+      dna_shedding_propensity_category_id: member.dna_shedding_propensity_category_id,
+      determination_of_shedding_propensity_category_id:
+        member.determination_of_shedding_propensity_category_id,
+    })
+    individuals.value = individuals.value.map((candidate) =>
+      candidate.id === updated.id ? updated : candidate,
+    )
+  } finally {
+    const after = new Set(savingMemberIds.value)
+    after.delete(member.id)
+    savingMemberIds.value = after
+  }
 }
 </script>
 
@@ -462,15 +575,25 @@ function onRowClick(event: { data: IndividualGroup }) {
     </div>
     <div class="overflow-x-auto">
       <div class="mb-3 flex items-center justify-between gap-3">
-        <UButton
-          type="button"
-          icon="i-lucide-filter-x"
-          variant="outline"
-          size="sm"
-          @click="clearIndividualFilters()"
-        >
-          Clear Filters
-        </UButton>
+        <div class="flex items-center gap-2">
+          <UButton
+            type="button"
+            icon="i-lucide-filter-x"
+            variant="outline"
+            size="sm"
+            @click="clearIndividualFilters()"
+          >
+            Clear Filters
+          </UButton>
+          <UButton
+            type="button"
+            :label="editMode ? 'Done editing' : 'Edit table'"
+            :icon="editMode ? 'i-lucide-check' : 'i-lucide-pencil-line'"
+            :variant="editMode ? 'solid' : 'outline'"
+            size="sm"
+            @click="toggleEditMode()"
+          />
+        </div>
         <UInput
           v-model="individualFilters['global'].value"
           type="text"
@@ -486,16 +609,17 @@ function onRowClick(event: { data: IndividualGroup }) {
         v-else
         v-model:filters="individualFilters"
         v-model:context-menu-selection="selectedGroup"
+        v-model:expanded-rows="expandedGroupRows"
         :value="individualGroups"
         :loading="deletingGroup"
         data-key="key"
         filterDisplay="menu"
         context-menu
-        :globalFilterFields="['sex.name', 'age', 'skin_disease_category.name']"
-        :row-class="() => 'cursor-pointer hover:bg-elevated'"
+        :globalFilterFields="['sex.name', 'age', 'skin_disease_category.name', 'scenarioNames']"
+        :row-class="() => 'hover:bg-elevated'"
         @row-contextmenu="onRowContextMenu"
-        @row-click="onRowClick"
       >
+        <Column expander style="width: 2.5rem" />
         <Column header="#" style="width: 3rem">
           <template #body="{ index }">{{ index + 1 }}</template>
         </Column>
@@ -552,18 +676,132 @@ function onRowClick(event: { data: IndividualGroup }) {
             <UInput v-model="filterModel.value" type="text" placeholder="Search by skin disease" />
           </template>
         </Column>
-        <Column header="" style="width: 4rem">
-          <template #body="{ data }">
-            <UButton
-              icon="i-lucide-more-vertical"
-              color="neutral"
-              variant="ghost"
-              square
-              aria-label="Individual options"
-              @click.stop="openRowContextMenu($event, data)"
-            />
+        <Column
+          field="scenarioNames"
+          header="Scenario"
+          sortable
+          :showFilterOperator="false"
+          :showAddButton="false"
+        >
+          <template #body="{ data }"><ScenarioBadges :names="groupScenarioNames(data)" /></template>
+          <template #filter="{ filterModel }">
+            <UInput v-model="filterModel.value" type="text" placeholder="Search by scenario" />
           </template>
         </Column>
+        <Column header="" style="width: 6rem">
+          <template #body="{ data }">
+            <span class="flex items-center justify-end gap-1">
+              <UButton
+                icon="i-lucide-pencil"
+                color="neutral"
+                variant="ghost"
+                square
+                aria-label="Edit group"
+                @click.stop="openEditGroupDialog(data)"
+              />
+              <UButton
+                icon="i-lucide-more-vertical"
+                color="neutral"
+                variant="ghost"
+                square
+                aria-label="Individual options"
+                @click.stop="openRowContextMenu($event, data)"
+              />
+            </span>
+          </template>
+        </Column>
+
+        <template #expansion="{ data: group }">
+          <div class="flex flex-col gap-2 py-2">
+            <div class="px-2">
+              <p class="text-sm text-surface-500 dark:text-surface-400">
+                {{ group.members.length > 1 ? `${group.members.length} individuals in this group` : '1 individual' }}
+              </p>
+            </div>
+            <DataTable :value="group.members" data-key="id">
+              <Column header="Name">
+                <template #body="{ data: member }">
+                  <UInput
+                    v-if="editMode"
+                    :model-value="member.name ?? ''"
+                    placeholder="Unnamed"
+                    size="sm"
+                    :loading="savingMemberIds.has(member.id)"
+                    @change="(e: Event) => saveMemberField(member, { name: (e.target as HTMLInputElement).value || null })"
+                  />
+                  <span v-else class="flex items-center gap-1.5">
+                    <UIcon name="i-lucide-user" class="shrink-0" />
+                    {{ memberLabel(member, group) }}
+                  </span>
+                </template>
+              </Column>
+              <Column header="Sex">
+                <template #body="{ data: member }">
+                  <USelect
+                    v-if="editMode"
+                    :model-value="member.sex_id ?? undefined"
+                    :items="sexOptions.map((s) => ({ label: s.name, value: s.id }))"
+                    placeholder="—"
+                    size="sm"
+                    :loading="savingMemberIds.has(member.id)"
+                    @update:model-value="(value: string) => saveMemberField(member, { sex_id: value ?? null })"
+                  />
+                  <template v-else>
+                    <UBadge v-if="member.sex?.name" color="neutral" variant="outline">
+                      {{ member.sex.name }}
+                    </UBadge>
+                    <span v-else>—</span>
+                  </template>
+                </template>
+              </Column>
+              <Column header="Age">
+                <template #body="{ data: member }">
+                  <UInputNumber
+                    v-if="editMode"
+                    :model-value="member.age ?? undefined"
+                    :min="0"
+                    size="sm"
+                    class="w-24"
+                    :loading="savingMemberIds.has(member.id)"
+                    @update:model-value="(value: number) => saveMemberField(member, { age: value ?? null })"
+                  />
+                  <span v-else>{{ member.age ?? '—' }}</span>
+                </template>
+              </Column>
+              <Column header="Skin disease">
+                <template #body="{ data: member }">
+                  <USelect
+                    v-if="editMode"
+                    :model-value="member.skin_disease_category_id ?? undefined"
+                    :items="skinDiseaseOptions.map((c) => ({ label: c.name, value: c.id }))"
+                    placeholder="—"
+                    size="sm"
+                    :loading="savingMemberIds.has(member.id)"
+                    @update:model-value="(value: string) => saveMemberField(member, { skin_disease_category_id: value ?? null })"
+                  />
+                  <template v-else>
+                    <UBadge v-if="member.skin_disease_category?.name" color="neutral" variant="outline">
+                      {{ member.skin_disease_category.name }}
+                    </UBadge>
+                    <span v-else>—</span>
+                  </template>
+                </template>
+              </Column>
+              <Column header="" style="width: 3rem">
+                <template #body="{ data: member }">
+                  <UButton
+                    icon="i-lucide-trash-2"
+                    color="neutral"
+                    variant="ghost"
+                    square
+                    aria-label="Delete individual"
+                    @click.stop="confirmDeleteGroup({ key: member.id, sexId: member.sex_id ?? null, age: member.age ?? null, dnaSheddingPropensityCategoryId: member.dna_shedding_propensity_category_id ?? null, skinDiseaseCategoryId: member.skin_disease_category_id ?? null, determinationCategoryId: member.determination_of_shedding_propensity_category_id ?? null, members: [member], scenarioNames: '' })"
+                  />
+                </template>
+              </Column>
+            </DataTable>
+          </div>
+        </template>
       </DataTable>
     </div>
 
@@ -578,6 +816,7 @@ function onRowClick(event: { data: IndividualGroup }) {
             These individuals currently share the same details. Changes here apply to all
             {{ editingGroup.members.length }} of them.
           </p>
+          <ScenarioMultiSelect v-model="editScenarioIds" :scenarios="scenarios" />
           <UFormField label="Count" :error="individualErrors.count">
             <UInputNumber v-model="individualCount" :min="1" :max="500" class="w-full" />
           </UFormField>
@@ -641,6 +880,7 @@ function onRowClick(event: { data: IndividualGroup }) {
             sharing the same details below. They'll show up as a single grouped row until you
             change one of them.
           </p>
+          <ScenarioMultiSelect v-model="batchScenarioIds" :scenarios="scenarios" />
           <UFormField label="Number of individuals" :error="batchErrors.count">
             <UInputNumber v-model="batchCount" :min="1" :max="500" class="w-full" />
           </UFormField>

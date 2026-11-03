@@ -7,6 +7,7 @@ import { useToast } from '@nuxt/ui/composables'
 import type { StepperItem } from '@nuxt/ui'
 import CategorySelect from './CategorySelect.vue'
 import ContactTemplateCard from './ContactTemplateCard.vue'
+import ContactTemplateChainEditor from './ContactTemplateChainEditor.vue'
 import PersistenceCard from './PersistenceCard.vue'
 import PersistencePickerDialog from './PersistencePickerDialog.vue'
 import { scenarioCategoryApi } from '@/api/categories'
@@ -23,12 +24,17 @@ import type { PersistenceDraft } from './persistenceDraft'
 import type { Persistence, Scenario } from '@/api/types'
 import {
   cloneContactTemplateDraftForDuplication,
+  cloneContactTemplateDraftsForDuplication,
+  contactTemplateChainHasCycle,
+  moveContactTemplateInChain,
+  unlinkContactTemplateDraft,
+  saveContactTemplateChain,
   contactTemplateDraftFromContactTemplate,
   emptyContactTemplateDraft,
   isBlankContactTemplateDraft,
   saveContactTemplateDraft,
 } from './contactTemplateDraft'
-import type { ContactTemplateDraft } from './contactTemplateDraft'
+import type { ChainSlot, ContactTemplateDraft } from './contactTemplateDraft'
 
 const props = defineProps<{
   studyId: string
@@ -87,50 +93,73 @@ const stepItems = computed<StepperItem[]>(() => [
 ])
 
 interface ScenarioFormValues {
+  name: string
   realistic: boolean
   scenarioCategoryId: string | null
   persistencies: PersistenceDraft[]
   contactTemplates: ContactTemplateDraft[]
 }
 
+// UInputNumber emits NaN (not null) when cleared, so every optional numeric
+// field needs this transform before its other checks run - otherwise
+// clearing the field makes yup's nullable() type check fail with a
+// confusing "must be a number" error on a field the user left empty.
+const nanToNull = (value: unknown) => (typeof value === 'number' && Number.isNaN(value) ? null : value)
+
 const persistenceSchema = yup.object({
   intervalOfPersistence: yup
     .number()
+    .transform(nanToNull)
     .nullable()
     .min(0, 'Interval of persistence must be zero or greater.'),
-  temperature: yup.number().nullable().defined(),
+  temperature: yup.number().transform(nanToNull).nullable().defined(),
   humidity: yup
     .number()
+    .transform(nanToNull)
     .nullable()
     .min(0, 'Humidity must be between 0 and 100%.')
     .max(1, 'Humidity must be between 0 and 100%.'),
-  uvIrradiation: yup.number().nullable().min(0, 'UV irradiation must be zero or greater.'),
+  uvIrradiation: yup
+    .number()
+    .transform(nanToNull)
+    .nullable()
+    .min(0, 'UV irradiation must be zero or greater.'),
   indoors: yup.boolean().defined(),
   changeOverTime: yup.boolean().defined(),
   durationOfDisturbance: yup
     .number()
+    .transform(nanToNull)
     .nullable()
     .min(0, 'Duration of disturbance must be zero or greater.'),
   descriptionOfDisturbance: yup.string().nullable().defined(),
-  disturbanceCategoryId: yup.string().nullable().defined(),
   geographicLocationCategoryId: yup.string().nullable().defined(),
 })
 
 const schema = yup.object({
+  name: yup.string().trim().required('Please name this scenario.'),
   realistic: yup.boolean().defined(),
   scenarioCategoryId: yup.string().nullable().required('Please select a scenario category.'),
   persistencies: yup.array().of(persistenceSchema),
   contactTemplates: yup.array().of(
     yup.object({
-      duration: yup.number().nullable().min(0, 'Duration must be zero or greater.'),
-      contactArea: yup.number().nullable().min(0, 'Contact area must be zero or greater.'),
-      temperature: yup.number().nullable().defined(),
+      duration: yup.number().transform(nanToNull).nullable().min(0, 'Duration must be zero or greater.'),
+      contactArea: yup
+        .number()
+        .transform(nanToNull)
+        .nullable()
+        .min(0, 'Contact area must be zero or greater.'),
+      temperature: yup.number().transform(nanToNull).nullable().defined(),
       humidity: yup
         .number()
+        .transform(nanToNull)
         .nullable()
         .min(0, 'Humidity must be between 0 and 100%.')
         .max(1, 'Humidity must be between 0 and 100%.'),
-      uvIrradiation: yup.number().nullable().min(0, 'UV irradiation must be zero or greater.'),
+      uvIrradiation: yup
+        .number()
+        .transform(nanToNull)
+        .nullable()
+        .min(0, 'UV irradiation must be zero or greater.'),
     }),
   ),
 })
@@ -138,6 +167,7 @@ const schema = yup.object({
 const { defineField, errors, handleSubmit, setValues, values, resetForm } = useForm<ScenarioFormValues>({
   validationSchema: schema,
   initialValues: {
+    name: '',
     realistic: true,
     scenarioCategoryId: null,
     persistencies: [],
@@ -145,6 +175,7 @@ const { defineField, errors, handleSubmit, setValues, values, resetForm } = useF
   },
 })
 
+const [name] = defineField('name')
 const [realistic] = defineField('realistic')
 const [scenarioCategoryId] = defineField('scenarioCategoryId')
 
@@ -267,6 +298,7 @@ async function loadForm() {
         ? scenario.contact_templates.map(contactTemplateDraftFromContactTemplate)
         : [emptyContactTemplateDraft()]
       setValues({
+        name: scenario.name,
         realistic: !!scenario.realistic,
         scenarioCategoryId: scenario.scenario_category_id ?? null,
         persistencies,
@@ -300,11 +332,12 @@ async function loadForm() {
     const persistencies = scenario.persistencies
       .map((p) => clonePersistenceDraftForDuplication(persistenceDraftFromPersistence(p)))
     const contactTemplates = scenario.contact_templates.length
-      ? scenario.contact_templates.map((template) =>
-          cloneContactTemplateDraftForDuplication(contactTemplateDraftFromContactTemplate(template)),
+      ? cloneContactTemplateDraftsForDuplication(
+          scenario.contact_templates.map(contactTemplateDraftFromContactTemplate),
         )
       : [emptyContactTemplateDraft()]
     setValues({
+      name: `${scenario.name} (copy)`,
       realistic: !!scenario.realistic,
       scenarioCategoryId: scenario.scenario_category_id ?? null,
       persistencies,
@@ -329,6 +362,11 @@ async function loadForm() {
 function restoreDraftIfPresent() {
   const draft = readDraft()
   if (!draft) return
+  // Drafts saved before chains existed carry no uid / chain link.
+  for (const template of draft.values.contactTemplates) {
+    template.uid ??= template.id ?? crypto.randomUUID()
+    template.followsUid ??= null
+  }
   setValues(draft.values)
   activeStep.value = draft.activeStep
   collapsedPersistencies.value = draft.values.persistencies.map(() => true)
@@ -374,15 +412,35 @@ function addContactTemplate() {
   collapsedContactTemplates.value.push(false)
 }
 
+function moveInChain(payload: { uid: string; slot: ChainSlot }) {
+  moveContactTemplateInChain(contactTemplateFields.value.map((f) => f.value), payload.uid, payload.slot)
+}
+
 function removeContactTemplate(index: number) {
+  const removed = contactTemplateFields.value[index]?.value
+  if (removed) unlinkContactTemplateDraft(contactTemplateFields.value.map((f) => f.value), removed.uid)
   removeContactTemplateField(index)
   collapsedContactTemplates.value.splice(index, 1)
+}
+
+// Copies this card's own values into a new card in the same scenario - a
+// quick way to reuse one contact template as the starting point for a
+// near-identical one, without round-tripping through another study.
+function duplicateContactTemplate(index: number) {
+  collapsedContactTemplates.value = collapsedContactTemplates.value.map(() => true)
+  pushContactTemplate(
+    cloneContactTemplateDraftForDuplication(contactTemplateFields.value[index]!.value),
+  )
+  collapsedContactTemplates.value.push(false)
 }
 
 // The workflow mirrors the study stepper: details, persistence, contact
 // templates. Saving is only allowed once each step has real content -
 // otherwise the user is nudged back to whichever step is still empty.
 function firstIncompleteStep(): { step: StepName; message: string } | null {
+  if (!values.name?.trim()) {
+    return { step: 'details', message: 'Please name this scenario before saving.' }
+  }
   if (!values.scenarioCategoryId) {
     return { step: 'details', message: 'Please choose a scenario category before saving.' }
   }
@@ -396,6 +454,12 @@ function firstIncompleteStep(): { step: StepName; message: string } | null {
     return {
       step: 'contact-templates',
       message: 'Add at least one contact template before saving this scenario.',
+    }
+  }
+  if (contactTemplateChainHasCycle(values.contactTemplates)) {
+    return {
+      step: 'contact-templates',
+      message: 'The contact chain loops back on itself. Rearrange the chain.',
     }
   }
   return null
@@ -462,6 +526,7 @@ async function saveScenario(formValues: ScenarioFormValues) {
     }
 
     const payload = {
+      name: formValues.name.trim(),
       realistic: formValues.realistic,
       scenario_category_id: formValues.scenarioCategoryId,
       study_ids: [studyId.value],
@@ -478,6 +543,7 @@ async function saveScenario(formValues: ScenarioFormValues) {
       contactTemplateIds.push(await saveContactTemplateDraft(contactTemplate, scenario.id))
     }
     await updateScenario(scenario.id, { contact_template_ids: contactTemplateIds })
+    await saveContactTemplateChain(formValues.contactTemplates, contactTemplateIds)
 
     clearDraft()
     open.value = false
@@ -539,6 +605,10 @@ const title = computed(() =>
         >
           <template #1>
             <div class="flex flex-col gap-4">
+              <UFormField label="Name" required :error="errors.name">
+                <UInput v-model="name" placeholder="e.g. Handshake, dry hands" class="w-full" />
+              </UFormField>
+
               <div class="flex flex-col gap-2">
                 <CategorySelect
                   v-model="scenarioCategoryId"
@@ -633,6 +703,7 @@ const title = computed(() =>
                 :removable="contactTemplateFields.length > 1"
                 @update:collapsed="collapsedContactTemplates[index] = $event"
                 @remove="removeContactTemplate(index)"
+                @duplicate="duplicateContactTemplate(index)"
               />
 
               <UButton
@@ -641,6 +712,12 @@ const title = computed(() =>
                 variant="outline"
                 class="self-start"
                 @click="addContactTemplate"
+              />
+
+              <ContactTemplateChainEditor
+                v-if="contactTemplateFields.length > 0"
+                :drafts="contactTemplateFields.map((f) => f.value)"
+                @move="moveInChain"
               />
 
               <div class="flex justify-start mt-2">

@@ -8,6 +8,13 @@ const props = defineProps<{
   loading: boolean
 }>()
 
+function followedTemplateName(id: string): string {
+  const templates = props.scenario?.contact_templates ?? []
+  const index = templates.findIndex((t) => t.id === id)
+  if (index < 0) return 'another contact template'
+  return templates[index]!.name || `contact template #${index + 1}`
+}
+
 function formatDuration(seconds: number | null | undefined): string | null {
   if (seconds == null) return null
   const units: [string, number][] = [
@@ -81,10 +88,6 @@ function formatDuration(seconds: number | null | undefined): string | null {
             </div>
             <div v-if="persistence.indoors">Indoors</div>
             <div v-if="persistence.change_over_time">Changes over time</div>
-            <div v-if="persistence.disturbance_category">
-              <span class="font-medium">Disturbance:</span>
-              {{ persistence.disturbance_category.name }}
-            </div>
             <div v-if="persistence.geographic_location_category">
               <span class="font-medium">Geographic location:</span>
               {{ persistence.geographic_location_category.name }}
@@ -113,7 +116,12 @@ function formatDuration(seconds: number | null | undefined): string | null {
           :key="contactTemplate.id"
           class="flex flex-col gap-1 border border-surface-200 dark:border-surface-700 rounded-md p-3"
         >
-          <span class="font-medium">Contact template #{{ index + 1 }}</span>
+          <span class="font-medium">{{ contactTemplate.name || `Contact template #${index + 1}` }}</span>
+          <span v-if="contactTemplate.previous_contact_template_id" class="text-sm text-surface-500 dark:text-surface-400">
+            <UIcon name="i-lucide-corner-down-right" class="align-text-bottom" />
+            Follows
+            {{ followedTemplateName(contactTemplate.previous_contact_template_id) }}
+          </span>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-surface-600 dark:text-surface-300">
             <div v-if="contactTemplate.duration != null">
               <span class="font-medium">Duration:</span>

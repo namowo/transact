@@ -27,7 +27,7 @@ class CRUDContactTemplate(
         self, db: AsyncSession, id: UUID, obj_in: ContactTemplateUpdate
     ) -> ContactTemplate:
         return await self.update_with_associations(
-            db, id, obj_in, association_fields=ASSOCIATION_FIELDS
+            db, id, obj_in, association_fields=ASSOCIATION_FIELDS, exclude_none=False
         )
 
 

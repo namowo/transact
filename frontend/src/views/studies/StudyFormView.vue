@@ -52,7 +52,7 @@ const stepItems = computed<StepperItem[]>(() => [
     : []),
 ])
 
-const authorTitleOptions = ['Dr.', 'Prof.', 'Prof. Dr.', 'PhD', 'MSc', 'BSc']
+const authorTitleOptions = ['Dr.', 'Prof.', 'Prof. Dr.']
 
 const purposeOptions: { label: string; value: 'transfer' | 'repository' }[] = [
   { label: 'Plan a transfer experiment', value: 'transfer' },
@@ -83,20 +83,39 @@ const authorSchema = yup.object({
   last_name: yup.string().trim().required('Last name is required.'),
 })
 
+const MIN_YEAR = 1900
+const MAX_YEAR = new Date().getFullYear() + 1
+
+const DOI_PREFIX = /^(?:https?:\/\/(?:dx\.)?doi\.org\/|doi:\s*)/i
+const normalizeDoi = (value: string) => value.trim().replace(DOI_PREFIX, '')
+const DOI_PATTERN = /^10\.\d{4,9}\/\S+$/
+
 const schema = yup.object({
   title: yup.string().trim().required('Title is required.'),
-  doi: yup.string().trim().defined(),
+  doi: yup
+    .string()
+    .trim()
+    .transform((value) => (typeof value === 'string' ? normalizeDoi(value) : value))
+    .defined()
+    .test(
+      'doi-format',
+      'Invalid DOI. Expected format: 10.1234/abc (a https://doi.org/ prefix is removed automatically).',
+      (value) => !value || DOI_PATTERN.test(value),
+    ),
   journal: yup.string().trim().defined(),
   year: yup
     .number()
     .nullable()
     .transform((value, original) => (original === '' || original == null ? null : value))
     .typeError('Year must be a number.')
+    .integer('Year must be a whole number.')
     .test(
       'four-digits',
       'Year must be a 4-digit number.',
       (value) => value == null || (value >= 1000 && value <= 9999),
-    ),
+    )
+    .min(MIN_YEAR, `Year must be ${MIN_YEAR} or later.`)
+    .max(MAX_YEAR, `Year must not be later than ${MAX_YEAR}.`),
   abstract: yup.string().trim().defined(),
   description: yup.string().trim().defined(),
   authors: yup.array().of(authorSchema).min(1, 'Please add at least one author.'),
@@ -106,7 +125,6 @@ const schema = yup.object({
     .trim()
     .email('Please enter a valid email address.')
     .defined(),
-  corresponding_author_phone: yup.string().trim().defined(),
   purpose: yup
     .string()
     .nullable()
@@ -126,7 +144,6 @@ const { defineField, errors, handleSubmit, setValues, submitCount } = useForm({
     authors: [emptyAuthor()],
     correspondingAuthorIndex: null as number | null,
     corresponding_author_email: '',
-    corresponding_author_phone: '',
     purpose: null as 'transfer' | 'repository' | null,
     quality_check_passed: false,
   },
@@ -140,7 +157,6 @@ const [abstractField, abstractAttrs] = defineField('abstract')
 const [description, descriptionAttrs] = defineField('description')
 const [correspondingAuthorIndex] = defineField('correspondingAuthorIndex')
 const [correspondingEmail, correspondingEmailAttrs] = defineField('corresponding_author_email')
-const [correspondingPhone, correspondingPhoneAttrs] = defineField('corresponding_author_phone')
 const [purpose] = defineField('purpose')
 
 const {
@@ -181,7 +197,6 @@ const correspondingAuthorOptions = computed(() =>
 function clearCorrespondingAuthor() {
   correspondingAuthorIndex.value = null
   correspondingEmail.value = ''
-  correspondingPhone.value = ''
 }
 
 function onCorrespondingAuthorChange(value: number | null) {
@@ -241,7 +256,6 @@ onMounted(async () => {
       authors,
       correspondingAuthorIndex: correspondingIndex >= 0 ? correspondingIndex : null,
       corresponding_author_email: study.corresponding_author_email ?? '',
-      corresponding_author_phone: study.corresponding_author_phone ?? '',
       purpose: study.plan_a_transfer_experiment
         ? 'transfer'
         : study.add_data_to_repository
@@ -272,7 +286,7 @@ const onSubmit = handleSubmit(async (values) => {
 
     const shared = {
       title: values.title.trim(),
-      doi: values.doi.trim() || null,
+      doi: normalizeDoi(values.doi) || null,
       journal: values.journal.trim() || null,
       year: values.year != null ? String(values.year) : null,
       abstract: values.abstract.trim() || null,
@@ -281,7 +295,6 @@ const onSubmit = handleSubmit(async (values) => {
         ? formatAuthorName(correspondingAuthor) || null
         : null,
       corresponding_author_email: values.corresponding_author_email.trim() || null,
-      corresponding_author_phone: values.corresponding_author_phone.trim() || null,
       plan_a_transfer_experiment: values.purpose === 'transfer',
       add_data_to_repository: values.purpose === 'repository',
       quality_check_passed: values.quality_check_passed,
@@ -305,7 +318,8 @@ const onSubmit = handleSubmit(async (values) => {
         router.push({ name: 'studies-laboratory' })
       }
     }
-  } catch {
+  } catch (error) {
+    console.error(error)
     submitError.value = 'Could not save the study. Please try again.'
   } finally {
     submitting.value = false
@@ -478,19 +492,25 @@ function confirmDeleteStudy() {
 
               <div class="grid grid-cols-2 gap-4">
                 <UFormField label="Year" hint="Optional" :error="errors.year">
-                  <!-- TODO: number formatting (was :use-grouping="false") -->
                   <UInputNumber
                     id="study-year"
                     v-model="year"
                     v-bind="yearAttrs"
-                    :min="1000"
-                    :max="9999"
+                    :min="MIN_YEAR"
+                    :max="MAX_YEAR"
+                    :format-options="{ useGrouping: false }"
                     orientation="vertical"
                     class="w-full"
                   />
                 </UFormField>
-                <UFormField label="DOI" hint="Optional">
-                  <UInput id="study-doi" v-model="doi" v-bind="doiAttrs" class="w-full" />
+                <UFormField label="DOI" hint="Optional" :error="errors.doi">
+                  <UInput
+                    id="study-doi"
+                    v-model="doi"
+                    v-bind="doiAttrs"
+                    class="w-full"
+                    @blur="doi = normalizeDoi(doi ?? '')"
+                  />
                 </UFormField>
               </div>
 
@@ -522,27 +542,16 @@ function confirmDeleteStudy() {
               />
             </UFormField>
 
-            <div class="grid grid-cols-2 gap-4">
-              <UFormField label="Email" hint="Optional" :error="errors.corresponding_author_email">
-                <UInput
-                  id="study-contact-email"
-                  v-model="correspondingEmail"
-                  v-bind="correspondingEmailAttrs"
-                  :disabled="correspondingAuthorIndex == null"
-                  type="email"
-                  class="w-full"
-                />
-              </UFormField>
-              <UFormField label="Phone number" hint="Optional">
-                <UInput
-                  id="study-contact-phone"
-                  v-model="correspondingPhone"
-                  v-bind="correspondingPhoneAttrs"
-                  :disabled="correspondingAuthorIndex == null"
-                  class="w-full"
-                />
-              </UFormField>
-            </div>
+            <UFormField label="Email" hint="Optional" :error="errors.corresponding_author_email">
+              <UInput
+                id="study-contact-email"
+                v-model="correspondingEmail"
+                v-bind="correspondingEmailAttrs"
+                :disabled="correspondingAuthorIndex == null"
+                type="email"
+                class="w-full"
+              />
+            </UFormField>
 
             <UAlert v-if="submitError" color="error" variant="outline" :description="submitError" />
 
@@ -642,6 +651,15 @@ function confirmDeleteStudy() {
         </template>
 
         <template #2>
+          <div v-if="editingId !== null" class="flex justify-end mb-2">
+            <UButton
+              label="Print planning checklist"
+              icon="i-lucide-printer"
+              variant="outline"
+              size="sm"
+              @click="router.push({ name: 'studies-checklist', params: { id: editingId } })"
+            />
+          </div>
           <ScenariosList v-if="editingId !== null" :study-id="editingId" />
           <div class="flex justify-between mt-4">
             <UButton label="Previous step" icon="i-lucide-arrow-left" variant="ghost" type="button" @click="activeStep = '1'" />

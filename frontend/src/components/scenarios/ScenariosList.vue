@@ -28,6 +28,7 @@ function initFilters() {
   return {
     global: { value: null, matchMode: FilterMatchMode.CONTAINS },
     'scenario_category.name': { value: null, matchMode: FilterMatchMode.CONTAINS },
+    name: { value: null, matchMode: FilterMatchMode.CONTAINS },
     realistic: { value: null, matchMode: FilterMatchMode.EQUALS },
   }
 }
@@ -69,7 +70,7 @@ function confirmDelete(scenario: Scenario) {
 }
 
 function scenarioLabel(scenario: Scenario): string {
-  return `${scenario.scenario_category?.name ?? 'Uncategorized'} — Scenario #${scenario.id}`
+  return scenario.name
 }
 
 // Bibliography-style citation (Author, A., Author, B. (Year). Title. Journal.)
@@ -190,6 +191,11 @@ const contextMenuItems = computed<MenuItem[]>(() => {
         isScenarioEditable(scenario) ? openEditDialog(scenario) : openViewDialog(scenario),
     },
     {
+      label: 'Duplicate',
+      icon: 'i-lucide-copy-plus',
+      command: () => duplicateScenario(scenario),
+    },
+    {
       label: 'Remove from this study',
       icon: 'i-lucide-x',
       visible: scenario.studies.length > 1,
@@ -227,6 +233,15 @@ async function openViewDialog(scenario: Scenario) {
   } finally {
     viewLoading.value = false
   }
+}
+
+// Reuses the same "Add scenario" form, pre-filled from the source scenario -
+// same mechanism as duplicating from another study, just without the
+// browse dialog since the source is already visible in this study's list.
+function duplicateScenario(scenario: Scenario) {
+  formDialogScenarioId.value = null
+  formDialogDuplicateFromId.value = String(scenario.id)
+  formDialogVisible.value = true
 }
 
 async function unlinkScenario(scenario: Scenario) {
@@ -361,7 +376,7 @@ defineExpose({ load })
         data-key="id"
         filterDisplay="menu"
         removableSort
-        :globalFilterFields="['scenario_category.name']"
+        :globalFilterFields="['name', 'scenario_category.name']"
         :row-class="() => 'cursor-pointer hover:bg-elevated'"
         @row-click="onRowClick"
         @row-contextmenu="onRowContextMenu"
@@ -369,6 +384,10 @@ defineExpose({ load })
         <template #empty>
           <div class="text-center text-surface-500 dark:text-surface-400 py-8">No scenarios yet.</div>
         </template>
+
+        <Column field="name" header="Name" sortable>
+          <template #body="{ data }">{{ data.name }}</template>
+        </Column>
 
         <Column
           field="scenario_category.name"
@@ -428,7 +447,16 @@ defineExpose({ load })
 
         <Column header="Contact templates">
           <template #body="{ data }">
-            {{ data.contact_templates.length }}
+            <span v-if="!data.contact_templates.length" class="text-sm text-surface-400 dark:text-surface-500">—</span>
+            <div v-else class="flex flex-wrap gap-1">
+              <UBadge
+                v-for="(contactTemplate, index) in data.contact_templates"
+                :key="contactTemplate.id"
+                :label="contactTemplate.name || `Contact template #${Number(index) + 1}`"
+                color="neutral"
+                variant="subtle"
+              />
+            </div>
           </template>
         </Column>
 
@@ -504,7 +532,7 @@ defineExpose({ load })
           <div v-else class="flex gap-4 h-full">
             <DataTable
               :value="browsedStudyScenarios"
-              :globalFilterFields="['scenario_category.name']"
+              :globalFilterFields="['name', 'scenario_category.name']"
               :filters="{ global: { value: browseFilter, matchMode: 'contains' } }"
               dataKey="id"
               scrollable

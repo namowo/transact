@@ -8,6 +8,7 @@ from app.schemas.common import SecondsTimedelta
 
 class ContactTemplateBase(BaseModel):
     name: Optional[str] = None
+    previous_contact_template_id: Optional[UUID] = None
     donor_surface_template_id: Optional[UUID] = None
     recipient_surface_template_id: Optional[UUID] = None
     duration: Optional[SecondsTimedelta] = None

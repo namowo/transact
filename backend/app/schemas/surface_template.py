@@ -11,7 +11,7 @@ class SurfaceTemplateBase(BaseModel):
     item_parts_category_id: Optional[UUID] = None
     condition_of_item_part_category_id: Optional[UUID] = None
     surface_material_category_id: Optional[UUID] = None
-    source_of_dna_category_id: Optional[UUID] = None
+    item_surface_material_category_id: Optional[UUID] = None
     photo_path: Optional[str] = None
     background_dna: Optional[bool] = None
     prevalence: Optional[bool] = None
@@ -19,11 +19,11 @@ class SurfaceTemplateBase(BaseModel):
 
 
 class SurfaceTemplateCreate(SurfaceTemplateBase):
-    pass
+    source_of_dna_category_ids: list[UUID] = []
 
 
 class SurfaceTemplateUpdate(SurfaceTemplateBase):
-    pass
+    source_of_dna_category_ids: Optional[list[UUID]] = None
 
 
 class SurfaceTemplateRead(SurfaceTemplateBase):
@@ -32,17 +32,19 @@ class SurfaceTemplateRead(SurfaceTemplateBase):
     id: UUID
     location_of_body_category: Optional["LocationOfBodyCategoryRead"] = None
     body_part_condition_category: Optional["BodyPartConditionCategoryRead"] = None
-    item: Optional["ItemRead"] = None
+    item: Optional["ItemReadNested"] = None
     item_parts_category: Optional["ItemPartsCategoryRead"] = None
     condition_of_item_part_category: Optional["ConditionOfItemPartCategoryRead"] = None
     surface_material_category: Optional["SurfaceMaterialCategoryRead"] = None
-    source_of_dna_category: Optional["SourceOfDNACategoryRead"] = None
+    item_surface_material_category: Optional["ItemSurfaceMaterialCategoryRead"] = None
+    source_of_dna_categories: list["SourceOfDNACategoryRead"] = []
 
 
 from app.schemas.location_of_body_category import LocationOfBodyCategoryRead
 from app.schemas.body_part_condition_category import BodyPartConditionCategoryRead
-from app.schemas.item import ItemRead
+from app.schemas.item import ItemReadNested
 from app.schemas.item_parts_category import ItemPartsCategoryRead
 from app.schemas.condition_of_item_part_category import ConditionOfItemPartCategoryRead
 from app.schemas.surface_material_category import SurfaceMaterialCategoryRead
+from app.schemas.item_surface_material_category import ItemSurfaceMaterialCategoryRead
 from app.schemas.source_of_dna_category import SourceOfDNACategoryRead

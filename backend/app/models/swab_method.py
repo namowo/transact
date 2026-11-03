@@ -25,7 +25,7 @@ class SwabMethod(Base):
         lazy="selectin", foreign_keys=[wetting_agent_id]
     )
     volume_of_wetting_agent: Mapped[Optional[float]]
-    specification: Mapped[Optional[str]]
+    volume_of_wetting_agent_type: Mapped[Optional[str]]
     description: Mapped[Optional[str]]
     type_of_swab_category_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         PGUUID(as_uuid=True),

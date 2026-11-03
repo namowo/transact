@@ -25,6 +25,18 @@ export const useAuthStore = defineStore('auth', () => {
     () => !!user.value?.is_superuser || !!user.value?.can_manage_lab_users,
   )
 
+  // How numbers are typed and shown (BCP 47 tag from the user's profile).
+  const locale = computed(() => user.value?.locale || 'en-US')
+  const decimalSeparator = computed<'.' | ','>(() => {
+    const part = new Intl.NumberFormat(locale.value).formatToParts(1.1).find((p) => p.type === 'decimal')
+    return part?.value === ',' ? ',' : '.'
+  })
+
+  // Formats a number for display in the user's locale (e.g. 0,1 in de-DE).
+  function formatNumber(value: number, options: Intl.NumberFormatOptions = { maximumFractionDigits: 6 }) {
+    return new Intl.NumberFormat(locale.value, options).format(value)
+  }
+
   let userLoadedPromise: Promise<void> | null = null
   let setupStatusPromise: Promise<void> | null = null
 
@@ -122,6 +134,9 @@ export const useAuthStore = defineStore('auth', () => {
     isSuperuser,
     canQualityCheck,
     isLabAdmin,
+    locale,
+    decimalSeparator,
+    formatNumber,
     login,
     register,
     fetchCurrentUser,

@@ -11,9 +11,18 @@ import {
 } from './contactInstanceDraft'
 import { templateName, surfaceLabel, surfaceIcon, surfaceDetail } from './contactTemplateLabel'
 import type { ContactInstanceDraft } from './contactInstanceDraft'
-import type { Contact, ContactTemplate } from '@/api/types'
+import type { Contact, ContactTemplate, Surface } from '@/api/types'
 
-const props = defineProps<{ contactTemplates: ContactTemplate[] }>()
+const props = defineProps<{
+  studyId: string
+  contactTemplates: ContactTemplate[]
+  // Actual contacts already recorded for this study, used to offer their
+  // surfaces for reuse when chaining a new contact onto one of them.
+  contacts?: Contact[]
+  // Human-readable label for a contact, shared with the contact list so
+  // both name the same contact the same way.
+  contactLabel?: (contact: Contact) => string
+}>()
 const visible = defineModel<boolean>('visible', { required: true })
 
 const emit = defineEmits<{ saved: [contacts: Contact[]] }>()
@@ -95,6 +104,61 @@ const itemSurfaceDraft = computed({
   },
 })
 
+// All surfaces already created for this study's actual contacts, deduped
+// by id - a surface can appear as both donor and recipient across contacts.
+const allExistingSurfaces = computed<Surface[]>(() => {
+  const byId = new Map<string, Surface>()
+  for (const contact of props.contacts ?? []) {
+    if (contact.donor_surface) byId.set(contact.donor_surface.id, contact.donor_surface)
+    if (contact.recipient_surface) byId.set(contact.recipient_surface.id, contact.recipient_surface)
+  }
+  return [...byId.values()]
+})
+
+// Surfaces offered for reuse on a given slot - only those of the same kind
+// (item vs individual) as the slot's template, since a surface's shape is
+// fixed by the template it instantiated.
+function existingSurfacesFor(template: { item_id?: string | null } | null | undefined): Surface[] {
+  if (!template) return []
+  const wantsItem = !!template.item_id
+  return allExistingSurfaces.value.filter((s) => !!s.surface_template?.item_id === wantsItem)
+}
+
+const donorExistingSurfaces = computed(() =>
+  existingSurfacesFor(selectedTemplate.value?.donor_surface_template),
+)
+const recipientExistingSurfaces = computed(() =>
+  existingSurfacesFor(selectedTemplate.value?.recipient_surface_template),
+)
+// Actual contacts of the template this one follows, offered as predecessor.
+const predecessorContacts = computed<Contact[]>(() => {
+  const previousId = selectedTemplate.value?.previous_contact_template_id
+  if (!previousId) return []
+  const followed = new Set((props.contacts ?? []).map((c) => c.previous_contact_id))
+  return (props.contacts ?? []).filter(
+    (c) => c.contact_template_id === previousId && !followed.has(c.id),
+  )
+})
+
+const predecessorTemplate = computed(() => {
+  const previousId = selectedTemplate.value?.previous_contact_template_id
+  return props.contactTemplates.find((t) => t.id === previousId) ?? null
+})
+
+const NO_PREDECESSOR = '__none__'
+
+const predecessorItems = computed(() => [
+  { label: 'None', value: NO_PREDECESSOR },
+  ...predecessorContacts.value.map((c) => ({
+    label: props.contactLabel?.(c) ?? c.name ?? 'Contact',
+    value: c.id,
+  })),
+])
+
+const itemExistingSurfaces = computed(() =>
+  itemSide.value === 'donor' ? donorExistingSurfaces.value : recipientExistingSurfaces.value,
+)
+
 function backToTemplateStep() {
   step.value = 'template'
 }
@@ -122,10 +186,16 @@ async function save() {
         selectedTemplate.value,
         individualSide.value,
         batchIndividualIds.value,
+        allExistingSurfaces.value,
+        predecessorContacts.value,
       )
       emit('saved', contacts)
     } else {
-      const contact = await saveContactInstanceDraft(draft.value, selectedTemplate.value)
+      const contact = await saveContactInstanceDraft(
+        draft.value,
+        selectedTemplate.value,
+        allExistingSurfaces.value,
+      )
       emit('saved', [contact])
     }
     visible.value = false
@@ -213,28 +283,52 @@ async function save() {
         <template v-else-if="selectedTemplate && individualSide">
           <SurfaceInstanceForm
             v-model="itemSurfaceDraft"
+            :study-id="props.studyId"
             :label="itemSide === 'donor' ? 'Donor' : 'Recipient'"
             :template="itemSurfaceTemplate"
+            :existing-surfaces="itemExistingSurfaces"
           />
           <UFormField
             :label="individualSide === 'donor' ? 'Donors' : 'Recipients'"
             hint="One contact is created per selected individual"
           >
-            <IndividualMultiSelect v-model="batchIndividualIds" />
+            <IndividualMultiSelect v-model="batchIndividualIds" :study-id="props.studyId" />
           </UFormField>
+          <UAlert
+            v-if="predecessorTemplate"
+            color="info"
+            variant="outline"
+            icon="i-lucide-link"
+            :description="`These contacts follow '${templateName(predecessorTemplate)}'. Each one is chained to the earlier contact of the same individual, if there is one.`"
+          />
         </template>
 
         <template v-else-if="selectedTemplate">
           <SurfaceInstanceForm
             v-model="draft.donorSurface"
+            :study-id="props.studyId"
             label="Donor"
             :template="selectedTemplate.donor_surface_template ?? null"
+            :existing-surfaces="donorExistingSurfaces"
           />
           <SurfaceInstanceForm
             v-model="draft.recipientSurface"
+            :study-id="props.studyId"
             label="Recipient"
             :template="selectedTemplate.recipient_surface_template ?? null"
+            :existing-surfaces="recipientExistingSurfaces"
           />
+          <UFormField v-if="predecessorTemplate" label="Follows contact" hint="Optional">
+            <USelect
+              :model-value="draft.previousContactId ?? NO_PREDECESSOR"
+              :items="predecessorItems"
+              class="w-full"
+              @update:model-value="(value: string) => (draft.previousContactId = value === NO_PREDECESSOR ? null : value)"
+            />
+          </UFormField>
+          <UFormField label="Name" hint="Optional - helps tell otherwise identical contacts apart">
+            <UInput v-model="draft.name" class="w-full" />
+          </UFormField>
         </template>
 
         <UAlert v-if="submitError" color="error" variant="outline" :description="submitError" />

@@ -23,6 +23,7 @@ class PCRMethodBase(BaseModel):
     final_elongation_time: Optional[SecondsTimedelta] = None
     ramping: Optional[float] = None
     total_volume_pcr_reaction: Optional[float] = None
+    abbreviations_to_manufacturers_protocol: Optional[str] = None
 
 
 class PCRMethodCreate(PCRMethodBase):

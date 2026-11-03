@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useForm } from 'vee-validate'
 import * as yup from 'yup'
 import DataTable from 'openvue/datatable'
@@ -10,12 +10,33 @@ import DataTableSkeleton from '@/components/data/DataTableSkeleton.vue'
 import ItemCategoryFields from '@/components/scenarios/ItemCategoryFields.vue'
 import { useConfirm } from '@/composables/useConfirm'
 import { createItem, deleteItem, listItems, updateItem } from '@/api/items'
-import type { Item } from '@/api/types'
+import ScenarioBadges from '@/components/data/ScenarioBadges.vue'
+import ScenarioMultiSelect from '@/components/data/ScenarioMultiSelect.vue'
+import type { ContactTemplate, Item, Scenario } from '@/api/types'
 import type { MenuItem } from 'openvue/menuitem'
+
+const props = defineProps<{
+  studyId: string
+  contactTemplates?: ContactTemplate[]
+  scenarios: Scenario[]
+  scenarioId: string | null
+}>()
+const emit = defineEmits<{ 'update:count': [count: number] }>()
 
 const confirm = useConfirm()
 
-const items = ref<Item[]>([])
+// Items are a shared catalog - this tab only shows the items this study has
+// explicitly added to itself, not every item in the whole catalog.
+const allItems = ref<Item[]>([])
+const items = computed(() =>
+  allItems.value.filter(
+    (item) =>
+      item.studies?.some((study) => study.id === props.studyId) &&
+      (props.scenarioId === null || !item.scenario_ids?.length || item.scenario_ids.includes(props.scenarioId)),
+  ),
+)
+watch(() => items.value.length, (count) => emit('update:count', count), { immediate: true })
+
 const loading = ref(false)
 const loadError = ref('')
 
@@ -23,7 +44,7 @@ async function load() {
   loading.value = true
   loadError.value = ''
   try {
-    items.value = await listItems()
+    allItems.value = await listItems()
   } catch {
     loadError.value = 'Could not load items. Please try again.'
   } finally {
@@ -33,12 +54,17 @@ async function load() {
 
 onMounted(load)
 
+function replaceItem(updated: Item) {
+  allItems.value = allItems.value.map((candidate) => (candidate.id === updated.id ? updated : candidate))
+}
+
 function initItemFilters() {
   return {
     global: { value: null, matchMode: FilterMatchMode.CONTAINS },
     'item_category.name': { value: null, matchMode: FilterMatchMode.CONTAINS },
     'item_subcategory.name': { value: null, matchMode: FilterMatchMode.CONTAINS },
     description: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    scenarioNames: { value: null, matchMode: FilterMatchMode.CONTAINS },
   }
 }
 
@@ -52,6 +78,7 @@ interface ItemFormState {
   itemCategoryId: string | null
   itemSubcategoryId: string | null
   description: string | null
+  quantity: number
 }
 
 function emptyItemForm(item: Item | null): ItemFormState {
@@ -59,6 +86,7 @@ function emptyItemForm(item: Item | null): ItemFormState {
     itemCategoryId: item?.item_category_id ?? null,
     itemSubcategoryId: item?.item_subcategory_id ?? null,
     description: item?.description ?? null,
+    quantity: 1,
   }
 }
 
@@ -66,6 +94,7 @@ const itemSchema = yup.object({
   itemCategoryId: yup.string().nullable().required('Please select an item category.'),
   itemSubcategoryId: yup.string().nullable().defined(),
   description: yup.string().trim().required('Description is required.'),
+  quantity: yup.number().min(1, 'Quantity must be at least 1.').required(),
 })
 
 const {
@@ -81,14 +110,18 @@ const {
 const [itemCategoryId] = defineItemField('itemCategoryId')
 const [itemSubcategoryId] = defineItemField('itemSubcategoryId')
 const [itemDescription] = defineItemField('description')
+const [itemQuantity] = defineItemField('quantity')
 
 const itemDialogVisible = ref(false)
 const editingItemId = ref<string | null>(null)
 const savingItem = ref(false)
 const itemSaveError = ref('')
 
+const itemScenarioIds = ref<string[]>([])
+
 function openCreateItemDialog() {
   editingItemId.value = null
+  itemScenarioIds.value = props.scenarioId ? [props.scenarioId] : []
   resetItemForm({ values: emptyItemForm(null) })
   itemSaveError.value = ''
   itemDialogVisible.value = true
@@ -96,6 +129,7 @@ function openCreateItemDialog() {
 
 function openEditItemDialog(item: Item) {
   editingItemId.value = item.id
+  itemScenarioIds.value = [...(item.scenario_ids ?? [])]
   resetItemForm({ values: emptyItemForm(item) })
   itemSaveError.value = ''
   itemDialogVisible.value = true
@@ -109,13 +143,18 @@ const saveItemForm = handleItemSubmit(async (values) => {
       item_category_id: values.itemCategoryId,
       item_subcategory_id: values.itemSubcategoryId,
       description: values.description?.trim() ?? null,
+      scenario_ids: itemScenarioIds.value,
     }
     if (editingItemId.value === null) {
-      const created = await createItem(payload)
-      items.value = [...items.value, created]
+      const created = await Promise.all(
+        Array.from({ length: values.quantity }, () =>
+          createItem({ ...payload, study_ids: [props.studyId] }),
+        ),
+      )
+      allItems.value = [...allItems.value, ...created]
     } else {
       const updated = await updateItem(editingItemId.value, payload)
-      items.value = items.value.map((candidate) => (candidate.id === updated.id ? updated : candidate))
+      replaceItem(updated)
     }
     itemDialogVisible.value = false
   } catch {
@@ -127,11 +166,20 @@ const saveItemForm = handleItemSubmit(async (values) => {
 
 const deletingItem = ref(false)
 
+// An item still used by other studies is only unlinked from this one; it's
+// hard-deleted from the shared catalog only once this was its last study.
+function itemUsedByOtherStudies(item: Item): boolean {
+  return (item.studies ?? []).some((study) => study.id !== props.studyId)
+}
+
 function confirmDeleteItem(item: Item) {
+  const usedElsewhere = itemUsedByOtherStudies(item)
   confirm.require({
-    header: 'Delete item',
-    message: 'Delete this item? This cannot be undone.',
-    acceptLabel: 'Delete',
+    header: usedElsewhere ? 'Remove item from study' : 'Delete item',
+    message: usedElsewhere
+      ? 'Remove this item from this study? It will stay available in the other studies using it.'
+      : 'Delete this item? This cannot be undone.',
+    acceptLabel: usedElsewhere ? 'Remove' : 'Delete',
     acceptColor: 'error',
     rejectLabel: 'Cancel',
     accept: () => void removeItem(item),
@@ -141,8 +189,16 @@ function confirmDeleteItem(item: Item) {
 async function removeItem(item: Item) {
   deletingItem.value = true
   try {
-    await deleteItem(item.id)
-    items.value = items.value.filter((candidate) => candidate.id !== item.id)
+    if (itemUsedByOtherStudies(item)) {
+      const remainingStudyIds = (item.studies ?? [])
+        .map((study) => study.id)
+        .filter((id) => id !== props.studyId)
+      const updated = await updateItem(item.id, { study_ids: remainingStudyIds })
+      replaceItem(updated)
+    } else {
+      await deleteItem(item.id)
+      allItems.value = allItems.value.filter((candidate) => candidate.id !== item.id)
+    }
   } finally {
     deletingItem.value = false
   }
@@ -163,7 +219,7 @@ const contextMenuItems = computed<MenuItem[]>(() => {
       command: () => openEditItemDialog(item),
     },
     {
-      label: 'Delete',
+      label: itemUsedByOtherStudies(item) ? 'Remove from study' : 'Delete',
       icon: 'i-lucide-trash-2',
       command: () => confirmDeleteItem(item),
     },
@@ -183,17 +239,159 @@ function openRowContextMenu(event: Event, item: Item) {
 function onRowClick(event: { data: Item }) {
   openEditItemDialog(event.data)
 }
+
+function itemScenarioNames(item: Item): string[] {
+  // Items without scenario links are usable in every scenario.
+  if (!item.scenario_ids?.length) return ['All scenarios']
+  return props.scenarios.filter((s) => item.scenario_ids?.includes(s.id)).map((s) => s.name)
+}
+
+const itemRows = computed(() =>
+  items.value.map((item) => ({ ...item, scenarioNames: itemScenarioNames(item).join(', ') })),
+)
+
+// -- Add existing item (from the shared catalog) --
+
+const pickerVisible = ref(false)
+const addingExistingItem = ref(false)
+
+// Items not yet part of the current view: not in the study at all, or in
+// the study but not used in the selected scenario.
+const catalogItemsNotInStudy = computed(() => {
+  const visible = new Set(items.value.map((item) => item.id))
+  return allItems.value.filter((item) => !visible.has(item.id))
+})
+
+// Study + scenario links an existing item needs to appear in the current view.
+function linksForCurrentView(item: Item) {
+  const studyIds = new Set((item.studies ?? []).map((study) => study.id))
+  studyIds.add(props.studyId)
+  const scenarioIds = new Set(item.scenario_ids ?? [])
+  // An item with no scenario links already serves every scenario.
+  if (props.scenarioId && scenarioIds.size) scenarioIds.add(props.scenarioId)
+  return { study_ids: [...studyIds], scenario_ids: [...scenarioIds] }
+}
+
+function describeCatalogItem(item: Item): string {
+  return (
+    [item.item_category?.name, item.item_subcategory?.name].filter(Boolean).join(' — ') ||
+    'Uncategorized'
+  )
+}
+
+function initPickerFilters() {
+  return {
+    global: { value: null, matchMode: FilterMatchMode.CONTAINS },
+  }
+}
+
+const pickerFilters = ref(initPickerFilters())
+
+async function addExistingItem(item: Item) {
+  addingExistingItem.value = true
+  try {
+    const updated = await updateItem(item.id, linksForCurrentView(item))
+    replaceItem(updated)
+    pickerVisible.value = false
+  } finally {
+    addingExistingItem.value = false
+  }
+}
+
+function openPicker() {
+  pickerFilters.value = initPickerFilters()
+  pickerVisible.value = true
+}
+
+// Jumps from "no match in the catalog" straight into creating one, instead
+// of making the user close the picker and reopen the separate create
+// dialog - the catalog is shared across studies (as used elsewhere, e.g.
+// contact templates), so most of the time the item already exists.
+function openCreateItemDialogFromPicker() {
+  pickerVisible.value = false
+  openCreateItemDialog()
+}
+
+// -- Load items referenced by this study's planned scenario templates --
+// A contact template's donor/recipient slot can point at an Item (planned
+// during scenario setup), but instantiating that template into an actual
+// Contact doesn't itself add the item to this study's item list - so items
+// used in planning can be invisible here even though they're in use. This
+// surfaces them in one step instead of requiring each to be found and
+// added one by one through the picker.
+
+function templateItemIds(templates: ContactTemplate[]): Set<string> {
+  const ids = new Set<string>()
+  for (const template of templates) {
+    const donorId = template.donor_surface_template?.item_id
+    const recipientId = template.recipient_surface_template?.item_id
+    if (donorId) ids.add(donorId)
+    if (recipientId) ids.add(recipientId)
+  }
+  return ids
+}
+
+const itemsFromTemplatesNotInStudy = computed(() => {
+  const ids = templateItemIds(props.contactTemplates ?? [])
+  const visible = new Set(items.value.map((item) => item.id))
+  return allItems.value.filter((item) => ids.has(item.id) && !visible.has(item.id))
+})
+
+const loadingTemplateItems = ref(false)
+
+async function loadItemsFromTemplates() {
+  loadingTemplateItems.value = true
+  try {
+    for (const item of itemsFromTemplatesNotInStudy.value) {
+      const updated = await updateItem(item.id, linksForCurrentView(item))
+      replaceItem(updated)
+    }
+  } finally {
+    loadingTemplateItems.value = false
+  }
+}
 </script>
 
 <template>
   <div class="flex flex-col gap-4">
     <UAlert v-if="loadError" color="error" variant="outline" :description="loadError" />
 
-    <div class="flex items-center justify-between">
+    <div v-if="loading || items.length" class="flex items-center justify-between">
       <h4 class="font-medium">Items</h4>
-      <UButton label="Add item" icon="i-lucide-plus" variant="outline" @click="openCreateItemDialog" />
+      <div class="flex gap-2">
+        <UButton
+          v-if="itemsFromTemplatesNotInStudy.length"
+          :label="`Load ${itemsFromTemplatesNotInStudy.length} item${itemsFromTemplatesNotInStudy.length === 1 ? '' : 's'} from scenario templates`"
+          icon="i-lucide-download"
+          variant="outline"
+          :loading="loadingTemplateItems"
+         
+          @click="loadItemsFromTemplates"
+        />
+        <UButton label="Add item" icon="i-lucide-search" variant="outline" @click="openPicker" />
+      </div>
     </div>
-    <div class="overflow-x-auto">
+
+    <DataTableSkeleton v-if="loading" :columns="4" />
+
+    <div v-else-if="!items.length" class="flex flex-col items-center gap-3 py-16">
+      <h4 class="font-medium">Items</h4>
+      <p class="text-sm text-surface-500 dark:text-surface-400">No items added to this study yet.</p>
+      <div class="flex gap-2">
+        <UButton
+          v-if="itemsFromTemplatesNotInStudy.length"
+          :label="`Load ${itemsFromTemplatesNotInStudy.length} item${itemsFromTemplatesNotInStudy.length === 1 ? '' : 's'} from scenario templates`"
+          icon="i-lucide-download"
+          variant="outline"
+          :loading="loadingTemplateItems"
+         
+          @click="loadItemsFromTemplates"
+        />
+        <UButton label="Add item" icon="i-lucide-search" variant="outline" @click="openPicker" />
+      </div>
+    </div>
+
+    <div v-else class="overflow-x-auto">
       <div class="mb-3 flex items-center justify-between gap-3">
         <UButton
           type="button"
@@ -214,17 +412,15 @@ function onRowClick(event: { data: Item }) {
 
       <ContextMenu ref="contextMenu" :model="contextMenuItems" />
 
-      <DataTableSkeleton v-if="loading" :columns="4" />
       <DataTable
-        v-else
         v-model:filters="itemFilters"
         v-model:context-menu-selection="selectedItem"
-        :value="items"
+        :value="itemRows"
         :loading="deletingItem"
         data-key="id"
         filterDisplay="menu"
         context-menu
-        :globalFilterFields="['item_category.name', 'item_subcategory.name', 'description']"
+        :globalFilterFields="['item_category.name', 'item_subcategory.name', 'description', 'scenarioNames']"
         :row-class="() => 'cursor-pointer hover:bg-elevated'"
         @row-contextmenu="onRowContextMenu"
         @row-click="onRowClick"
@@ -267,6 +463,18 @@ function onRowClick(event: { data: Item }) {
             <UInput v-model="filterModel.value" type="text" placeholder="Search by description" />
           </template>
         </Column>
+        <Column
+          field="scenarioNames"
+          header="Scenario"
+          sortable
+          :showFilterOperator="false"
+          :showAddButton="false"
+        >
+          <template #body="{ data }"><ScenarioBadges :names="itemScenarioNames(data)" /></template>
+          <template #filter="{ filterModel }">
+            <UInput v-model="filterModel.value" type="text" placeholder="Search by scenario" />
+          </template>
+        </Column>
         <Column header="" style="width: 4rem">
           <template #body="{ data }">
             <UButton
@@ -289,6 +497,7 @@ function onRowClick(event: { data: Item }) {
     >
       <template #body>
         <div class="flex flex-col gap-4">
+          <ScenarioMultiSelect v-model="itemScenarioIds" :scenarios="scenarios" />
           <ItemCategoryFields
             v-model:category-id="itemCategoryId"
             v-model:subcategory-id="itemSubcategoryId"
@@ -296,12 +505,81 @@ function onRowClick(event: { data: Item }) {
             :category-error="itemErrors.itemCategoryId"
             :description-error="itemErrors.description"
           />
+          <UFormField
+            v-if="editingItemId === null"
+            label="Quantity"
+            hint="Creates this many identical, separate items"
+            :error="itemErrors.quantity"
+          >
+            <UInputNumber v-model="itemQuantity" :min="1" class="w-full" />
+          </UFormField>
           <UAlert v-if="itemSaveError" color="error" variant="outline" :description="itemSaveError" />
         </div>
       </template>
       <template #footer>
         <UButton label="Cancel" icon="i-lucide-x" variant="ghost" @click="itemDialogVisible = false" />
-        <UButton label="Save" icon="i-lucide-save" :loading="savingItem" @click="saveItemForm" />
+        <UButton
+          :label="editingItemId === null && itemQuantity > 1 ? `Save ${itemQuantity} items` : 'Save'"
+          icon="i-lucide-save"
+          :loading="savingItem"
+          @click="saveItemForm"
+        />
+      </template>
+    </UModal>
+
+    <UModal
+      v-model:open="pickerVisible"
+      title="Add item"
+      :ui="{ content: 'max-w-3xl', footer: 'justify-end' }"
+    >
+      <template #body>
+        <div class="flex flex-col gap-3">
+          <UInput
+            v-model="pickerFilters['global'].value"
+            type="text"
+            icon="i-lucide-search"
+            placeholder="Search the item catalog"
+            class="w-full"
+          />
+
+          <DataTable
+            v-model:filters="pickerFilters"
+            :value="catalogItemsNotInStudy"
+            :globalFilterFields="['item_category.name', 'item_subcategory.name', 'description']"
+            dataKey="id"
+            scrollable
+            scrollHeight="28rem"
+            :loading="addingExistingItem"
+            :row-class="() => 'cursor-pointer hover:bg-elevated'"
+            @row-click="({ data }) => addExistingItem(data)"
+          >
+            <template #empty>
+              <div class="flex flex-col items-center gap-2 py-4">
+                <p class="text-sm text-surface-500 dark:text-surface-400">No matching item in the catalog.</p>
+                <UButton
+                  label="Create new item"
+                  icon="i-lucide-plus"
+                  variant="outline"
+                  size="sm"
+                  @click="openCreateItemDialogFromPicker"
+                />
+              </div>
+            </template>
+            <Column header="Item">
+              <template #body="{ data }">{{ describeCatalogItem(data) }}</template>
+            </Column>
+            <Column field="description" header="Description" />
+          </DataTable>
+        </div>
+      </template>
+      <template #footer>
+        <UButton
+          label="Create new item"
+          icon="i-lucide-plus"
+          variant="outline"
+          @click="openCreateItemDialogFromPicker"
+        />
+        <UButton label="Close" icon="i-lucide-x" variant="ghost" @click="pickerVisible = false" />
       </template>
     </UModal>
   </div>

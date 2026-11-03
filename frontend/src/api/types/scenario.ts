@@ -5,6 +5,7 @@ import type { Study } from './study'
 
 export interface Scenario {
   id: string
+  name: string
   realistic?: boolean | null
   scenario_category_id?: string | null
   owning_study_id?: string | null
@@ -15,6 +16,7 @@ export interface Scenario {
 }
 
 export interface ScenarioInput {
+  name?: string
   realistic?: boolean | null
   scenario_category_id?: string | null
   owning_study_id?: string | null

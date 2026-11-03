@@ -6,6 +6,7 @@ import ItemPartSelect from './ItemPartSelect.vue'
 import {
   bodyPartConditionCategoryApi,
   conditionOfItemPartCategoryApi,
+  itemSurfaceMaterialCategoryApi,
   locationOfBodyCategoryApi,
   sourceOfDnaCategoryApi,
   surfaceMaterialCategoryApi,
@@ -71,6 +72,12 @@ const selectedItemCategoryId = ref<string | null>(null)
           label="Body part condition"
           :api="bodyPartConditionCategoryApi"
         />
+        <CategorySelect
+          v-model="draft.sourceOfDnaCategoryIds"
+          label="Source of DNA"
+          multiple
+          :api="sourceOfDnaCategoryApi"
+        />
       </template>
 
       <template v-else>
@@ -92,9 +99,9 @@ const selectedItemCategoryId = ref<string | null>(null)
           :disabled="!draft.itemId"
         />
         <CategorySelect
-          v-model="draft.surfaceMaterialCategoryId"
+          v-model="draft.itemSurfaceMaterialCategoryId"
           label="Surface material"
-          :api="surfaceMaterialCategoryApi"
+          :api="itemSurfaceMaterialCategoryApi"
           :disabled="!draft.itemId"
         />
       </template>
@@ -105,21 +112,10 @@ const selectedItemCategoryId = ref<string | null>(null)
         label="Surface material"
         :api="surfaceMaterialCategoryApi"
       />
-      <CategorySelect
-        v-model="draft.sourceOfDnaCategoryId"
-        label="Source of DNA"
-        :api="sourceOfDnaCategoryApi"
-      />
 
-      <div class="flex flex-wrap gap-6">
-        <div class="flex items-center gap-2">
-          <USwitch v-model="draft.backgroundDna" id="bg-dna" />
-          <label for="bg-dna" class="text-sm">Background DNA present</label>
-        </div>
-        <div class="flex items-center gap-2">
-          <USwitch v-model="draft.prevalence" id="prevalence" />
-          <label for="prevalence" class="text-sm">Prevalence</label>
-        </div>
+      <div class="flex items-center gap-2">
+        <USwitch v-model="draft.backgroundDna" id="bg-dna" />
+        <label for="bg-dna" class="text-sm">Background DNA present</label>
       </div>
 
       <UFormField label="Further description" hint="Optional">

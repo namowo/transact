@@ -37,6 +37,12 @@ class User(Base):
         nullable=False, server_default=text("false")
     )
 
+    # BCP 47 language tag (e.g. "en-US", "de-DE"); decides how numbers are
+    # typed and shown, e.g. the decimal separator.
+    locale: Mapped[str] = mapped_column(
+        nullable=False, server_default=text("'en-US'")
+    )
+
     laboratory_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         PGUUID(as_uuid=True), ForeignKey("laboratory.id", ondelete="RESTRICT")
     )

@@ -1,13 +1,15 @@
+from datetime import datetime, timezone
 from typing import AsyncGenerator, Optional
 from uuid import UUID
 
 import jwt
-from fastapi import Cookie, Depends, HTTPException, status
+from fastapi import Cookie, Depends, Header, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.db import SessionLocal, async_session_maker
-from app.core.security import decode_access_token
+from app.core.security import decode_access_token, hash_token
+from app.crud.api_key import crud_api_key
 from app.models.user import User
 
 
@@ -56,21 +58,57 @@ def _cookie_token(
     return access_token
 
 
+def _bearer_token(
+    authorization: Optional[str] = Header(default=None),
+) -> Optional[str]:
+    if authorization is None:
+        return None
+    scheme, _, token = authorization.partition(" ")
+    if scheme.lower() != "bearer" or not token:
+        return None
+    return token
+
+
+async def _resolve_user_from_api_key(
+    token: Optional[str], db: AsyncSession
+) -> Optional[User]:
+    if token is None:
+        return None
+    api_key = await crud_api_key.get_by_hash(db, hash_token(token))
+    if api_key is None:
+        return None
+    if api_key.expires_at is not None:
+        expires_at = api_key.expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        if expires_at < datetime.now(timezone.utc):
+            return None
+    await crud_api_key.touch_last_used(db, api_key)
+    return await db.get(User, api_key.user_id)
+
+
 async def get_current_user(
-    token: Optional[str] = Depends(_cookie_token),
+    cookie_token: Optional[str] = Depends(_cookie_token),
+    bearer_token: Optional[str] = Depends(_bearer_token),
     db: AsyncSession = Depends(get_async_session),
 ) -> User:
-    user = await _resolve_user(token, db)
+    user = await _resolve_user(cookie_token, db)
+    if user is None:
+        user = await _resolve_user_from_api_key(bearer_token, db)
     if user is None:
         raise credentials_exception
     return user
 
 
 async def current_optional_user(
-    token: Optional[str] = Depends(_cookie_token),
+    cookie_token: Optional[str] = Depends(_cookie_token),
+    bearer_token: Optional[str] = Depends(_bearer_token),
     db: AsyncSession = Depends(get_async_session),
 ) -> Optional[User]:
-    return await _resolve_user(token, db)
+    user = await _resolve_user(cookie_token, db)
+    if user is None:
+        user = await _resolve_user_from_api_key(bearer_token, db)
+    return user
 
 
 async def current_active_user(user: User = Depends(get_current_user)) -> User:

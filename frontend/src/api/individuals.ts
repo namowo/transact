@@ -1,8 +1,10 @@
 import apiClient from './client'
 import type { Individual, IndividualInput } from './types'
 
-export function listIndividuals() {
-  return apiClient.get<Individual[]>('/individuals').then((r) => r.data)
+export function listIndividuals(studyId: string) {
+  return apiClient
+    .get<Individual[]>('/individuals', { params: { study_id: studyId } })
+    .then((r) => r.data)
 }
 
 export function createIndividual(payload: IndividualInput) {

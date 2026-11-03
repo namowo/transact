@@ -17,7 +17,7 @@ const emit = defineEmits<{
 const open = defineModel<boolean>('open', { default: false })
 
 const title = computed(() =>
-  props.scenario ? `${props.scenario.scenario_category?.name ?? 'Uncategorized'} — Scenario #${props.scenario.id}` : 'Scenario',
+  props.scenario ? props.scenario.name : 'Scenario',
 )
 </script>
 

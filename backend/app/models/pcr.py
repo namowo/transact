@@ -21,7 +21,6 @@ class PCR(Base):
         PGUUID(as_uuid=True),
         ForeignKey("result.id", ondelete="CASCADE")
     )
-    dna_quantity: Mapped[Optional[float]]
     pcr_method_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         PGUUID(as_uuid=True),
         ForeignKey("pcr_method.id", ondelete="SET NULL")
@@ -60,9 +59,13 @@ class PCR(Base):
         relationship(lazy="selectin", foreign_keys=[epg_interpretation_method_id])
     )
     no_of_contributors: Mapped[Optional[int]]
-    mixture_proportion: Mapped[Optional[float]]
     total_rfu: Mapped[Optional[int]]
     total_no_of_alleles: Mapped[Optional[int]]
+    contributors: Mapped[list["PCRContributor"]] = relationship(
+        lazy="selectin",
+        cascade="all, delete-orphan",
+        order_by="PCRContributor.id",
+    )
 
 
 from app.models.pcr_method import PCRMethod
@@ -70,3 +73,4 @@ from app.models.post_pcr_treatment_method import PostPCRTreatmentMethod
 from app.models.ce_method import CEMethod
 from app.models.epg_analysis_method import EPGAnalysisMethod
 from app.models.epg_interpretation_method import EPGInterpretationMethod
+from app.models.pcr_contributor import PCRContributor

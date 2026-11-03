@@ -51,6 +51,7 @@ class PCRMethod(Base):
     final_elongation_time: Mapped[Optional[timedelta]]
     ramping: Mapped[Optional[float]]
     total_volume_pcr_reaction: Mapped[Optional[float]]
+    abbreviations_to_manufacturers_protocol: Mapped[Optional[str]]
 
 
 from app.models.laboratory import Laboratory

@@ -11,6 +11,7 @@ export interface User {
   can_quality_check: boolean
   can_manage_lab_users: boolean
   passkey_prompt_dismissed: boolean
+  locale: string
   laboratory_id: string | null
   laboratory?: Laboratory | null
   created_at: string
@@ -39,4 +40,22 @@ export interface WebAuthnCredential {
   device_name: string | null
   created_at: string
   last_used_at: string | null
+}
+
+export interface ApiKey {
+  id: string
+  name: string | null
+  prefix: string
+  created_at: string
+  last_used_at: string | null
+  expires_at: string | null
+}
+
+export interface ApiKeyCreated extends ApiKey {
+  token: string
+}
+
+export interface ApiKeyCreatePayload {
+  name?: string
+  expires_at?: string
 }

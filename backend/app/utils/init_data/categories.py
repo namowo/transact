@@ -44,6 +44,7 @@ from app.crud.item_category import crud_item_category
 from app.crud.item_parts_category import crud_item_parts_category
 from app.crud.item_subcategory import crud_item_subcategory
 from app.crud.location_of_body_category import crud_location_of_body_category
+from app.crud.modelled_parameter import crud_modelled_parameter
 from app.crud.monitored_transfer_factor import crud_monitored_transfer_factor
 from app.crud.principle_of_extraction_method_category import (
     crud_principle_of_extraction_method_category,
@@ -94,6 +95,7 @@ from app.schemas.item_category import ItemCategoryCreate
 from app.schemas.item_parts_category import ItemPartsCategoryCreate
 from app.schemas.item_subcategory import ItemSubcategoryCreate
 from app.schemas.location_of_body_category import LocationOfBodyCategoryCreate
+from app.schemas.modelled_parameter import ModelledParameterCreate
 from app.schemas.pressure_estimate import PressureEstimateCreate
 from app.schemas.principle_of_extraction_method_category import (
     PrincipleOfExtractionMethodCategoryCreate,
@@ -290,6 +292,7 @@ async def main() -> None:
         await seed(db, crud_inhibition_category, InhibitionCategoryCreate, "inhibition_category")
         await seed(db, crud_application_analytical_threshold, ApplicationAnalyticalThresholdCreate, "application_analytical_threshold")
         await seed(db, crud_stutter_filter, StutterFilterCreate, "stutter_filter")
+        await seed(db, crud_modelled_parameter, ModelledParameterCreate, "modelled_parameter")
 
         await seed_determination_of_shedding_propensity_category(db)
 

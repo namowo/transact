@@ -34,6 +34,12 @@ class ContactTemplate(Base):
         server_default=text("gen_random_uuid()")
     )
     name: Mapped[Optional[str]]
+    # Chain link: the contact template this one directly follows within its
+    # scenario (A -> B -> C). Null for the first template of a chain.
+    previous_contact_template_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("contact_template.id", ondelete="SET NULL"),
+    )
     scenarios: Mapped[list["Scenario"]] = relationship(
         lazy="selectin",
         secondary=scenario_contact_template,

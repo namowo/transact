@@ -24,11 +24,12 @@ const props = withDefaults(
     placeholder?: string
     allowAdd?: boolean
     disabled?: boolean
+    multiple?: boolean
   }>(),
   { allowAdd: true },
 )
 
-const modelValue = defineModel<string | null>({ default: null })
+const modelValue = defineModel<string | string[] | null>({ default: null })
 
 const auth = useAuthStore()
 const canEdit = computed(() => auth.isLabAdmin && !!props.api.update)
@@ -47,14 +48,23 @@ async function load() {
 
 onMounted(load)
 
-const selectedOption = computed(
-  () => options.value.find((option) => option.id === modelValue.value) ?? null,
-)
+// Edit button only ever targets a single option, so it's only offered for
+// single-select usage - for multi-select, resolving "the" selected option
+// to edit would be ambiguous.
+const selectedOption = computed(() => {
+  if (props.multiple || Array.isArray(modelValue.value)) return null
+  return options.value.find((option) => option.id === modelValue.value) ?? null
+})
 
 async function onCreate(name: string) {
   const created = await props.api.create({ name })
   options.value = [...options.value, created]
-  modelValue.value = created.id
+  if (props.multiple) {
+    const current = Array.isArray(modelValue.value) ? modelValue.value : []
+    modelValue.value = [...current, created.id]
+  } else {
+    modelValue.value = created.id
+  }
 }
 
 const schema = yup.object({
@@ -119,6 +129,7 @@ const saveEdit = handleSubmit(async (values) => {
         :items="options"
         label-key="name"
         value-key="id"
+        :multiple="multiple"
         :create-item="allowAdd"
         :placeholder="placeholder ?? 'Select an option'"
         :loading="loading"

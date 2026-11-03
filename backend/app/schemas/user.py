@@ -30,6 +30,9 @@ class SuperuserSetup(BaseModel):
 class UserUpdate(BaseModel):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
+    locale: Optional[str] = Field(
+        default=None, pattern=r"^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$", max_length=35
+    )
     laboratory_id: Optional[UUID] = None
 
 
@@ -60,6 +63,7 @@ class UserRead(BaseModel):
     can_quality_check: bool
     can_manage_lab_users: bool
     passkey_prompt_dismissed: bool
+    locale: str = "en-US"
     laboratory_id: Optional[UUID] = None
     laboratory: Optional["LaboratoryRead"] = None
     created_at: datetime

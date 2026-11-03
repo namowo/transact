@@ -12,15 +12,15 @@ class SurfaceBase(BaseModel):
     item_parts_category_id: Optional[UUID] = None
     condition_of_item_part_category_id: Optional[UUID] = None
     surface_material_category_id: Optional[UUID] = None
-    source_of_dna_category_id: Optional[UUID] = None
+    item_surface_material_category_id: Optional[UUID] = None
 
 
 class SurfaceCreate(SurfaceBase):
-    pass
+    source_of_dna_category_ids: list[UUID] = []
 
 
 class SurfaceUpdate(SurfaceBase):
-    pass
+    source_of_dna_category_ids: Optional[list[UUID]] = None
 
 
 class SurfaceRead(SurfaceBase):
@@ -28,20 +28,22 @@ class SurfaceRead(SurfaceBase):
 
     id: UUID
     surface_template: Optional["SurfaceTemplateRead"] = None
-    individual: Optional["IndividualRead"] = None
+    individual: Optional["IndividualReadNested"] = None
     location_of_body_category: Optional["LocationOfBodyCategoryRead"] = None
     body_part_condition_category: Optional["BodyPartConditionCategoryRead"] = None
     item_parts_category: Optional["ItemPartsCategoryRead"] = None
     condition_of_item_part_category: Optional["ConditionOfItemPartCategoryRead"] = None
     surface_material_category: Optional["SurfaceMaterialCategoryRead"] = None
-    source_of_dna_category: Optional["SourceOfDNACategoryRead"] = None
+    item_surface_material_category: Optional["ItemSurfaceMaterialCategoryRead"] = None
+    source_of_dna_categories: list["SourceOfDNACategoryRead"] = []
 
 
 from app.schemas.surface_template import SurfaceTemplateRead
-from app.schemas.individual import IndividualRead
+from app.schemas.individual import IndividualReadNested
 from app.schemas.location_of_body_category import LocationOfBodyCategoryRead
 from app.schemas.body_part_condition_category import BodyPartConditionCategoryRead
 from app.schemas.item_parts_category import ItemPartsCategoryRead
 from app.schemas.condition_of_item_part_category import ConditionOfItemPartCategoryRead
 from app.schemas.surface_material_category import SurfaceMaterialCategoryRead
+from app.schemas.item_surface_material_category import ItemSurfaceMaterialCategoryRead
 from app.schemas.source_of_dna_category import SourceOfDNACategoryRead

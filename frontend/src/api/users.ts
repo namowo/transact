@@ -5,6 +5,7 @@ export interface UpdateProfilePayload {
   first_name?: string
   last_name?: string
   laboratory_id?: string
+  locale?: string
 }
 
 export function updateMe(payload: UpdateProfilePayload) {

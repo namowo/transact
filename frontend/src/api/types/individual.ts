@@ -6,6 +6,9 @@ import type {
 
 export interface Individual {
   id: string
+  scenario_ids?: string[]
+  study_id?: string | null
+  name?: string | null
   sex_id?: string | null
   sex?: NamedCategory | null
   age?: number | null
@@ -18,6 +21,9 @@ export interface Individual {
 }
 
 export interface IndividualInput {
+  scenario_ids?: string[]
+  study_id?: string | null
+  name?: string | null
   sex_id?: string | null
   age?: number | null
   dna_shedding_propensity_category_id?: string | null

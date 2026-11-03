@@ -13,9 +13,9 @@ export interface SurfaceTemplateDraft {
   itemPartsCategoryId: string | null
   conditionOfItemPartCategoryId: string | null
   surfaceMaterialCategoryId: string | null
-  sourceOfDnaCategoryId: string | null
+  itemSurfaceMaterialCategoryId: string | null
+  sourceOfDnaCategoryIds: string[]
   backgroundDna: boolean
-  prevalence: boolean
   furtherDescription: string | null
 }
 
@@ -28,9 +28,9 @@ export function emptySurfaceTemplateDraft(): SurfaceTemplateDraft {
     itemPartsCategoryId: null,
     conditionOfItemPartCategoryId: null,
     surfaceMaterialCategoryId: null,
-    sourceOfDnaCategoryId: null,
+    itemSurfaceMaterialCategoryId: null,
+    sourceOfDnaCategoryIds: [],
     backgroundDna: false,
-    prevalence: false,
     furtherDescription: null,
   }
 }
@@ -49,12 +49,18 @@ function inferSurfaceTemplateKind(template: SurfaceTemplate): 'individual' | 'it
   if (template.location_of_body_category_id != null || template.body_part_condition_category_id != null) {
     return 'individual'
   }
-  // A saved template with only shared fields set (surface material, source
-  // of DNA, etc.) and no kind-specific data - default to individual so the
-  // record's fields stay visible instead of being hidden behind the
-  // "choose a kind" prompt.
-  if (template.surface_material_category_id != null || template.source_of_dna_category_id != null) {
+  // A saved template with only shared/individual-only fields set (surface
+  // material, source of DNA, etc.) and no kind-specific data - default to
+  // individual so the record's fields stay visible instead of being hidden
+  // behind the "choose a kind" prompt.
+  if (
+    template.surface_material_category_id != null ||
+    (template.source_of_dna_categories?.length ?? 0) > 0
+  ) {
     return 'individual'
+  }
+  if (template.item_surface_material_category_id != null) {
+    return 'item'
   }
   return null
 }
@@ -71,9 +77,9 @@ export function surfaceTemplateDraftFromSurfaceTemplate(
     itemPartsCategoryId: template.item_parts_category_id ?? null,
     conditionOfItemPartCategoryId: template.condition_of_item_part_category_id ?? null,
     surfaceMaterialCategoryId: template.surface_material_category_id ?? null,
-    sourceOfDnaCategoryId: template.source_of_dna_category_id ?? null,
+    itemSurfaceMaterialCategoryId: template.item_surface_material_category_id ?? null,
+    sourceOfDnaCategoryIds: (template.source_of_dna_categories ?? []).map((c) => c.id),
     backgroundDna: !!template.background_dna,
-    prevalence: !!template.prevalence,
     furtherDescription: template.further_description_of_background_and_prevalence ?? null,
   }
 }
@@ -85,15 +91,14 @@ function isBlankDraft(draft: SurfaceTemplateDraft): boolean {
       !draft.locationOfBodyCategoryId &&
       !draft.bodyPartConditionCategoryId &&
       !draft.surfaceMaterialCategoryId &&
-      !draft.sourceOfDnaCategoryId
+      draft.sourceOfDnaCategoryIds.length === 0
     )
   }
   return (
     !draft.itemId &&
     !draft.itemPartsCategoryId &&
     !draft.conditionOfItemPartCategoryId &&
-    !draft.surfaceMaterialCategoryId &&
-    !draft.sourceOfDnaCategoryId
+    !draft.itemSurfaceMaterialCategoryId
   )
 }
 
@@ -115,10 +120,11 @@ export async function saveSurfaceTemplateDraft(
     item_parts_category_id: draft.kind === 'item' ? draft.itemPartsCategoryId : null,
     condition_of_item_part_category_id:
       draft.kind === 'item' ? draft.conditionOfItemPartCategoryId : null,
-    surface_material_category_id: draft.surfaceMaterialCategoryId,
-    source_of_dna_category_id: draft.sourceOfDnaCategoryId,
+    surface_material_category_id: draft.kind === 'individual' ? draft.surfaceMaterialCategoryId : null,
+    item_surface_material_category_id:
+      draft.kind === 'item' ? draft.itemSurfaceMaterialCategoryId : null,
+    source_of_dna_category_ids: draft.kind === 'individual' ? draft.sourceOfDnaCategoryIds : [],
     background_dna: draft.backgroundDna,
-    prevalence: draft.prevalence,
     further_description_of_background_and_prevalence: draft.furtherDescription || null,
   }
 

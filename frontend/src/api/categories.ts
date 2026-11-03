@@ -80,6 +80,7 @@ export const dnaSheddingPropensityCategoryApi = namedCategoryApi(
 )
 export const sourceOfDnaCategoryApi = namedCategoryApi('/source-of-dna-categories')
 export const surfaceMaterialCategoryApi = namedCategoryApi('/surface-material-categories')
+export const itemSurfaceMaterialCategoryApi = namedCategoryApi('/item-surface-material-categories')
 export const pressureEstimateApi = namedCategoryApi('/pressure-estimates')
 export const experienceLevelCategoryApi = namedCategoryApi('/experience-levels')
 export const frictionAppliedEstimateApi = namedCategoryApi('/friction-applied-estimates')
@@ -100,6 +101,8 @@ export const pickingDeviceApi = namedCategoryApi('/picking-devices')
 // Equipment / reagents / software referenced from the lab Methods
 export const pcrKitApi = namedCategoryApi('/pcr-kits')
 export const thermocyclerApi = namedCategoryApi('/thermocyclers')
+export const thermoshakerApi = namedCategoryApi('/thermoshakers')
+export const lysisBufferComponentApi = namedCategoryApi('/lysis-buffer-components')
 export const ceDeviceApi = namedCategoryApi('/ce-devices')
 export const polymerApi = namedCategoryApi('/polymers')
 export const dyeSetApi = namedCategoryApi('/dye-sets')
@@ -108,6 +111,7 @@ export const sizeStandardApi = namedCategoryApi('/size-standards')
 export const genotypingSoftwareApi = namedCategoryApi('/genotyping-software')
 export const statisticalSoftwareApi = namedCategoryApi('/statistical-software')
 export const quantificationKitApi = namedCategoryApi('/quantification-kits')
+export const quantificationPlatformApi = namedCategoryApi('/quantification-platforms')
 export const manufacturerApi = namedCategoryApi('/manufacturers')
 export const platformApi = namedCategoryApi('/platforms')
 export const wettingAgentApi = namedCategoryApi('/wetting-agents')
@@ -115,6 +119,8 @@ export const applicationAnalyticalThresholdApi = namedCategoryApi(
   '/application-analytical-thresholds',
 )
 export const stutterFilterApi = namedCategoryApi('/stutter-filters')
+export const dyeChannelApi = namedCategoryApi('/dye-channels')
+export const modelledParameterApi = namedCategoryApi('/modelled-parameters')
 
 export const skinDiseaseCategoryApi = {
   list: () => apiClient.get<SkinDiseaseCategory[]>('/skin-disease-categories').then((r) => r.data),

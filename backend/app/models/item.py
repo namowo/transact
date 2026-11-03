@@ -1,13 +1,29 @@
 import uuid
 from typing import Optional
 
-from sqlalchemy import ForeignKey
+from sqlalchemy import ForeignKey, Table, Column
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from sqlalchemy.sql import text
 
 from app.core.db import Base
+
+study_item = Table(
+    "study_item",
+    Base.metadata,
+    Column("study_id", ForeignKey("study.id", ondelete="CASCADE"), primary_key=True),
+    Column("item_id", ForeignKey("item.id", ondelete="CASCADE"), primary_key=True),
+)
+
+item_scenario = Table(
+    "item_scenario",
+    Base.metadata,
+    Column("item_id", ForeignKey("item.id", ondelete="CASCADE"), primary_key=True),
+    Column(
+        "scenario_id", ForeignKey("scenario.id", ondelete="CASCADE"), primary_key=True
+    ),
+)
 
 
 class Item(Base):
@@ -33,7 +49,25 @@ class Item(Base):
     )
     description: Mapped[Optional[str]]
     picture_path: Mapped[Optional[str]]
+    # Items live in a shared catalog; each study explicitly adds the
+    # specific items it uses.
+    studies: Mapped[list["Study"]] = relationship(
+        lazy="selectin",
+        secondary=study_item,
+        back_populates="items",
+    )
+
+    # Items may be used across several scenarios.
+    scenarios: Mapped[list["Scenario"]] = relationship(
+        lazy="selectin", secondary=item_scenario
+    )
+
+    @property
+    def scenario_ids(self) -> list[uuid.UUID]:
+        return [scenario.id for scenario in self.scenarios]
 
 
+from app.models.scenario import Scenario
 from app.models.item_category import ItemCategory
 from app.models.item_subcategory import ItemSubcategory
+from app.models.study import Study

@@ -43,6 +43,13 @@ class Contact(Base):
     recipient_surface: Mapped[Optional["Surface"]] = relationship(
         lazy="selectin", foreign_keys=[recipient_surface_id]
     )
+    name: Mapped[Optional[str]]
+    # Chain link: the actual contact this one directly follows. Null for the
+    # first contact of a chain.
+    previous_contact_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("contact.id", ondelete="SET NULL"),
+    )
     # The following override the corresponding ContactTemplate attribute when set;
     # a null value means the template's value applies.
     duration: Mapped[Optional[timedelta]]

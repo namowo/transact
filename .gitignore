@@ -16,6 +16,8 @@ wheels/
 .venv
 *.xcf
 *.xlsx
+*.xlsm
+*.xlsm#
 frontend/.vscode
 
 # Logs

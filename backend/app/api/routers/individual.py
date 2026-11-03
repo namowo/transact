@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from uuid import UUID
 
@@ -17,7 +17,11 @@ router = APIRouter()
 
 
 @router.get("", response_model=List[ReadSchema])
-async def get_all(db: AsyncSession = Depends(get_async_session)):
+async def get_all(
+    study_id: Optional[UUID] = None, db: AsyncSession = Depends(get_async_session)
+):
+    if study_id is not None:
+        return await crud.get_all_for_study(db, study_id)
     return await crud.get_all(db)
 
 

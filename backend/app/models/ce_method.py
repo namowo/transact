@@ -31,6 +31,15 @@ class CEMethod(Base):
     ce_device: Mapped[Optional["CEDevice"]] = relationship(
         lazy="selectin", foreign_keys=[ce_device_id]
     )
+    # Each PCR method has its own CE method(s), since the right capillary
+    # electrophoresis setup (e.g. dye set) depends on which PCR kit was run.
+    pcr_method_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("pcr_method.id", ondelete="SET NULL")
+    )
+    pcr_method: Mapped[Optional["PCRMethod"]] = relationship(
+        lazy="selectin", foreign_keys=[pcr_method_id]
+    )
     application_type: Mapped[Optional[str]]
     capillary_length: Mapped[Optional[int]]
     polymer_id: Mapped[Optional[uuid.UUID]] = mapped_column(
@@ -62,7 +71,7 @@ class CEMethod(Base):
     type_of_formamide: Mapped[Optional["TypeOfFormamide"]] = relationship(
         lazy="selectin", foreign_keys=[type_of_formamide_id]
     )
-    volume_formamide: Mapped[Optional[int]]
+    volume_formamide: Mapped[Optional[float]]
     size_standard_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         PGUUID(as_uuid=True),
         ForeignKey("size_standard.id", ondelete="SET NULL")
@@ -77,6 +86,7 @@ class CEMethod(Base):
 
 from app.models.laboratory import Laboratory
 from app.models.ce_device import CEDevice
+from app.models.pcr_method import PCRMethod
 from app.models.polymer import Polymer
 from app.models.dye_set import DyeSet
 from app.models.type_of_formamide import TypeOfFormamide
