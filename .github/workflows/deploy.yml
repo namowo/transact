@@ -1,13 +1,21 @@
 name: Deploy to Test
 
 on:
-  push:
-    branches: [main]
+  workflow_call:
+    inputs:
+      tag_name:
+        required: true
+        type: string
   workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Release tag being deployed (informational only)'
+        required: false
+        type: string
+        default: manual
 
 jobs:
   deploy:
-    if: "github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, 'from namowo/release-please--branches--main') || contains(github.event.head_commit.message, 'chore(main): release')"
     runs-on: ubuntu-latest
     environment: test
     steps:
@@ -20,7 +28,8 @@ jobs:
           script: |
             set -e
             cd ${{ secrets.DEPLOY_PATH }}
-            git pull
+            git checkout -- uv.lock
+            git pull origin main
 
       - name: Deploy backend
         uses: appleboy/ssh-action@v1.2.0
@@ -32,7 +41,7 @@ jobs:
             set -e
             export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
             cd ${{ secrets.DEPLOY_PATH }}
-            uv sync
+            uv sync --frozen
             uv run --directory backend alembic upgrade head
             sudo systemctl restart transact
 
