@@ -29,6 +29,13 @@ def upgrade() -> None:
     op.add_column('pcr_method', sa.Column('abbreviations_to_manufacturers_protocol', sa.String(), nullable=True))
     op.drop_constraint(op.f('quantification_method_platform_id_fkey'), 'quantification_method', type_='foreignkey')
     op.drop_constraint(op.f('quantification_method_manufacturer_id_fkey'), 'quantification_method', type_='foreignkey')
+    # Existing platform_id values point to the shared "platform" table. Copy the
+    # referenced rows (same ids) so the new foreign key does not fail on existing data.
+    op.execute(
+        "INSERT INTO quantification_platform (id, name) "
+        "SELECT id, name FROM platform "
+        "WHERE id IN (SELECT platform_id FROM quantification_method WHERE platform_id IS NOT NULL)"
+    )
     op.create_foreign_key('fk_quantification_method_platform_id', 'quantification_method', 'quantification_platform', ['platform_id'], ['id'], ondelete='SET NULL')
     op.drop_column('quantification_method', 'manufacturer_id')
     op.drop_column('quantification_method', 'description_of_protocol')
