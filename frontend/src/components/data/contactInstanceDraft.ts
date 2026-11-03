@@ -4,12 +4,15 @@ import {
   saveSurfaceInstanceDraft,
   createRequiredSurfaceInstance,
 } from './surfaceInstanceDraft'
+import { contactIndividualIds } from './contactChain'
 import type { SurfaceInstanceDraft } from './surfaceInstanceDraft'
 import type { Contact, ContactTemplate, Surface, SurfaceTemplate } from '@/api/types'
 
 export interface ContactInstanceDraft {
   contactTemplateId: string | null
   name: string | null
+  // The actual contact this one directly follows, for templates in a chain.
+  previousContactId: string | null
   donorSurface: SurfaceInstanceDraft
   recipientSurface: SurfaceInstanceDraft
 }
@@ -18,6 +21,7 @@ export function emptyContactInstanceDraft(): ContactInstanceDraft {
   return {
     contactTemplateId: null,
     name: null,
+    previousContactId: null,
     donorSurface: emptySurfaceInstanceDraft(),
     recipientSurface: emptySurfaceInstanceDraft(),
   }
@@ -63,6 +67,7 @@ export async function saveContactInstanceDraft(
     donor_surface_id: donorSurface?.id ?? null,
     recipient_surface_id: recipientSurface?.id ?? null,
     name: draft.name,
+    previous_contact_id: draft.previousContactId,
   })
 }
 
@@ -77,6 +82,7 @@ export async function saveContactInstanceBatch(
   individualSide: 'donor' | 'recipient',
   individualIds: string[],
   existingSurfaces: Surface[] = [],
+  predecessorCandidates: Contact[] = [],
 ): Promise<Contact[]> {
   const itemSide = individualSide === 'donor' ? 'recipient' : 'donor'
   const itemSurfaceTemplate =
@@ -97,6 +103,7 @@ export async function saveContactInstanceBatch(
       : contactTemplate.recipient_surface_template) ?? null
 
   const contacts: Contact[] = []
+  const usedPredecessors = new Set<string>()
   for (const individualId of individualIds) {
     const individualSurface = await saveSurfaceInstanceDraft(
       { individualId, conditionOfItemPartCategoryId: null, existingSurfaceId: null },
@@ -105,11 +112,17 @@ export async function saveContactInstanceBatch(
     const donorSurfaceId = individualSide === 'donor' ? individualSurface?.id : itemSurface?.id
     const recipientSurfaceId =
       individualSide === 'recipient' ? individualSurface?.id : itemSurface?.id
+    const predecessor = predecessorCandidates.find(
+      (c) => !usedPredecessors.has(c.id) && contactIndividualIds(c).includes(individualId),
+    )
+    if (predecessor) usedPredecessors.add(predecessor.id)
     contacts.push(
       await createContact({
         contact_template_id: contactTemplate.id,
         donor_surface_id: donorSurfaceId ?? null,
         recipient_surface_id: recipientSurfaceId ?? null,
+        // Chain each contact onto its predecessor with the same individual.
+        previous_contact_id: predecessor?.id ?? null,
       }),
     )
   }

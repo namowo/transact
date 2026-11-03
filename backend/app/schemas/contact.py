@@ -11,6 +11,7 @@ class ContactBase(BaseModel):
     donor_surface_id: Optional[UUID] = None
     recipient_surface_id: Optional[UUID] = None
     name: Optional[str] = None
+    previous_contact_id: Optional[UUID] = None
     duration: Optional[SecondsTimedelta] = None
     pressure: Optional[float] = None
     pressure_estimate_id: Optional[UUID] = None

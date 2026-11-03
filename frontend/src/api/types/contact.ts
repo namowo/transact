@@ -41,6 +41,8 @@ export interface Contact {
   recipient_surface_id?: string | null
   recipient_surface?: Surface | null
   name?: string | null
+  // The actual contact this one directly follows in a chain.
+  previous_contact_id?: string | null
   // Seconds, matching the backend's timedelta field.
   duration?: number | null
   pressure?: number | null
@@ -62,6 +64,7 @@ export interface ContactInput {
   donor_surface_id?: string | null
   recipient_surface_id?: string | null
   name?: string | null
+  previous_contact_id?: string | null
   duration?: number | null
   pressure?: number | null
   pressure_estimate_id?: string | null

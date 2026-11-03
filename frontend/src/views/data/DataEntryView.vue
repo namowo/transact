@@ -8,11 +8,14 @@ import { FilterMatchMode } from '@openvue/core/api'
 import type { TabsItem } from '@nuxt/ui'
 import type { MenuItem } from 'openvue/menuitem'
 import ScenarioBadges from '@/components/data/ScenarioBadges.vue'
+import ContactChains from '@/components/data/ContactChains.vue'
+import type { LinkOp } from '@/components/data/ContactChains.vue'
 import ContactInstanceDialog from '@/components/data/ContactInstanceDialog.vue'
 import IndividualsPanel from '@/components/data/IndividualsPanel.vue'
 import ItemsPanel from '@/components/data/ItemsPanel.vue'
 import RecoveriesPanel from '@/components/data/RecoveriesPanel.vue'
 import ResultsTab from '@/components/scenarios/ResultsTab.vue'
+import type { ContactChainInfo } from '@/components/data/ContactChainNode.vue'
 import { templateName, surfaceInstanceIcon, surfaceInstanceDetail } from '@/components/data/contactTemplateLabel'
 import { useIndividualOptions } from '@/components/scenarios/individualOptions'
 import { useConfirm } from '@/composables/useConfirm'
@@ -285,6 +288,86 @@ function confirmDeleteContact(contact: Contact) {
   })
 }
 
+// -- Chain link --
+
+// Applies link operations in order, updating the list optimistically. The
+// inverse (in reverse order) is pushed onto the undo stack, so changing one
+// link never means redoing a whole chain. A failed step rolls back the ones
+// before it.
+const chainUndoStack = ref<LinkOp[][]>([])
+
+async function applyLinkOps(ops: LinkOp[], recordUndo = true) {
+  const done: LinkOp[] = []
+  try {
+    for (const op of ops) {
+      const contact = contacts.value.find((c) => c.id === op.contactId)
+      if (!contact || (contact.previous_contact_id ?? null) === op.previousId) continue
+      const before = contact.previous_contact_id ?? null
+      await updateContact(op.contactId, { previous_contact_id: op.previousId })
+      contact.previous_contact_id = op.previousId
+      done.push({ contactId: op.contactId, previousId: before })
+    }
+  } catch {
+    await applyLinkOps(done.reverse(), false)
+    return
+  }
+  if (recordUndo && done.length) chainUndoStack.value.push(done.reverse())
+}
+
+async function undoChainChange() {
+  const ops = chainUndoStack.value.pop()
+  if (ops) await applyLinkOps(ops, false)
+}
+
+const chainDialogVisible = ref(false)
+const chainingContact = ref<Contact | null>(null)
+const chainValue = ref('__none__')
+const chaining = ref(false)
+
+// Contacts this one may follow: those of the template its own template follows.
+const chainCandidates = computed<Contact[]>(() => {
+  const previousTemplateId = chainingContact.value
+    ? contactTemplateFor(chainingContact.value)?.previous_contact_template_id
+    : null
+  if (!previousTemplateId) return []
+  const own = chainingContact.value
+  const followed = new Set(
+    contacts.value.filter((c) => c.id !== own?.id).map((c) => c.previous_contact_id),
+  )
+  return contacts.value.filter(
+    (c) => c.contact_template_id === previousTemplateId && !followed.has(c.id),
+  )
+})
+
+const chainItems = computed(() => [
+  { label: 'None (first in chain)', value: '__none__' },
+  ...chainCandidates.value.map((c) => ({ label: contactLabel(c), value: c.id })),
+])
+
+function canChain(contact: Contact): boolean {
+  return !!contactTemplateFor(contact)?.previous_contact_template_id
+}
+
+function openChainDialog(contact: Contact) {
+  chainingContact.value = contact
+  chainValue.value = contact.previous_contact_id ?? '__none__'
+  chainDialogVisible.value = true
+}
+
+async function saveChain() {
+  const contact = chainingContact.value
+  if (!contact) return
+  chaining.value = true
+  try {
+    const previousId = chainValue.value === '__none__' ? null : chainValue.value
+    await updateContact(contact.id, { previous_contact_id: previousId })
+    contact.previous_contact_id = previousId
+    chainDialogVisible.value = false
+  } finally {
+    chaining.value = false
+  }
+}
+
 // -- Rename contact --
 
 const renameDialogVisible = ref(false)
@@ -317,6 +400,38 @@ function contactFallbackName(contact: Contact): string {
   const position = contacts.value.findIndex((c) => c.id === contact.id)
   return `Contact ${position + 1}`
 }
+
+// Label used wherever a single contact must be picked or shown by itself.
+function contactLabel(contact: Contact): string {
+  const donor = sideDisplay(contact, 'donor_surface').label
+  const recipient = sideDisplay(contact, 'recipient_surface').label
+  return `${contact.name || contactFallbackName(contact)} (${donor} → ${recipient})`
+}
+
+function contactChainInfo(contact: Contact): ContactChainInfo {
+  const template = contactTemplateFor(contact)
+  return {
+    title: contact.name || contactFallbackName(contact),
+    templateName: template ? templateName(template) : '—',
+    donor: sideDisplay(contact, 'donor_surface'),
+    recipient: sideDisplay(contact, 'recipient_surface'),
+  }
+}
+
+// Kept in the URL (?view=chains) so a reload stays on the same view.
+const contactsView = computed<'list' | 'chains'>({
+  get() {
+    return route.query.view === 'chains' ? 'chains' : 'list'
+  },
+  set(value) {
+    const { view: _drop, ...rest } = route.query
+    router.replace({ query: value === 'chains' ? { ...rest, view: 'chains' } : rest })
+  },
+})
+const contactsViewItems = [
+  { label: 'List', value: 'list', icon: 'i-lucide-list' },
+  { label: 'Chains', value: 'chains', icon: 'i-lucide-link' },
+]
 
 // Edit-names mode keeps every row's input mounted at once (so several
 // contacts can be renamed in one pass without re-opening anything per row),
@@ -391,6 +506,13 @@ const groupContextMenuItems = computed<MenuItem[]>(() => {
       icon: 'i-lucide-pencil',
       command: () => openRenameDialog(group.members[0]!),
     })
+    if (canChain(group.members[0]!)) {
+      items.push({
+        label: 'Set previous contact',
+        icon: 'i-lucide-link',
+        command: () => openChainDialog(group.members[0]!),
+      })
+    }
   }
   items.push({
     label: group.members.length > 1 ? `Delete all ${group.members.length} contacts` : 'Delete',
@@ -409,6 +531,9 @@ const memberContextMenuItems = computed<MenuItem[]>(() => {
       icon: 'i-lucide-pencil',
       command: () => openRenameDialog(contact),
     },
+    ...(canChain(contact)
+      ? [{ label: 'Set previous contact', icon: 'i-lucide-link', command: () => openChainDialog(contact) }]
+      : []),
     {
       label: 'Delete',
       icon: 'i-lucide-trash-2',
@@ -528,7 +653,26 @@ const activeTab = computed<string>({
             description="Plan a scenario with at least one contact template before entering actual data."
           />
 
-          <div class="overflow-x-auto">
+          <UTabs
+            v-model="contactsView"
+            :items="contactsViewItems"
+            :content="false"
+            variant="pill"
+            size="sm"
+            class="w-fit"
+          />
+
+          <ContactChains
+            v-if="contactsView === 'chains'"
+            :contacts="visibleContacts"
+            :contact-templates="visibleTemplates"
+            :info="contactChainInfo"
+            :can-undo="chainUndoStack.length > 0"
+            @change="applyLinkOps"
+            @undo="undoChainChange"
+          />
+
+          <div v-show="contactsView === 'list'" class="overflow-x-auto">
             <div class="mb-3 flex items-center justify-between gap-3">
               <div class="flex gap-2">
                 <UButton
@@ -698,8 +842,25 @@ const activeTab = computed<string>({
             :study-id="studyId"
             :contact-templates="visibleTemplates"
             :contacts="visibleContacts"
+            :contact-label="contactLabel"
             @saved="onContactSaved"
           />
+
+          <UModal
+            v-model:open="chainDialogVisible"
+            title="Set previous contact"
+            :ui="{ content: 'max-w-lg', footer: 'justify-end' }"
+          >
+            <template #body>
+              <UFormField label="Follows contact" hint="The earlier contact in the chain">
+                <USelect v-model="chainValue" :items="chainItems" class="w-full" />
+              </UFormField>
+            </template>
+            <template #footer>
+              <UButton label="Cancel" icon="i-lucide-x" variant="ghost" @click="chainDialogVisible = false" />
+              <UButton label="Save" icon="i-lucide-save" :loading="chaining" @click="saveChain" />
+            </template>
+          </UModal>
 
           <UModal
             v-model:open="renameDialogVisible"

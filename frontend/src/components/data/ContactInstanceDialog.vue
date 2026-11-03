@@ -19,6 +19,9 @@ const props = defineProps<{
   // Actual contacts already recorded for this study, used to offer their
   // surfaces for reuse when chaining a new contact onto one of them.
   contacts?: Contact[]
+  // Human-readable label for a contact, shared with the contact list so
+  // both name the same contact the same way.
+  contactLabel?: (contact: Contact) => string
 }>()
 const visible = defineModel<boolean>('visible', { required: true })
 
@@ -127,6 +130,31 @@ const donorExistingSurfaces = computed(() =>
 const recipientExistingSurfaces = computed(() =>
   existingSurfacesFor(selectedTemplate.value?.recipient_surface_template),
 )
+// Actual contacts of the template this one follows, offered as predecessor.
+const predecessorContacts = computed<Contact[]>(() => {
+  const previousId = selectedTemplate.value?.previous_contact_template_id
+  if (!previousId) return []
+  const followed = new Set((props.contacts ?? []).map((c) => c.previous_contact_id))
+  return (props.contacts ?? []).filter(
+    (c) => c.contact_template_id === previousId && !followed.has(c.id),
+  )
+})
+
+const predecessorTemplate = computed(() => {
+  const previousId = selectedTemplate.value?.previous_contact_template_id
+  return props.contactTemplates.find((t) => t.id === previousId) ?? null
+})
+
+const NO_PREDECESSOR = '__none__'
+
+const predecessorItems = computed(() => [
+  { label: 'None', value: NO_PREDECESSOR },
+  ...predecessorContacts.value.map((c) => ({
+    label: props.contactLabel?.(c) ?? c.name ?? 'Contact',
+    value: c.id,
+  })),
+])
+
 const itemExistingSurfaces = computed(() =>
   itemSide.value === 'donor' ? donorExistingSurfaces.value : recipientExistingSurfaces.value,
 )
@@ -159,6 +187,7 @@ async function save() {
         individualSide.value,
         batchIndividualIds.value,
         allExistingSurfaces.value,
+        predecessorContacts.value,
       )
       emit('saved', contacts)
     } else {
@@ -265,6 +294,13 @@ async function save() {
           >
             <IndividualMultiSelect v-model="batchIndividualIds" :study-id="props.studyId" />
           </UFormField>
+          <UAlert
+            v-if="predecessorTemplate"
+            color="info"
+            variant="outline"
+            icon="i-lucide-link"
+            :description="`These contacts follow '${templateName(predecessorTemplate)}'. Each one is chained to the earlier contact of the same individual, if there is one.`"
+          />
         </template>
 
         <template v-else-if="selectedTemplate">
@@ -282,6 +318,14 @@ async function save() {
             :template="selectedTemplate.recipient_surface_template ?? null"
             :existing-surfaces="recipientExistingSurfaces"
           />
+          <UFormField v-if="predecessorTemplate" label="Follows contact" hint="Optional">
+            <USelect
+              :model-value="draft.previousContactId ?? NO_PREDECESSOR"
+              :items="predecessorItems"
+              class="w-full"
+              @update:model-value="(value: string) => (draft.previousContactId = value === NO_PREDECESSOR ? null : value)"
+            />
+          </UFormField>
           <UFormField label="Name" hint="Optional - helps tell otherwise identical contacts apart">
             <UInput v-model="draft.name" class="w-full" />
           </UFormField>

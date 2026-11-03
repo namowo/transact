@@ -7,6 +7,7 @@ import { useToast } from '@nuxt/ui/composables'
 import type { StepperItem } from '@nuxt/ui'
 import CategorySelect from './CategorySelect.vue'
 import ContactTemplateCard from './ContactTemplateCard.vue'
+import ContactTemplateChainEditor from './ContactTemplateChainEditor.vue'
 import PersistenceCard from './PersistenceCard.vue'
 import PersistencePickerDialog from './PersistencePickerDialog.vue'
 import { scenarioCategoryApi } from '@/api/categories'
@@ -23,12 +24,17 @@ import type { PersistenceDraft } from './persistenceDraft'
 import type { Persistence, Scenario } from '@/api/types'
 import {
   cloneContactTemplateDraftForDuplication,
+  cloneContactTemplateDraftsForDuplication,
+  contactTemplateChainHasCycle,
+  moveContactTemplateInChain,
+  unlinkContactTemplateDraft,
+  saveContactTemplateChain,
   contactTemplateDraftFromContactTemplate,
   emptyContactTemplateDraft,
   isBlankContactTemplateDraft,
   saveContactTemplateDraft,
 } from './contactTemplateDraft'
-import type { ContactTemplateDraft } from './contactTemplateDraft'
+import type { ChainSlot, ContactTemplateDraft } from './contactTemplateDraft'
 
 const props = defineProps<{
   studyId: string
@@ -326,8 +332,8 @@ async function loadForm() {
     const persistencies = scenario.persistencies
       .map((p) => clonePersistenceDraftForDuplication(persistenceDraftFromPersistence(p)))
     const contactTemplates = scenario.contact_templates.length
-      ? scenario.contact_templates.map((template) =>
-          cloneContactTemplateDraftForDuplication(contactTemplateDraftFromContactTemplate(template)),
+      ? cloneContactTemplateDraftsForDuplication(
+          scenario.contact_templates.map(contactTemplateDraftFromContactTemplate),
         )
       : [emptyContactTemplateDraft()]
     setValues({
@@ -356,6 +362,11 @@ async function loadForm() {
 function restoreDraftIfPresent() {
   const draft = readDraft()
   if (!draft) return
+  // Drafts saved before chains existed carry no uid / chain link.
+  for (const template of draft.values.contactTemplates) {
+    template.uid ??= template.id ?? crypto.randomUUID()
+    template.followsUid ??= null
+  }
   setValues(draft.values)
   activeStep.value = draft.activeStep
   collapsedPersistencies.value = draft.values.persistencies.map(() => true)
@@ -401,7 +412,13 @@ function addContactTemplate() {
   collapsedContactTemplates.value.push(false)
 }
 
+function moveInChain(payload: { uid: string; slot: ChainSlot }) {
+  moveContactTemplateInChain(contactTemplateFields.value.map((f) => f.value), payload.uid, payload.slot)
+}
+
 function removeContactTemplate(index: number) {
+  const removed = contactTemplateFields.value[index]?.value
+  if (removed) unlinkContactTemplateDraft(contactTemplateFields.value.map((f) => f.value), removed.uid)
   removeContactTemplateField(index)
   collapsedContactTemplates.value.splice(index, 1)
 }
@@ -437,6 +454,12 @@ function firstIncompleteStep(): { step: StepName; message: string } | null {
     return {
       step: 'contact-templates',
       message: 'Add at least one contact template before saving this scenario.',
+    }
+  }
+  if (contactTemplateChainHasCycle(values.contactTemplates)) {
+    return {
+      step: 'contact-templates',
+      message: 'The contact chain loops back on itself. Rearrange the chain.',
     }
   }
   return null
@@ -520,6 +543,7 @@ async function saveScenario(formValues: ScenarioFormValues) {
       contactTemplateIds.push(await saveContactTemplateDraft(contactTemplate, scenario.id))
     }
     await updateScenario(scenario.id, { contact_template_ids: contactTemplateIds })
+    await saveContactTemplateChain(formValues.contactTemplates, contactTemplateIds)
 
     clearDraft()
     open.value = false
@@ -688,6 +712,12 @@ const title = computed(() =>
                 variant="outline"
                 class="self-start"
                 @click="addContactTemplate"
+              />
+
+              <ContactTemplateChainEditor
+                v-if="contactTemplateFields.length > 0"
+                :drafts="contactTemplateFields.map((f) => f.value)"
+                @move="moveInChain"
               />
 
               <div class="flex justify-start mt-2">

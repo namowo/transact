@@ -5,6 +5,8 @@ import type { SurfaceTemplate } from './surfaceTemplate'
 export interface ContactTemplate {
   id: string
   name?: string | null
+  // The contact template this one directly follows in a chain.
+  previous_contact_template_id?: string | null
   donor_surface_template_id?: string | null
   donor_surface_template?: SurfaceTemplate | null
   recipient_surface_template_id?: string | null
@@ -25,6 +27,7 @@ export interface ContactTemplate {
 
 export interface ContactTemplateInput {
   name?: string | null
+  previous_contact_template_id?: string | null
   donor_surface_template_id?: string | null
   recipient_surface_template_id?: string | null
   duration?: number | null
