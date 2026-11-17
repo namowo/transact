@@ -17,6 +17,8 @@ const props = defineProps<{
   // e.g. the item a donor touched can be chained on as a recipient's
   // surface in a later contact, instead of always creating a new instance.
   existingSurfaces?: Surface[]
+  // Limits the individual picker to individuals of this scenario.
+  scenarioId?: string | null
 }>()
 
 const draft = defineModel<SurfaceInstanceDraft>({ required: true })
@@ -91,6 +93,7 @@ watch(
         v-else-if="!props.template.item_id"
         v-model="draft.individualId"
         :study-id="props.studyId"
+        :scenario-id="props.scenarioId"
       />
 
       <CategorySelect

@@ -74,8 +74,7 @@ onMounted(load)
 const visibleIndividuals = computed(() =>
   props.scenarioId === null
     ? individuals.value
-    : individuals.value.filter((individual) => !individual.scenario_ids?.length || individual.scenario_ids.includes(props.scenarioId!),
-    ),
+    : individuals.value.filter((individual) => individual.scenario_ids?.includes(props.scenarioId!)),
 )
 
 watch(() => visibleIndividuals.value.length, (count) => emit('update:count', count), { immediate: true })
@@ -134,9 +133,7 @@ function scenarioNames(ids: string[]): string[] {
 }
 
 function groupScenarioNames(group: IndividualGroup): string[] {
-  // Individuals without scenario links are usable in every scenario.
-  const names = scenarioNames([...new Set(group.members.flatMap((member) => member.scenario_ids ?? []))])
-  return group.members.some((member) => !member.scenario_ids?.length) ? ['All scenarios', ...names] : names
+  return scenarioNames([...new Set(group.members.flatMap((member) => member.scenario_ids ?? []))])
 }
 
 function usedMembers(group: IndividualGroup): Individual[] {
@@ -225,10 +222,13 @@ const individualSaveError = ref('')
 const savingIndividualProgress = ref({ done: 0, total: 0 })
 
 const editScenarioIds = ref<string[]>([])
+const editScenarioError = ref('')
+const scenarioRequiredMessage = 'Select at least one scenario.'
 
 function openEditGroupDialog(group: IndividualGroup) {
   editingGroup.value = group
   editScenarioIds.value = [...new Set(group.members.flatMap((member) => member.scenario_ids ?? []))]
+  editScenarioError.value = ''
   resetIndividualForm({ values: emptyIndividualForm(group) })
   individualSaveError.value = ''
   individualDialogVisible.value = true
@@ -324,7 +324,19 @@ async function applyIndividualFormSave(values: IndividualFormState) {
   }
 }
 
-const saveIndividualForm = handleIndividualSubmit((values) => confirmAndSaveIndividualForm(values))
+const submitIndividualForm = handleIndividualSubmit((values) => {
+  if (editScenarioError.value) return
+  confirmAndSaveIndividualForm(values)
+})
+
+function saveIndividualForm() {
+  editScenarioError.value = editScenarioIds.value.length ? '' : scenarioRequiredMessage
+  void submitIndividualForm()
+}
+
+watch(editScenarioIds, (ids) => {
+  if (ids.length) editScenarioError.value = ''
+})
 
 // -- Add individuals dialog (one or many, sharing the same details) --
 
@@ -385,15 +397,27 @@ const batchSaveError = ref('')
 const batchProgress = ref({ done: 0, total: 0 })
 
 const batchScenarioIds = ref<string[]>([])
+const batchScenarioError = ref('')
+
+watch(batchScenarioIds, (ids) => {
+  if (ids.length) batchScenarioError.value = ''
+})
 
 function openBatchDialog() {
   batchScenarioIds.value = props.scenarioId ? [props.scenarioId] : []
+  batchScenarioError.value = ''
   resetBatchForm({ values: emptyBatchForm() })
   batchSaveError.value = ''
   batchDialogVisible.value = true
 }
 
-const saveBatchForm = handleBatchSubmit(async (values) => {
+function saveBatchForm() {
+  batchScenarioError.value = batchScenarioIds.value.length ? '' : scenarioRequiredMessage
+  void submitBatchForm()
+}
+
+const submitBatchForm = handleBatchSubmit(async (values) => {
+  if (batchScenarioError.value) return
   savingBatch.value = true
   batchSaveError.value = ''
   const total = values.count ?? 0
@@ -819,7 +843,7 @@ async function saveMemberField(member: Individual, patch: Partial<Individual>) {
             These individuals currently share the same details. Changes here apply to all
             {{ editingGroup.members.length }} of them.
           </p>
-          <ScenarioMultiSelect v-model="editScenarioIds" :scenarios="scenarios" />
+          <ScenarioMultiSelect v-model="editScenarioIds" :scenarios="scenarios" required :error="editScenarioError" />
           <UFormField label="Count" :error="individualErrors.count">
             <UInputNumber v-model="individualCount" :min="1" :max="500" class="w-full" />
           </UFormField>
@@ -883,7 +907,7 @@ async function saveMemberField(member: Individual, patch: Partial<Individual>) {
             sharing the same details below. They'll show up as a single grouped row until you
             change one of them.
           </p>
-          <ScenarioMultiSelect v-model="batchScenarioIds" :scenarios="scenarios" />
+          <ScenarioMultiSelect v-model="batchScenarioIds" :scenarios="scenarios" required :error="batchScenarioError" />
           <UFormField label="Number of individuals" :error="batchErrors.count">
             <UInputNumber v-model="batchCount" :min="1" :max="500" class="w-full" />
           </UFormField>

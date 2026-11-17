@@ -617,9 +617,6 @@ const activeTab = computed<string>({
       <p v-if="!studyScenarios.length" class="text-sm text-warning pb-2">
         Plan a scenario for this study first.
       </p>
-      <p v-else-if="selectedScenarioId === null" class="text-sm text-surface-500 dark:text-surface-400 pb-2">
-        Individuals and items without a scenario are used in all scenarios.
-      </p>
     </div>
 
     <UTabs v-if="!loading && !loadError" v-model="activeTab" :items="tabItems" :unmount-on-hide="false" class="w-full">
@@ -843,6 +840,8 @@ const activeTab = computed<string>({
             :contact-templates="visibleTemplates"
             :contacts="visibleContacts"
             :contact-label="contactLabel"
+            :scenarios="studyScenarios"
+            :scenario-id="selectedScenarioId"
             @saved="onContactSaved"
           />
 

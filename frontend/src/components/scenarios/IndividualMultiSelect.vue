@@ -11,13 +11,20 @@ import type { Individual } from '@/api/types'
 // traits are grouped (as on the Individuals tab) so a whole group can be
 // selected in one click, or expanded to pick just a few of its members.
 // Individuals themselves are managed on the Individuals tab, not created
-// from here.
-const props = defineProps<{ studyId: string }>()
+// from here. With a `scenarioId`, only individuals assigned to that scenario
+// are offered.
+const props = defineProps<{ studyId: string; scenarioId?: string | null }>()
 const individualIds = defineModel<string[]>({ default: () => [] })
 
 const { individuals, loading, individualName } = useIndividualOptions(props.studyId)
 
-const groups = computed(() => groupIndividuals(individuals.value))
+const scopedIndividuals = computed(() =>
+  props.scenarioId
+    ? individuals.value.filter((individual) => individual.scenario_ids?.includes(props.scenarioId!))
+    : individuals.value,
+)
+
+const groups = computed(() => groupIndividuals(scopedIndividuals.value))
 
 const selected = computed(() => new Set(individualIds.value))
 
@@ -152,7 +159,8 @@ const expandedRows = ref<Record<string, boolean>>({})
       </DataTable>
     </div>
     <p v-if="!loading && !groups.length" class="text-sm text-muted">
-      No individuals yet. Add some on the Individuals tab first.
+      {{ scenarioId ? 'No individuals in this scenario yet.' : 'No individuals yet.' }}
+      Add some on the Individuals tab first.
     </p>
   </div>
 </template>
