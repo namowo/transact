@@ -394,9 +394,12 @@ const onSubmit = handleSubmit(async (formValues) => {
     const payload = {
       realistic: formValues.realistic,
       scenario_category_id: formValues.scenarioCategoryId,
-      study_ids: [studyId.value],
       persistence_ids: Array.from(new Set(persistenceIds)),
-      ...(editingId.value === null ? { owning_study_id: studyId.value } : {}),
+      // Links are only set on create; on edit, sending them would unlink the
+      // scenario from other studies that reuse it.
+      ...(editingId.value === null
+        ? { owning_study_id: studyId.value, study_ids: [studyId.value] }
+        : {}),
     }
 
     const scenario = editingId.value

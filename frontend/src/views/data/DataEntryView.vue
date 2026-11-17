@@ -19,6 +19,8 @@ import type { ContactChainInfo } from '@/components/data/ContactChainNode.vue'
 import { templateName, surfaceInstanceIcon, surfaceInstanceDetail } from '@/components/data/contactTemplateLabel'
 import { useIndividualOptions } from '@/components/scenarios/individualOptions'
 import { useConfirm } from '@/composables/useConfirm'
+import { canEditStudy, provideStudyReadOnly, useStudyReadOnly } from '@/composables/useStudyAccess'
+import { useAuthStore } from '@/stores/auth'
 import { listScenarios } from '@/api/scenarios'
 import { getStudy } from '@/api/studies'
 import { listContacts, deleteContact, updateContact } from '@/api/contacts'
@@ -29,6 +31,15 @@ const route = useRoute()
 const router = useRouter()
 
 const props = defineProps<{ studyId: string }>()
+
+// Other laboratories' studies can be browsed but not changed. Inside the
+// study page the flag is provided; on the standalone data route this view
+// works it out from the study itself and passes it on to its panels.
+const auth = useAuthStore()
+const providedReadOnly = useStudyReadOnly()
+const ownStudy = ref<boolean | null>(null)
+const readOnly = computed(() => providedReadOnly.value || ownStudy.value === false)
+provideStudyReadOnly(readOnly)
 
 const studyId = computed(() => props.studyId)
 
@@ -48,7 +59,12 @@ async function load() {
   loadError.value = ''
   try {
     // The title only names exported files, so a failure here must not block loading.
-    getStudy(studyId.value).then((study) => (studyTitle.value = study.title ?? null)).catch(() => {})
+    getStudy(studyId.value)
+      .then((study) => {
+        studyTitle.value = study.title ?? null
+        ownStudy.value = canEditStudy(study, auth.user)
+      })
+      .catch(() => {})
     const allScenarios = await listScenarios()
     const scenariosOfStudy = allScenarios.filter((scenario) =>
       scenario.studies.some((study) => study.id === studyId.value),
@@ -421,6 +437,8 @@ function contactChainInfo(contact: Contact): ContactChainInfo {
 // Kept in the URL (?view=chains) so a reload stays on the same view.
 const contactsView = computed<'list' | 'chains'>({
   get() {
+    // Chaining only edits, so read-only always shows the list.
+    if (readOnly.value) return 'list'
     return route.query.view === 'chains' ? 'chains' : 'list'
   },
   set(value) {
@@ -543,12 +561,14 @@ const memberContextMenuItems = computed<MenuItem[]>(() => {
 })
 
 function openGroupContextMenu(event: Event, group: ContactGroup) {
+  if (readOnly.value) return
   contextMenuContact.value = undefined
   contextMenuGroup.value = group
   contactContextMenu.value?.show(event)
 }
 
 function openMemberContextMenu(event: Event, contact: Contact) {
+  if (readOnly.value) return
   contextMenuGroup.value = undefined
   contextMenuContact.value = contact
   contactContextMenu.value?.show(event)
@@ -602,7 +622,7 @@ const activeTab = computed<string>({
 
 <template>
   <div class="flex flex-col gap-6">
-    <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-0">Data entry</h1>
+    <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-0">{{ readOnly ? 'Data' : 'Data entry' }}</h1>
 
     <div v-if="loading" class="flex justify-center py-12">
       <UProgress class="w-12" />
@@ -611,10 +631,10 @@ const activeTab = computed<string>({
     <UAlert v-else-if="loadError" color="error" variant="outline" :description="loadError" />
 
     <div v-if="!loading && !loadError" class="flex flex-wrap items-end gap-3">
-      <UFormField label="Scenario" hint="Choose a scenario to add data to it, or view all data">
+      <UFormField label="Scenario" :hint="readOnly ? 'Choose a scenario to filter the data' : 'Choose a scenario to add data to it, or view all data'">
         <USelect v-model="scenarioSelectValue" :items="scenarioOptions" class="w-72" />
       </UFormField>
-      <p v-if="!studyScenarios.length" class="text-sm text-warning pb-2">
+      <p v-if="!studyScenarios.length && !readOnly" class="text-sm text-warning pb-2">
         Plan a scenario for this study first.
       </p>
     </div>
@@ -635,6 +655,7 @@ const activeTab = computed<string>({
               Actual contacts recorded for this study's planned scenarios.
             </p>
             <UButton
+              v-if="!readOnly"
               label="Add actual contact"
               icon="i-lucide-plus"
               variant="outline"
@@ -644,13 +665,14 @@ const activeTab = computed<string>({
           </div>
 
           <UAlert
-            v-if="!visibleTemplates.length"
+            v-if="!visibleTemplates.length && !readOnly"
             color="info"
             variant="outline"
             description="Plan a scenario with at least one contact template before entering actual data."
           />
 
           <UTabs
+            v-if="!readOnly"
             v-model="contactsView"
             :items="contactsViewItems"
             :content="false"
@@ -682,6 +704,7 @@ const activeTab = computed<string>({
                   Clear Filters
                 </UButton>
                 <UButton
+                  v-if="!readOnly"
                   type="button"
                   :label="editingNames ? 'Done' : 'Edit names'"
                   :icon="editingNames ? 'i-lucide-check' : 'i-lucide-pencil'"
@@ -750,7 +773,7 @@ const activeTab = computed<string>({
               <Column header="Contacts" style="width: 6rem">
                 <template #body="{ data }">{{ data.members.length }}</template>
               </Column>
-              <Column header="" style="width: 3rem">
+              <Column v-if="!readOnly" header="" style="width: 3rem">
                 <template #body="{ data }">
                   <UButton
                     icon="i-lucide-more-vertical"
@@ -785,7 +808,7 @@ const activeTab = computed<string>({
                       />
                       <template v-else>{{ data.name || contactFallbackName(data) }}</template>
                     </template>
-                    <template v-if="!editingNames" #editor="{ data, field }">
+                    <template v-if="!editingNames && !readOnly" #editor="{ data, field }">
                       <UInput v-model="data[field]" autofocus class="w-full" @keyup.enter="($event.target as HTMLElement)?.blur()" />
                     </template>
                   </Column>
@@ -817,7 +840,7 @@ const activeTab = computed<string>({
                       </span>
                     </template>
                   </Column>
-                  <Column header="" style="width: 3rem">
+                  <Column v-if="!readOnly" header="" style="width: 3rem">
                     <template #body="{ data }">
                       <UButton
                         icon="i-lucide-more-vertical"
@@ -835,6 +858,7 @@ const activeTab = computed<string>({
           </div>
 
           <ContactInstanceDialog
+            v-if="!readOnly"
             v-model:visible="dialogVisible"
             :study-id="studyId"
             :contact-templates="visibleTemplates"

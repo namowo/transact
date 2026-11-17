@@ -1,0 +1,175 @@
+"""Ownership checks for study data.
+
+A study belongs to the laboratory that created it. Anyone may view a
+published study, but only members of the owning laboratory may change it or
+any of the records that hang off it (scenarios, samples, results, ...).
+This applies to superusers as well: their admin powers cover the platform,
+not other laboratories' research data.
+"""
+
+from typing import Iterable, Optional
+from uuid import UUID
+
+from fastapi import HTTPException, status
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.study import Study
+from app.models.user import User
+
+EDIT_FORBIDDEN_MESSAGE = "You can only edit studies belonging to your own laboratory."
+
+
+def can_edit_study(study: Study, user: Optional[User]) -> bool:
+    return (
+        user is not None
+        and user.laboratory_id is not None
+        and study.laboratory_id == user.laboratory_id
+    )
+
+
+def assert_can_edit_study(study: Study, user: User) -> None:
+    if not can_edit_study(study, user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail=EDIT_FORBIDDEN_MESSAGE
+        )
+
+
+async def assert_can_edit_studies(
+    db: AsyncSession, user: User, study_ids: Iterable[Optional[UUID]]
+) -> None:
+    """Raise 403 unless `user` may edit every study in `study_ids`.
+
+    `None` entries (records not attached to a study) are ignored.
+    """
+    ids = {study_id for study_id in study_ids if study_id is not None}
+    if not ids:
+        return
+    result = await db.execute(select(Study.laboratory_id).where(Study.id.in_(ids)))
+    for laboratory_id in result.scalars():
+        if user.laboratory_id is None or laboratory_id != user.laboratory_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail=EDIT_FORBIDDEN_MESSAGE
+            )
+
+
+# --- Resolving which studies a record belongs to --------------------------
+#
+# Each resolver returns the ids of the studies whose data a record is part
+# of. Records that are not tied to any study (e.g. an unused catalog item)
+# resolve to an empty set and are not restricted by laboratory.
+
+
+async def study_ids_of_sample(db: AsyncSession, sample_id: Optional[UUID]) -> set:
+    from app.models.sample import Sample
+
+    if sample_id is None:
+        return set()
+    result = await db.execute(select(Sample.study_id).where(Sample.id == sample_id))
+    return set(result.scalars())
+
+
+async def study_ids_of_individual(
+    db: AsyncSession, individual_id: Optional[UUID]
+) -> set:
+    from app.models.individual import Individual
+
+    if individual_id is None:
+        return set()
+    result = await db.execute(
+        select(Individual.study_id).where(Individual.id == individual_id)
+    )
+    return set(result.scalars())
+
+
+async def study_ids_of_item(db: AsyncSession, item_id: Optional[UUID]) -> set:
+    from app.models.item import study_item
+
+    if item_id is None:
+        return set()
+    result = await db.execute(
+        select(study_item.c.study_id).where(study_item.c.item_id == item_id)
+    )
+    return set(result.scalars())
+
+
+async def study_ids_of_scenarios(db: AsyncSession, scenario_ids: Iterable[UUID]) -> set:
+    """The owning studies of the given scenarios."""
+    from app.models.scenario import Scenario
+
+    ids = set(scenario_ids)
+    if not ids:
+        return set()
+    result = await db.execute(
+        select(Scenario.owning_study_id).where(Scenario.id.in_(ids))
+    )
+    return set(result.scalars())
+
+
+async def study_ids_of_contact_template(
+    db: AsyncSession, contact_template_id: Optional[UUID]
+) -> set:
+    from app.models.contact_template import scenario_contact_template
+
+    if contact_template_id is None:
+        return set()
+    result = await db.execute(
+        select(scenario_contact_template.c.scenario_id).where(
+            scenario_contact_template.c.contact_template_id == contact_template_id
+        )
+    )
+    return await study_ids_of_scenarios(db, result.scalars())
+
+
+async def study_ids_of_surface(db: AsyncSession, surface_id: Optional[UUID]) -> set:
+    from app.models.sample import Sample
+    from app.models.surface import Surface
+
+    if surface_id is None:
+        return set()
+    ids = set()
+    surface = await db.get(Surface, surface_id)
+    if surface is not None:
+        ids |= await study_ids_of_individual(db, surface.individual_id)
+    result = await db.execute(select(Sample.study_id).where(Sample.surface_id == surface_id))
+    ids |= set(result.scalars())
+    return ids
+
+
+async def study_ids_of_contact(db: AsyncSession, contact_id: Optional[UUID]) -> set:
+    from app.models.contact import Contact
+    from app.models.sample import Sample
+
+    if contact_id is None:
+        return set()
+    contact = await db.get(Contact, contact_id)
+    if contact is None:
+        return set()
+    ids = await study_ids_of_surface(db, contact.donor_surface_id)
+    ids |= await study_ids_of_surface(db, contact.recipient_surface_id)
+    result = await db.execute(select(Sample.study_id).where(Sample.contact_id == contact_id))
+    ids |= set(result.scalars())
+    return ids
+
+
+async def study_ids_of_result(db: AsyncSession, result_id: Optional[UUID]) -> set:
+    from app.models.result import Result
+
+    if result_id is None:
+        return set()
+    result = await db.execute(select(Result.sample_id).where(Result.id == result_id))
+    return await study_ids_of_sample(db, result.scalars().first())
+
+
+async def assert_can_change_study_links(
+    db: AsyncSession,
+    user: User,
+    current: Iterable[UUID],
+    requested: Optional[Iterable[UUID]],
+) -> None:
+    """Linking/unlinking a shared record (scenario, item) to studies only
+    touches the studies being added or removed, so only those need to be
+    editable. `requested=None` means the links are left unchanged."""
+    if requested is None:
+        return
+    await assert_can_edit_studies(db, user, set(current) ^ set(requested))

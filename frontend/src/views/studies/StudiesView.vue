@@ -7,6 +7,7 @@ import ContextMenu from 'openvue/contextmenu'
 import { FilterMatchMode } from '@openvue/core/api'
 import { listStudies } from '@/api/studies'
 import { useAuthStore } from '@/stores/auth'
+import { canEditStudy } from '@/composables/useStudyAccess'
 import type { Study } from '@/api/types'
 import type { MenuItem } from 'openvue/menuitem'
 
@@ -67,7 +68,12 @@ function isOwnLab(study: Study) {
 }
 
 function canEdit(study: Study) {
-  return !!auth.user && (auth.user.is_superuser || isOwnLab(study))
+  return canEditStudy(study, auth.user)
+}
+
+// Any signed-in user can open a study; other labs' studies open read-only.
+function canOpen() {
+  return auth.isAuthenticated
 }
 
 function openStep(study: Study, step: 'details' | 'planning' | 'data-entry') {
@@ -93,21 +99,18 @@ const contextMenuItems = computed<MenuItem[]>(() => {
   return [
     {
       label: 'Details',
-      icon: 'i-lucide-pencil',
-      disabled: !editable,
+      icon: editable ? 'i-lucide-pencil' : 'i-lucide-eye',
       command: () => openStep(study, 'details'),
     },
     {
       label: 'Planning',
       icon: 'i-lucide-network',
-      disabled: !editable,
       command: () => openStep(study, 'planning'),
     },
     {
-      label: 'Add data',
+      label: editable ? 'Add data' : 'Data',
       icon: 'i-lucide-database',
       visible: !!study.add_data_to_repository,
-      disabled: !editable,
       command: () => openStep(study, 'data-entry'),
     },
     {
@@ -133,7 +136,7 @@ function openContextMenu(event: Event, study: Study) {
 }
 
 function onRowClick(event: { data: Study }) {
-  if (!canEdit(event.data)) return
+  if (!canOpen()) return
   openStep(event.data, 'details')
 }
 </script>
@@ -150,7 +153,7 @@ function onRowClick(event: { data: Study }) {
             props.scope === 'laboratory'
               ? 'Studies belonging to your laboratory.'
               : auth.isAuthenticated
-                ? 'Studies from all laboratories. You can only edit studies from your own laboratory.'
+                ? 'Studies from all laboratories. Studies from other laboratories open read-only.'
                 : 'Published studies from all laboratories.'
           }}
         </p>
@@ -195,7 +198,7 @@ function onRowClick(event: { data: Study }) {
         filter-display="menu"
         sort-field="created_at"
         :sort-order="-1"
-        :row-class="(data: Study) => (canEdit(data) ? 'cursor-pointer hover:bg-elevated' : '')"
+        :row-class="() => (canOpen() ? 'cursor-pointer hover:bg-elevated' : '')"
         @row-contextmenu="onRowContextMenu"
         @row-click="onRowClick"
       >
