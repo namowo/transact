@@ -10,8 +10,8 @@ import type { MenuItem } from 'openvue/menuitem'
 import type { StepperItem } from '@nuxt/ui'
 import EntitySelect from '@/components/scenarios/EntitySelect.vue'
 import NamedCategoryRadioGroup from '@/components/scenarios/NamedCategoryRadioGroup.vue'
-import RecoveryPicker from '@/components/scenarios/RecoveryPicker.vue'
-import { surfaceLabel } from '@/components/data/recoveryLabel'
+import SamplePicker from '@/components/scenarios/SamplePicker.vue'
+import { surfaceLabel } from '@/components/data/sampleLabel'
 import ScenarioBadges from '@/components/data/ScenarioBadges.vue'
 import { useAuthStore } from '@/stores/auth'
 import CsvRoundTrip from '@/components/data/CsvRoundTrip.vue'
@@ -30,7 +30,7 @@ import {
 import { degradationCategoryApi } from '@/api/categories'
 import type {
   Contact,
-  Recovery,
+  Sample,
   Result,
   ResultInput,
   PCR,
@@ -45,7 +45,7 @@ import type {
 } from '@/api/types'
 
 const props = defineProps<{
-  recoveries: Recovery[]
+  samples: Sample[]
   studyId: string
   surfaceScenarios: Record<string, string[]>
   contacts?: Contact[]
@@ -75,21 +75,21 @@ const contributorOptions = computed(() => [
   ...unknownPersonOptions,
 ])
 
-// Only individuals that took part in the recovery's contact can have left the
+// Only individuals that took part in the sample's contact can have left the
 // DNA (its donor and recipient); unknown persons stay selectable. Individuals
 // already chosen on a row stay listed so existing data never disappears.
-function possibleIndividualIds(recoveryId: string | null | undefined): Set<string> | null {
-  const recovery = props.recoveries.find((candidate) => candidate.id === recoveryId)
-  if (!recovery) return null
-  const contact = props.contacts?.find((candidate) => candidate.id === recovery.contact_id)
+function possibleIndividualIds(sampleId: string | null | undefined): Set<string> | null {
+  const sample = props.samples.find((candidate) => candidate.id === sampleId)
+  if (!sample) return null
+  const contact = props.contacts?.find((candidate) => candidate.id === sample.contact_id)
   const ids = contact
     ? [contact.donor_surface?.individual_id, contact.recipient_surface?.individual_id]
-    : [recovery.surface?.individual_id]
+    : [sample.surface?.individual_id]
   return new Set(ids.filter((id): id is string => !!id))
 }
 
-function contributorOptionsFor(recoveryId: string | null | undefined, selected: PCRContributorInput[]) {
-  const possible = possibleIndividualIds(recoveryId)
+function contributorOptionsFor(sampleId: string | null | undefined, selected: PCRContributorInput[]) {
+  const possible = possibleIndividualIds(sampleId)
   if (possible === null) return contributorOptions.value
   const keep = new Set([...possible, ...selected.map((c) => c.individual_id).filter((id): id is string => !!id)])
   return contributorOptions.value.filter((option) => option.unknownLabel !== null || keep.has(option.id))
@@ -122,42 +122,42 @@ function syncContributors(contributors: PCRContributorInput[], count: number | n
   return next
 }
 
-const recoveryIds = computed(() => new Set(props.recoveries.map((r) => r.id)))
+const sampleIds = computed(() => new Set(props.samples.map((r) => r.id)))
 
 const allResults = ref<Result[]>([])
 const loading = ref(false)
 const loadError = ref('')
 
 const results = computed(() =>
-  allResults.value.filter((result) => result.recovery_id != null && recoveryIds.value.has(result.recovery_id)),
+  allResults.value.filter((result) => result.sample_id != null && sampleIds.value.has(result.sample_id)),
 )
 
 const resultRows = computed(() =>
   results.value.map((result) => ({
     ...result,
-    scenarioNames: (props.surfaceScenarios[result.recovery?.surface_id ?? ''] ?? []).join(', '),
+    scenarioNames: (props.surfaceScenarios[result.sample?.surface_id ?? ''] ?? []).join(', '),
   })),
 )
 
-// -- Quick entry: one result per recovery, then fill in the numbers --
+// -- Quick entry: one result per sample, then fill in the numbers --
 
-const recoveriesWithoutResult = computed(() => {
-  const withResult = new Set(allResults.value.map((result) => result.recovery_id))
-  return props.recoveries.filter((recovery) => !withResult.has(recovery.id))
+const samplesWithoutResult = computed(() => {
+  const withResult = new Set(allResults.value.map((result) => result.sample_id))
+  return props.samples.filter((sample) => !withResult.has(sample.id))
 })
 
 const addingAll = ref(false)
 const editMode = ref(false)
 
-async function addResultsForAllRecoveries() {
-  const missing = recoveriesWithoutResult.value
+async function addResultsForAllSamples() {
+  const missing = samplesWithoutResult.value
   if (!missing.length) return
   addingAll.value = true
   try {
     const created = await Promise.all(
-      missing.map((recovery) =>
+      missing.map((sample) =>
         resultApi.create({
-          recovery_id: recovery.id,
+          sample_id: sample.id,
           quantification_method_id: null,
           dna_concentration: null,
           degradation_category_id: null,
@@ -184,7 +184,7 @@ const numberOrNull = (value: number | null | undefined) =>
 
 function resultInputFrom(result: Result, dnaConcentration: number | null): ResultInput {
   return {
-    recovery_id: result.recovery_id ?? null,
+    sample_id: result.sample_id ?? null,
     quantification_method_id: result.quantification_method_id ?? null,
     dna_concentration: dnaConcentration,
     degradation_category_id: result.degradation_category_id ?? null,
@@ -228,7 +228,7 @@ const PCR_FIELDS = Object.keys(CSV_PCR_COLUMNS) as PcrNumericField[]
 const CSV_EDITABLE_COLUMNS = [CSV_CONCENTRATION, ...Object.values(CSV_PCR_COLUMNS)]
 const CSV_INFO_COLUMNS = [
   'info_scenario',
-  'info_recovery_name',
+  'info_sample_name',
   'info_surface',
   'info_elution_volume_ul',
   'info_dna_quantity_ng',
@@ -240,7 +240,7 @@ const CSV_NOTES = [
 ]
 
 function scenarioNamesOf(result: Result): string {
-  return (props.surfaceScenarios[result.recovery?.surface_id ?? ''] ?? []).join('; ')
+  return (props.surfaceScenarios[result.sample?.surface_id ?? ''] ?? []).join('; ')
 }
 
 function buildCsvRows() {
@@ -248,7 +248,7 @@ function buildCsvRows() {
     CSV_ID,
     CSV_PCR_ID,
     'info_scenario',
-    'info_recovery_name',
+    'info_sample_name',
     'info_surface',
     'info_elution_volume_ul',
     CSV_CONCENTRATION,
@@ -261,9 +261,9 @@ function buildCsvRows() {
       result.id,
       null as string | null,
       scenarioNamesOf(result),
-      result.recovery?.name,
-      surfaceLabel(result.recovery?.surface),
-      result.recovery?.elution_volume,
+      result.sample?.name,
+      surfaceLabel(result.sample?.surface),
+      result.sample?.elution_volume,
     ]
     const pcrs: (PCR | null)[] = result.pcrs.length ? result.pcrs : [null]
     return pcrs.map((pcr) => [
@@ -475,8 +475,8 @@ const degradationIcons: Record<string, string> = {
   'not applied': 'i-lucide-circle-help',
 }
 
-function recoveryLabel(recovery?: Recovery | null): string {
-  return surfaceLabel(recovery?.surface)
+function sampleLabel(sample?: Sample | null): string {
+  return surfaceLabel(sample?.surface)
 }
 
 function methodLabel(
@@ -515,7 +515,7 @@ function clearFilters() {
 // pcrs is full-replace on Result update, so adding/editing/deleting one PCR
 // run sends the whole list back with that one entry changed. The same form
 // instance also backs the first PCR run embedded in the create-result
-// dialog (see submitForm below), so the whole picture - recovery, result
+// dialog (see submitForm below), so the whole picture - sample, result
 // fields, and the first PCR run's methods/metrics - can be entered in one
 // sitting like before PCR runs were split into their own entity.
 
@@ -626,7 +626,7 @@ function isBlankPcr(pcr: PCRInput): boolean {
 
 function emptyForm(): ResultInput {
   return {
-    recovery_id: null,
+    sample_id: null,
     quantification_method_id: null,
     dna_concentration: null,
     degradation_category_id: null,
@@ -635,7 +635,7 @@ function emptyForm(): ResultInput {
 }
 
 const schema = yup.object({
-  recovery_id: yup.string().nullable().required('Please select a recovery.'),
+  sample_id: yup.string().nullable().required('Please select a sample.'),
   quantification_method_id: yup.string().nullable().defined(),
   dna_concentration: yup.number().nullable().min(0, 'DNA concentration must be zero or greater.'),
   degradation_category_id: yup.string().nullable().defined(),
@@ -647,7 +647,7 @@ const { defineField, errors, handleSubmit, resetForm } = useForm<ResultInput>({
   initialValues: emptyForm(),
 })
 
-const [recoveryId] = defineField('recovery_id')
+const [sampleId] = defineField('sample_id')
 const [quantificationMethodId] = defineField('quantification_method_id')
 const [dnaConcentration] = defineField('dna_concentration')
 const [degradationCategoryId] = defineField('degradation_category_id')
@@ -679,7 +679,7 @@ function openEditDialog(row: Result) {
   editingId.value = row.id
   resetForm({
     values: {
-      recovery_id: row.recovery_id ?? null,
+      sample_id: row.sample_id ?? null,
       quantification_method_id: row.quantification_method_id ?? null,
       dna_concentration: row.dna_concentration ?? null,
       degradation_category_id: row.degradation_category_id ?? null,
@@ -810,7 +810,7 @@ const submitPcrForm = handlePcrSubmit(async (formValues) => {
 
 function resultInputOf(result: Result): ResultInput {
   return {
-    recovery_id: result.recovery_id ?? null,
+    sample_id: result.sample_id ?? null,
     quantification_method_id: result.quantification_method_id ?? null,
     dna_concentration: result.dna_concentration ?? null,
     degradation_category_id: result.degradation_category_id ?? null,
@@ -853,32 +853,32 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
   <div class="flex flex-col gap-6">
     <div class="flex items-center justify-between">
       <p class="text-sm text-surface-500 dark:text-surface-400">
-        Lab results derived from this scenario's recoveries.
+        Lab results derived from this scenario's samples.
       </p>
       <div class="flex flex-wrap gap-2">
         <UButton
-          label="Add result for every recovery"
+          label="Add result for every sample"
           icon="i-lucide-list-plus"
           variant="outline"
           :loading="addingAll"
-          :disabled="!recoveriesWithoutResult.length"
-          @click="addResultsForAllRecoveries"
+          :disabled="!samplesWithoutResult.length"
+          @click="addResultsForAllSamples"
         />
         <UButton
           label="Add quantification result"
           icon="i-lucide-plus"
           variant="outline"
-          :disabled="!recoveries.length"
+          :disabled="!samples.length"
           @click="openCreateDialog"
         />
       </div>
     </div>
 
     <UAlert
-      v-if="!recoveries.length"
+      v-if="!samples.length"
       color="info"
       variant="outline"
-      description="Add a recovery before recording results."
+      description="Add a sample before recording results."
     />
 
     <UAlert v-if="loadError" color="error" variant="outline" :description="loadError" />
@@ -931,16 +931,16 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
         :rowsPerPageOptions="[25, 50, 100, 200]"
         filterDisplay="menu"
         removableSort
-        :globalFilterFields="['recovery.surface.id', 'dna_concentration', 'scenarioNames']"
+        :globalFilterFields="['sample.surface.id', 'dna_concentration', 'scenarioNames']"
         @row-contextmenu="({ originalEvent, data }: { originalEvent: Event; data: Result }) => openResultContextMenu(originalEvent, data)"
       >
         <template #empty>No results recorded yet.</template>
         <Column expander style="width: 2.5rem" />
-        <Column header="Recovery">
-          <template #body="{ data }">{{ recoveryLabel(data.recovery) }}</template>
+        <Column header="Sample">
+          <template #body="{ data }">{{ sampleLabel(data.sample) }}</template>
         </Column>
         <Column header="Name">
-          <template #body="{ data }">{{ data.recovery?.name || '—' }}</template>
+          <template #body="{ data }">{{ data.sample?.name || '—' }}</template>
         </Column>
         <Column
           field="scenarioNames"
@@ -949,7 +949,7 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
           :showFilterOperator="false"
           :showAddButton="false"
         >
-          <template #body="{ data }"><ScenarioBadges :names="surfaceScenarios[data.recovery?.surface_id] ?? []" /></template>
+          <template #body="{ data }"><ScenarioBadges :names="surfaceScenarios[data.sample?.surface_id] ?? []" /></template>
           <template #filter="{ filterModel }">
             <UInput v-model="filterModel.value" type="text" placeholder="Search by scenario" />
           </template>
@@ -1057,7 +1057,7 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
     >
       <template #body>
         <div v-if="editingId !== null" class="flex flex-col gap-4">
-          <RecoveryPicker v-model="recoveryId" :recoveries="recoveries" :error="errors.recovery_id" />
+          <SamplePicker v-model="sampleId" :samples="samples" :error="errors.sample_id" />
 
           <EntitySelect
             v-model="quantificationMethodId"
@@ -1099,7 +1099,7 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
         >
           <template #result>
             <div class="flex flex-col gap-4">
-              <RecoveryPicker v-model="recoveryId" :recoveries="recoveries" :error="errors.recovery_id" />
+              <SamplePicker v-model="sampleId" :samples="samples" :error="errors.sample_id" />
 
               <EntitySelect
                 v-model="quantificationMethodId"
@@ -1255,7 +1255,7 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
                   <UFormField :label="`Contributor ${index + 1}`" class="flex-1">
                     <USelectMenu
                       :model-value="contributorKey(contributor)"
-                      :items="contributorOptionsFor(recoveryId, pcrFormValues.contributors ?? [])"
+                      :items="contributorOptionsFor(sampleId, pcrFormValues.contributors ?? [])"
                       value-key="id"
                       placeholder="Select an individual or unknown person"
                       clear
@@ -1415,7 +1415,7 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
               <UFormField :label="`Contributor ${index + 1}`" class="flex-1">
                 <USelectMenu
                   :model-value="contributorKey(contributor)"
-                  :items="contributorOptionsFor(pcrDialogResult?.recovery_id, pcrFormValues.contributors ?? [])"
+                  :items="contributorOptionsFor(pcrDialogResult?.sample_id, pcrFormValues.contributors ?? [])"
                   value-key="id"
                   placeholder="Select an individual or unknown person"
                   clear

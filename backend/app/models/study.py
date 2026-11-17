@@ -58,11 +58,11 @@ class Study(Base):
         secondary="study_scenario",
         back_populates="studies",
     )
-    recoveries: Mapped[list["Recovery"]] = relationship(
+    samples: Mapped[list["Sample"]] = relationship(
         lazy="selectin",
         back_populates="study",
         cascade="all, delete-orphan",
-        foreign_keys="Recovery.study_id",
+        foreign_keys="Sample.study_id",
     )
     items: Mapped[list["Item"]] = relationship(
         lazy="selectin",

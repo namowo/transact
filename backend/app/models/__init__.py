@@ -66,8 +66,8 @@ from .principle_of_quant_method_category import PrincipleOfQuantMethodCategory
 from .quantification_kit import QuantificationKit
 from .quantification_method import QuantificationMethod
 from .quantification_platform import QuantificationPlatform
-from .recovery import Recovery
-from .recovery_set import RecoverySet
+from .sample import Sample
+from .sample_set import SampleSet
 from .restriction_prior_to_sampling import RestrictionPriorToSampling
 from .result import Result
 from .sampling_method import SamplingMethod

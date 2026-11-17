@@ -1,6 +1,6 @@
 import type { NamedCategory } from './categories'
 import type { Individual } from './individual'
-import type { RecoverySet } from './recoverySet'
+import type { SampleSet } from './sampleSet'
 import type { Surface } from './surface'
 import type {
   CEMethod,
@@ -13,12 +13,12 @@ import type {
   SamplingMethod,
 } from './methods'
 
-export interface Recovery {
+export interface Sample {
   id: string
   name?: string | null
   study_id?: string | null
-  recovery_set_id?: string | null
-  recovery_set?: RecoverySet | null
+  sample_set_id?: string | null
+  sample_set?: SampleSet | null
   contact_id?: string | null
   surface_id?: string | null
   surface?: Surface | null
@@ -32,10 +32,10 @@ export interface Recovery {
   experience_level_of_sampler?: NamedCategory | null
 }
 
-export interface RecoveryInput {
+export interface SampleInput {
   name: string | null
   study_id: string | null
-  recovery_set_id: string | null
+  sample_set_id: string | null
   contact_id?: string | null
   surface_id: string | null
   sampling_method_id: string | null
@@ -101,12 +101,12 @@ export interface PCRInput {
 
 export interface Result {
   id: string
-  recovery_id?: string | null
-  recovery?: Recovery | null
+  sample_id?: string | null
+  sample?: Sample | null
   quantification_method_id?: string | null
   quantification_method?: QuantificationMethod | null
   dna_concentration?: number | null
-  // Derived server-side as dna_concentration × recovery.elution_volume.
+  // Derived server-side as dna_concentration × sample.elution_volume.
   dna_quantity?: number | null
   degradation_category_id?: string | null
   degradation_category?: NamedCategory | null
@@ -116,7 +116,7 @@ export interface Result {
 }
 
 export interface ResultInput {
-  recovery_id: string | null
+  sample_id: string | null
   quantification_method_id: string | null
   dna_concentration: number | null
   degradation_category_id: string | null

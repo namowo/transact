@@ -8,7 +8,7 @@ import { useIndividualOptions } from '@/components/scenarios/individualOptions'
 import ScenarioBadges from './ScenarioBadges.vue'
 import type { Contact, ContactTemplate, Scenario, Surface } from '@/api/types'
 
-// Lets the user pick several surfaces at once when recording recoveries, one
+// Lets the user pick several surfaces at once when recording samples, one
 // checkbox for the donor surface and one for the recipient surface per
 // actual contact - mirroring the Contacts tab's own table, just with the
 // row's two surfaces made selectable instead of merely displayed.
@@ -82,7 +82,7 @@ type Side = 'donor_surface' | 'recipient_surface'
 
 // A selection is one side of one contact ("<contact id>|<side>"), not a bare
 // surface: a batch of contacts shares a single item surface, and each of
-// those contacts still needs its own recovery.
+// those contacts still needs its own sample.
 const selectionKey = (contact: Contact, side: Side) => `${contact.id}|${side}`
 
 function isSelected(contact: Contact, side: Side): boolean {

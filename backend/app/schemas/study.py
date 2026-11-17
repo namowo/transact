@@ -54,7 +54,7 @@ class StudyReadNested(StudyBase):
     quality_checked_by_id: Optional[UUID] = None
     quality_checked_by: Optional["UserRead"] = None
     quality_checked_at: Optional[datetime] = None
-    recoveries: List["RecoveryRead"] = []
+    samples: List["SampleRead"] = []
 
 
 class StudyRead(StudyReadNested):
@@ -65,4 +65,4 @@ from app.schemas.author import AuthorCreate, AuthorRead
 from app.schemas.laboratory import LaboratoryRead
 from app.schemas.user import UserRead
 from app.schemas.scenario import ScenarioReadNested
-from app.schemas.recovery import RecoveryRead
+from app.schemas.sample import SampleRead

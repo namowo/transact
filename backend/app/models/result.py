@@ -24,12 +24,12 @@ class Result(Base):
     quantification_method: Mapped[Optional["QuantificationMethod"]] = relationship(
         lazy="selectin", foreign_keys=[quantification_method_id]
     )
-    recovery_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    sample_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         PGUUID(as_uuid=True),
-        ForeignKey("recovery.id", ondelete="SET NULL")
+        ForeignKey("sample.id", ondelete="SET NULL")
     )
-    recovery: Mapped[Optional["Recovery"]] = relationship(
-        lazy="selectin", foreign_keys=[recovery_id]
+    sample: Mapped[Optional["Sample"]] = relationship(
+        lazy="selectin", foreign_keys=[sample_id]
     )
     dna_concentration: Mapped[Optional[float]]
     degradation_category_id: Mapped[Optional[uuid.UUID]] = mapped_column(
@@ -56,5 +56,5 @@ class Result(Base):
 from app.models.degradation_category import DegradationCategory
 from app.models.inhibition_category import InhibitionCategory
 from app.models.quantification_method import QuantificationMethod
-from app.models.recovery import Recovery
+from app.models.sample import Sample
 from app.models.pcr import PCR

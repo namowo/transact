@@ -4,19 +4,19 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 
 
-class RecoverySetBase(BaseModel):
+class SampleSetBase(BaseModel):
     name: Optional[str] = None
 
 
-class RecoverySetCreate(RecoverySetBase):
+class SampleSetCreate(SampleSetBase):
     pass
 
 
-class RecoverySetUpdate(RecoverySetBase):
+class SampleSetUpdate(SampleSetBase):
     pass
 
 
-class RecoverySetRead(RecoverySetBase):
+class SampleSetRead(SampleSetBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID

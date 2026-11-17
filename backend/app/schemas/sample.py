@@ -4,10 +4,10 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 
 
-class RecoveryBase(BaseModel):
+class SampleBase(BaseModel):
     name: Optional[str] = None
     study_id: Optional[UUID] = None
-    recovery_set_id: Optional[UUID] = None
+    sample_set_id: Optional[UUID] = None
     contact_id: Optional[UUID] = None
     surface_id: Optional[UUID] = None
     sampling_method_id: Optional[UUID] = None
@@ -17,26 +17,26 @@ class RecoveryBase(BaseModel):
     experience_level_of_sampler_id: Optional[UUID] = None
 
 
-class RecoveryCreate(RecoveryBase):
+class SampleCreate(SampleBase):
     pass
 
 
-class RecoveryUpdate(RecoveryBase):
+class SampleUpdate(SampleBase):
     pass
 
 
-class RecoveryRead(RecoveryBase):
+class SampleRead(SampleBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
-    recovery_set: Optional["RecoverySetRead"] = None
+    sample_set: Optional["SampleSetRead"] = None
     surface: Optional["SurfaceRead"] = None
     sampling_method: Optional["SamplingMethodRead"] = None
     extraction_method: Optional["ExtractionMethodRead"] = None
     experience_level_of_sampler: Optional["ExperienceLevelRead"] = None
 
 
-from app.schemas.recovery_set import RecoverySetRead
+from app.schemas.sample_set import SampleSetRead
 from app.schemas.surface import SurfaceRead
 from app.schemas.sampling_method import SamplingMethodRead
 from app.schemas.extraction_method import ExtractionMethodRead

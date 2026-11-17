@@ -13,7 +13,7 @@ import type { LinkOp } from '@/components/data/ContactChains.vue'
 import ContactInstanceDialog from '@/components/data/ContactInstanceDialog.vue'
 import IndividualsPanel from '@/components/data/IndividualsPanel.vue'
 import ItemsPanel from '@/components/data/ItemsPanel.vue'
-import RecoveriesPanel from '@/components/data/RecoveriesPanel.vue'
+import SamplesPanel from '@/components/data/SamplesPanel.vue'
 import ResultsTab from '@/components/scenarios/ResultsTab.vue'
 import type { ContactChainInfo } from '@/components/data/ContactChainNode.vue'
 import { templateName, surfaceInstanceIcon, surfaceInstanceDetail } from '@/components/data/contactTemplateLabel'
@@ -22,7 +22,7 @@ import { useConfirm } from '@/composables/useConfirm'
 import { listScenarios } from '@/api/scenarios'
 import { getStudy } from '@/api/studies'
 import { listContacts, deleteContact, updateContact } from '@/api/contacts'
-import type { Contact, ContactTemplate, Recovery, Scenario } from '@/api/types'
+import type { Contact, ContactTemplate, Sample, Scenario } from '@/api/types'
 
 const confirm = useConfirm()
 const route = useRoute()
@@ -41,7 +41,7 @@ const studyScenarios = ref<Scenario[]>([])
 const studyTitle = ref<string | null>(null)
 const contactTemplates = ref<ContactTemplate[]>([])
 const contacts = ref<Contact[]>([])
-const scopedRecoveries = ref<Recovery[]>([])
+const scopedSamples = ref<Sample[]>([])
 
 async function load() {
   loading.value = true
@@ -105,7 +105,7 @@ function itemSideOf(template: ContactTemplate): 'donor_surface' | 'recipient_sur
 // -- Scenario scope --
 // 'all' shows everything recorded for the study; picking a scenario narrows
 // every tab to that scenario. Contacts belong to a scenario through their
-// contact template; recoveries and results follow their contact.
+// contact template; samples and results follow their contact.
 
 const selectedScenarioId = computed<string | null>({
   get() {
@@ -152,7 +152,7 @@ const visibleTemplates = computed<ContactTemplate[]>(() => {
   )
 })
 
-// Scenario names a contact belongs to, via its template; recoveries and
+// Scenario names a contact belongs to, via its template; samples and
 // results inherit them through the contact surface they were taken from.
 function contactScenarioNames(contact: Contact): string[] {
   return studyScenarios.value
@@ -583,11 +583,11 @@ const tabItems = computed<TabsItem[]>(() => [
   { label: 'Individuals', value: 'individuals', slot: 'individuals', badge: individualCount.value },
   { label: 'Items', value: 'items', slot: 'items', badge: itemCount.value },
   { label: 'Contacts', value: 'contacts', slot: 'contacts', badge: visibleContacts.value.length },
-  { label: 'Recoveries', value: 'recoveries', slot: 'recoveries', badge: scopedRecoveries.value.length },
+  { label: 'Samples', value: 'samples', slot: 'samples', badge: scopedSamples.value.length },
   { label: 'Results', value: 'results', slot: 'results' },
 ])
 
-const tabValues = new Set(['individuals', 'items', 'contacts', 'recoveries', 'results'])
+const tabValues = new Set(['individuals', 'items', 'contacts', 'samples', 'results'])
 
 const activeTab = computed<string>({
   get() {
@@ -880,20 +880,20 @@ const activeTab = computed<string>({
         </div>
       </template>
 
-      <template #recoveries>
-        <RecoveriesPanel
+      <template #samples>
+        <SamplesPanel
           :study-id="studyId"
           :contacts="visibleContacts"
           :contact-templates="visibleTemplates"
           :surface-scenarios="surfaceScenarios"
           :scenarios="studyScenarios"
           :export-name="exportName"
-          @update:recoveries="scopedRecoveries = $event"
+          @update:samples="scopedSamples = $event"
         />
       </template>
 
       <template #results>
-        <ResultsTab :recoveries="scopedRecoveries" :study-id="studyId" :surface-scenarios="surfaceScenarios" :contacts="contacts" :export-name="exportName" />
+        <ResultsTab :samples="scopedSamples" :study-id="studyId" :surface-scenarios="surfaceScenarios" :contacts="contacts" :export-name="exportName" />
       </template>
     </UTabs>
   </div>

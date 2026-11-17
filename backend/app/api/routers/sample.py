@@ -6,11 +6,11 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import current_superuser, get_async_session
-from app.crud.recovery_set import crud_recovery_set as crud
-from app.schemas.recovery_set import (
-    RecoverySetRead as ReadSchema,
-    RecoverySetCreate as CreateSchema,
-    RecoverySetUpdate as UpdateSchema,
+from app.crud.sample import crud_sample as crud
+from app.schemas.sample import (
+    SampleRead as ReadSchema,
+    SampleCreate as CreateSchema,
+    SampleUpdate as UpdateSchema,
 )
 
 router = APIRouter()

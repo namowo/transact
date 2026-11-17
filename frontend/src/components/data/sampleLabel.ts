@@ -1,4 +1,4 @@
-import type { ExtractionMethod, Recovery, RecoverySet, SamplingMethod, Surface } from '@/api/types'
+import type { ExtractionMethod, Sample, SampleSet, SamplingMethod, Surface } from '@/api/types'
 
 export function surfaceLabel(surface?: Surface | null): string {
   if (!surface) return '—'
@@ -15,9 +15,9 @@ export function surfaceLabel(surface?: Surface | null): string {
   return [subject, part].filter(Boolean).join(' — ') || `Surface #${surface.id}`
 }
 
-export function recoverySetLabel(recoverySet?: RecoverySet | null): string {
-  if (!recoverySet) return '—'
-  return recoverySet.name || `Set #${recoverySet.id}`
+export function sampleSetLabel(sampleSet?: SampleSet | null): string {
+  if (!sampleSet) return '—'
+  return sampleSet.name || `Set #${sampleSet.id}`
 }
 
 export function extractionMethodLabel(method?: ExtractionMethod | null): string {
@@ -43,9 +43,9 @@ export function samplingMethodLabel(method?: SamplingMethod | null): string {
   return match?.label ?? `#${method.id}`
 }
 
-// Picking a recovery by its bare id is meaningless once there are more than
-// a handful, so surface + recovery set + extraction method give enough
+// Picking a sample by its bare id is meaningless once there are more than
+// a handful, so surface + sample set + extraction method give enough
 // detail to tell rows apart in a picker table.
-export function recoveryLabel(recovery: Recovery): string {
-  return surfaceLabel(recovery.surface)
+export function sampleLabel(sample: Sample): string {
+  return surfaceLabel(sample.surface)
 }
