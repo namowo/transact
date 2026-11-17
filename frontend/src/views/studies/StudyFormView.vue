@@ -7,9 +7,10 @@ import type { StepperItem } from '@nuxt/ui'
 import { useConfirm } from '@/composables/useConfirm'
 import { createStudy, deleteStudy, getStudy, updateStudy } from '@/api/studies'
 import { useAuthStore } from '@/stores/auth'
+import { canEditStudy, provideStudyReadOnly } from '@/composables/useStudyAccess'
 import ScenariosList from '@/components/scenarios/ScenariosList.vue'
 import DataEntryView from '@/views/data/DataEntryView.vue'
-import type { StudyCreate, StudyUpdate } from '@/api/types'
+import type { Study, StudyCreate, StudyUpdate } from '@/api/types'
 
 const props = defineProps<{ id?: string }>()
 
@@ -21,6 +22,13 @@ const confirm = useConfirm()
 const editingId = computed(() => props.id ?? null)
 const loadingStudy = ref(false)
 const loadError = ref('')
+const loadedStudy = ref<Study | null>(null)
+
+// Studies of other laboratories can be opened but not changed.
+const readOnly = computed(
+  () => editingId.value !== null && !!loadedStudy.value && !canEditStudy(loadedStudy.value, auth.user),
+)
+provideStudyReadOnly(readOnly)
 
 // Which step to open, e.g. from the study list card's "Plan" / "Add data"
 // buttons deep-linking via ?step=planning or ?step=data-entry. Kept in sync
@@ -236,6 +244,7 @@ onMounted(async () => {
   loadingStudy.value = true
   try {
     const study = await getStudy(editingId.value)
+    loadedStudy.value = study
     const authors = study.authors.length
       ? study.authors.map((author) => ({
           title: author.title ?? null,
@@ -333,7 +342,7 @@ function onSaveAndContinue() {
 }
 
 function onCancel() {
-  router.push({ name: 'studies-laboratory' })
+  router.push({ name: readOnly.value ? 'studies-all' : 'studies-laboratory' })
 }
 
 const switchingPurpose = ref(false)
@@ -408,6 +417,15 @@ function confirmDeleteStudy() {
       {{ purposeOptions.find((option) => option.value === purpose)?.label ?? 'Add study' }}
     </h1>
 
+    <UAlert
+      v-if="readOnly"
+      color="neutral"
+      variant="subtle"
+      icon="i-lucide-eye"
+      title="View only"
+      :description="`This study belongs to ${loadedStudy?.laboratory?.laboratory_name ?? 'another laboratory'}. Only members of that laboratory can edit it.`"
+    />
+
     <div v-if="loadingStudy" class="flex justify-center py-12">
       <UProgress class="w-12" />
     </div>
@@ -423,6 +441,7 @@ function confirmDeleteStudy() {
     >
         <template #1>
           <form class="flex flex-col gap-4 max-w-2xl" @submit.prevent="onSubmit">
+            <fieldset :disabled="readOnly" class="contents">
             <UFormField label="Title" :error="errors.title">
               <UInput
                 id="study-title"
@@ -446,7 +465,7 @@ function confirmDeleteStudy() {
             <div class="flex flex-col gap-2">
               <div class="flex items-center justify-between">
                 <label class="font-medium text-sm">Authors</label>
-                <UButton label="Add author" icon="i-lucide-plus" variant="ghost" size="sm" @click="addAuthor" />
+                <UButton v-if="!readOnly" label="Add author" icon="i-lucide-plus" variant="ghost" size="sm" @click="addAuthor" />
               </div>
               <div
                 v-for="(field, index) in authorFields"
@@ -475,6 +494,7 @@ function confirmDeleteStudy() {
                   />
                 </UFormField>
                 <UButton
+                  v-if="!readOnly"
                   icon="i-lucide-trash-2"
                   color="error"
                   variant="ghost"
@@ -553,8 +573,29 @@ function confirmDeleteStudy() {
               />
             </UFormField>
 
+            </fieldset>
+
             <UAlert v-if="submitError" color="error" variant="outline" :description="submitError" />
 
+            <div v-if="readOnly" class="flex gap-2 mt-4">
+              <UButton
+                label="Back to studies"
+                icon="i-lucide-arrow-left"
+                variant="ghost"
+                type="button"
+                @click="onCancel"
+              />
+              <UButton
+                label="Next step"
+                trailing-icon="i-lucide-arrow-right"
+                variant="ghost"
+                type="button"
+                class="ml-auto"
+                @click="activeStep = '2'"
+              />
+            </div>
+
+            <template v-else>
             <div v-if="editingId !== null" class="flex justify-end mt-2">
               <UButton
                 label="Save & continue"
@@ -582,9 +623,10 @@ function confirmDeleteStudy() {
                 @click="onCancel"
               />
             </div>
+            </template>
           </form>
 
-          <template v-if="editingId !== null">
+          <template v-if="editingId !== null && !readOnly">
             <div class="max-w-2xl pt-16">
               <div class="flex items-center gap-2 mb-3">
                 <UIcon name="i-lucide-triangle-alert" class="text-error size-4" />

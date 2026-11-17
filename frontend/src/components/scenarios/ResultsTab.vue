@@ -14,6 +14,7 @@ import SamplePicker from '@/components/scenarios/SamplePicker.vue'
 import { surfaceLabel } from '@/components/data/sampleLabel'
 import ScenarioBadges from '@/components/data/ScenarioBadges.vue'
 import { useAuthStore } from '@/stores/auth'
+import { useStudyReadOnly } from '@/composables/useStudyAccess'
 import CsvRoundTrip from '@/components/data/CsvRoundTrip.vue'
 import { sortRows, useTableSort } from '@/composables/useTableSort'
 import TableSortHint from '@/components/data/TableSortHint.vue'
@@ -55,6 +56,7 @@ const props = defineProps<{
 }>()
 
 const auth = useAuthStore()
+const readOnly = useStudyReadOnly()
 const FIXED4 = { minimumFractionDigits: 4, maximumFractionDigits: 4 }
 const toast = useToast()
 
@@ -757,6 +759,7 @@ const resultContextMenuItems = computed<MenuItem[]>(() => {
 })
 
 function openResultContextMenu(event: Event, result: Result) {
+  if (readOnly.value) return
   contextMenuResult.value = result
   resultContextMenu.value?.show(event)
 }
@@ -863,6 +866,7 @@ const pcrContextMenuItems = computed<MenuItem[]>(() => {
 })
 
 function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
+  if (readOnly.value) return
   contextMenuPcr.value = { result, pcr }
   pcrContextMenu.value?.show(event)
 }
@@ -874,7 +878,7 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
       <p class="text-sm text-surface-500 dark:text-surface-400">
         Lab results derived from this scenario's samples.
       </p>
-      <div class="flex flex-wrap gap-2">
+      <div v-if="!readOnly" class="flex flex-wrap gap-2">
         <UButton
           label="Add result for every sample"
           icon="i-lucide-list-plus"
@@ -894,7 +898,7 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
     </div>
 
     <UAlert
-      v-if="!samples.length"
+      v-if="!samples.length && !readOnly"
       color="info"
       variant="outline"
       description="Add a sample before recording results."
@@ -920,6 +924,7 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
             @click="resetSort()"
           />
           <UButton
+            v-if="!readOnly"
             type="button"
             :label="editMode ? 'Done' : 'Edit values'"
             :icon="editMode ? 'i-lucide-check' : 'i-lucide-pencil'"
@@ -1021,7 +1026,7 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
           <Column field="pcrCount" header="Genotyping results" sortable style="width: 8rem">
             <template #body="{ data }">{{ data.pcrCount }}</template>
           </Column>
-          <Column header="" style="width: 3rem">
+          <Column v-if="!readOnly" header="" style="width: 3rem">
             <template #body="{ data }">
               <UButton
                 icon="i-lucide-more-vertical"
@@ -1039,6 +1044,7 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
               <div class="flex items-center justify-between">
                 <h5 class="font-medium text-sm">Genotyping results</h5>
                 <UButton
+                  v-if="!readOnly"
                   label="Add genotyping result"
                   icon="i-lucide-plus"
                   variant="outline"
@@ -1064,7 +1070,7 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
                     {{ data.total_rfu != null ? `${data.total_rfu} RFU` : '—' }}
                   </template>
                 </Column>
-                <Column header="" style="width: 3rem">
+                <Column v-if="!readOnly" header="" style="width: 3rem">
                   <template #body="{ data }">
                     <UButton
                       icon="i-lucide-more-vertical"

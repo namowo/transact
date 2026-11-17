@@ -6,6 +6,7 @@ import ContextMenu from 'openvue/contextmenu'
 import type { MenuItem } from 'openvue/menuitem'
 import { FilterMatchMode } from '@openvue/core/api'
 import { useConfirm } from '@/composables/useConfirm'
+import { useStudyReadOnly } from '@/composables/useStudyAccess'
 import ScenarioViewDialog from './ScenarioViewDialog.vue'
 import ScenarioFormDialog from './ScenarioFormDialog.vue'
 import ScenarioDetails from './ScenarioDetails.vue'
@@ -16,6 +17,7 @@ import type { Scenario, Study } from '@/api/types'
 const props = defineProps<{ studyId: string }>()
 
 const confirm = useConfirm()
+const readOnly = useStudyReadOnly()
 
 const allScenarios = ref<Scenario[]>([])
 const loading = ref(false)
@@ -100,6 +102,7 @@ function citeStudy(study: Study): string {
 // Only the study that originally created a scenario may edit it - other
 // studies can only link/unlink it, since it's a shared record.
 function isScenarioEditable(scenario: Scenario): boolean {
+  if (readOnly.value) return false
   return scenario.owning_study_id == null || scenario.owning_study_id === props.studyId
 }
 
@@ -140,6 +143,7 @@ function persistOpenDialogState() {
 }
 
 function restoreOpenDialogState() {
+  if (readOnly.value) return
   try {
     const raw = localStorage.getItem(openDialogStorageKey.value)
     if (!raw) return
@@ -193,12 +197,13 @@ const contextMenuItems = computed<MenuItem[]>(() => {
     {
       label: 'Duplicate',
       icon: 'i-lucide-copy-plus',
+      visible: !readOnly.value,
       command: () => duplicateScenario(scenario),
     },
     {
       label: 'Remove from this study',
       icon: 'i-lucide-x',
-      visible: scenario.studies.length > 1,
+      visible: !readOnly.value && scenario.studies.length > 1,
       command: () => unlinkScenario(scenario),
     },
     {
@@ -337,7 +342,7 @@ defineExpose({ load })
 
 <template>
   <div class="flex flex-col gap-6">
-    <div class="flex items-center justify-end gap-2">
+    <div v-if="!readOnly" class="flex items-center justify-end gap-2">
       <UButton
         label="Duplicate scenario from another study"
         icon="i-lucide-copy"

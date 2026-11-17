@@ -5,7 +5,9 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import permissions as P
 from app.core.deps import current_superuser, get_async_session
+from app.models.user import User
 from app.crud.contact_template import crud_contact_template as crud
 from app.schemas.contact_template import (
     ContactTemplateRead as ReadSchema,
@@ -29,28 +31,41 @@ async def get_by_id(id: UUID, db: AsyncSession = Depends(get_async_session)):
 @router.post(
     "",
     response_model=ReadSchema,
-    dependencies=[Depends(current_superuser)],
     status_code=status.HTTP_201_CREATED,
 )
-async def create(obj_in: CreateSchema, db: AsyncSession = Depends(get_async_session)):
+async def create(
+    obj_in: CreateSchema,
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_superuser),
+):
+    await P.assert_can_edit_studies(db, user, await P.study_ids_of_scenarios(db, obj_in.scenario_ids))
     return await crud.create(db, obj_in)
 
 
 @router.patch(
     "/{id}",
     response_model=ReadSchema,
-    dependencies=[Depends(current_superuser)],
 )
 async def update(
-    id: UUID, obj_in: UpdateSchema, db: AsyncSession = Depends(get_async_session)
+    id: UUID,
+    obj_in: UpdateSchema,
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_superuser),
 ):
+    await P.assert_can_edit_studies(
+        db, user, (await P.study_ids_of_contact_template(db, id)) | (await P.study_ids_of_scenarios(db, obj_in.scenario_ids or []))
+    )
     return await crud.update(db, id, obj_in)
 
 
 @router.delete(
     "/{id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[Depends(current_superuser)],
 )
-async def delete(id: UUID, db: AsyncSession = Depends(get_async_session)):
+async def delete(
+    id: UUID,
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_superuser),
+):
+    await P.assert_can_edit_studies(db, user, await P.study_ids_of_contact_template(db, id))
     await crud.delete(db, id)

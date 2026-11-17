@@ -18,6 +18,7 @@ import { templateName } from './contactTemplateLabel'
 import { surfaceLabel, sampleSetLabel, extractionMethodLabel, samplingMethodLabel } from './sampleLabel'
 import { sampleApi, sampleSetApi, samplingMethodApi, extractionMethodApi } from '@/api/methods'
 import { useAuthStore } from '@/stores/auth'
+import { useStudyReadOnly } from '@/composables/useStudyAccess'
 import type {
   Contact,
   ContactTemplate,
@@ -42,6 +43,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   'update:samples': [samples: Sample[]]
 }>()
+
+const readOnly = useStudyReadOnly()
 
 const auth = useAuthStore()
 
@@ -750,6 +753,7 @@ function onSampleSetCreated(created: { id: string; name?: string | null }) {
         Samples recovered from this study's actual contacts' surfaces.
       </p>
       <UButton
+        v-if="!readOnly"
         label="Add sample"
         icon="i-lucide-plus"
         variant="outline"
@@ -759,7 +763,7 @@ function onSampleSetCreated(created: { id: string; name?: string | null }) {
     </div>
 
     <UAlert
-      v-if="!studySurfaces.length"
+      v-if="!studySurfaces.length && !readOnly"
       color="info"
       variant="outline"
       description="Add an actual contact before recording samples."
@@ -783,6 +787,7 @@ function onSampleSetCreated(created: { id: string; name?: string | null }) {
             @click="resetSort()"
           />
           <UButton
+            v-if="!readOnly"
             type="button"
             :label="editMode ? 'Done' : 'Edit values'"
             :icon="editMode ? 'i-lucide-check' : 'i-lucide-pencil'"
@@ -803,6 +808,7 @@ function onSampleSetCreated(created: { id: string; name?: string | null }) {
               @click="onDownloadClick"
             />
             <UButton
+              v-if="!readOnly"
               type="button"
               label="Upload"
               icon="i-lucide-upload"
@@ -936,7 +942,7 @@ function onSampleSetCreated(created: { id: string; name?: string | null }) {
               <UInput v-model="filterModel.value" type="text" placeholder="Search by area" />
             </template>
           </Column>
-          <Column header="" style="width: 6rem">
+          <Column v-if="!readOnly" header="" style="width: 6rem">
             <template #body="{ data }">
               <div class="flex gap-1 justify-end">
                 <UButton icon="i-lucide-pencil" variant="ghost" square aria-label="Edit" @click="openEditDialog(data)" />

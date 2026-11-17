@@ -11,7 +11,8 @@ from app.core.deps import (
     current_quality_checker,
     get_async_session,
 )
-from app.crud.exceptions import AuthorizationError, NotFoundError
+from app.core.permissions import assert_can_edit_study
+from app.crud.exceptions import NotFoundError
 from app.crud.study import crud_study as crud
 from app.models.study import Study
 from app.models.user import User
@@ -22,13 +23,6 @@ from app.schemas.study import (
 )
 
 router = APIRouter()
-
-
-def _assert_can_edit(study: Study, user: User) -> None:
-    if not user.is_superuser and study.laboratory_id != user.laboratory_id:
-        raise AuthorizationError(
-            message="You can only edit studies belonging to your own laboratory."
-        )
 
 
 def _can_view(study: Study, user: Optional[User]) -> bool:
@@ -88,7 +82,10 @@ async def update(
     user: User = Depends(current_active_user),
 ):
     study = await crud.get(db, id)
-    _assert_can_edit(study, user)
+    assert_can_edit_study(study, user)
+    # Only superusers may move a study to another laboratory.
+    if not user.is_superuser:
+        obj_in = obj_in.model_copy(update={"laboratory_id": None})
     return await crud.update(db, id, obj_in)
 
 
@@ -102,7 +99,7 @@ async def delete(
     user: User = Depends(current_active_user),
 ):
     study = await crud.get(db, id)
-    _assert_can_edit(study, user)
+    assert_can_edit_study(study, user)
     await crud.delete(db, id)
 
 

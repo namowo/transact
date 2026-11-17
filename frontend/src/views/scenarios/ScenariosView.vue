@@ -2,12 +2,17 @@
 import { computed, onMounted, ref } from 'vue'
 import { getStudy } from '@/api/studies'
 import ScenariosList from '@/components/scenarios/ScenariosList.vue'
+import { canEditStudy, provideStudyReadOnly } from '@/composables/useStudyAccess'
+import { useAuthStore } from '@/stores/auth'
 import type { Study } from '@/api/types'
 
 const props = defineProps<{ studyId: string }>()
 
 const studyId = computed(() => props.studyId)
 const study = ref<Study | null>(null)
+const auth = useAuthStore()
+
+provideStudyReadOnly(computed(() => !!study.value && !canEditStudy(study.value, auth.user)))
 
 onMounted(async () => {
   study.value = await getStudy(studyId.value)
@@ -23,6 +28,6 @@ onMounted(async () => {
       </p>
     </div>
 
-    <ScenariosList :study-id="studyId" />
+    <ScenariosList v-if="study" :study-id="studyId" />
   </div>
 </template>

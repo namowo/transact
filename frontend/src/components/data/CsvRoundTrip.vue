@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { useStudyReadOnly } from '@/composables/useStudyAccess'
 import { useToast } from '@nuxt/ui/composables'
 import { useAuthStore } from '@/stores/auth'
 import { downloadTextFile, parseCsv, toCsv, type DecimalSeparator } from './csv'
@@ -33,6 +34,9 @@ const props = defineProps<{
   // Applies the uploaded table (header row first); the decimal separator is the user's choice.
   applyImport: (table: string[][], decimal: DecimalSeparator) => Promise<ImportOutcome>
 }>()
+
+// Inside another laboratory's study, export only.
+const readOnly = useStudyReadOnly()
 
 const toast = useToast()
 const auth = useAuthStore()
@@ -132,6 +136,7 @@ async function runImport() {
       @click="onDownloadClick"
     />
     <UButton
+      v-if="!readOnly"
       type="button"
       label="Upload"
       icon="i-lucide-upload"

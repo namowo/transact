@@ -9,6 +9,7 @@ import { FilterMatchMode } from '@openvue/core/api'
 import DataTableSkeleton from '@/components/data/DataTableSkeleton.vue'
 import ItemCategoryFields from '@/components/scenarios/ItemCategoryFields.vue'
 import { useConfirm } from '@/composables/useConfirm'
+import { useStudyReadOnly } from '@/composables/useStudyAccess'
 import { createItem, deleteItem, listItems, updateItem } from '@/api/items'
 import ScenarioBadges from '@/components/data/ScenarioBadges.vue'
 import ScenarioMultiSelect from '@/components/data/ScenarioMultiSelect.vue'
@@ -24,6 +25,7 @@ const props = defineProps<{
 const emit = defineEmits<{ 'update:count': [count: number] }>()
 
 const confirm = useConfirm()
+const readOnly = useStudyReadOnly()
 
 // Items are a shared catalog - this tab only shows the items this study has
 // explicitly added to itself, not every item in the whole catalog. Within
@@ -256,6 +258,7 @@ const contextMenuItems = computed<MenuItem[]>(() => {
 })
 
 function onRowContextMenu(event: { originalEvent: Event; data: Item }) {
+  if (readOnly.value) return
   selectedItem.value = event.data
   contextMenu.value?.show(event.originalEvent)
 }
@@ -266,6 +269,7 @@ function openRowContextMenu(event: Event, item: Item) {
 }
 
 function onRowClick(event: { data: Item }) {
+  if (readOnly.value) return
   openEditItemDialog(event.data)
 }
 
@@ -409,7 +413,7 @@ async function loadItemsFromTemplates() {
 
     <div v-if="loading || items.length" class="flex items-center justify-between">
       <h4 class="font-medium">Items</h4>
-      <div class="flex gap-2">
+      <div v-if="!readOnly" class="flex gap-2">
         <UButton
           v-if="itemsFromTemplatesNotInStudy.length"
           :label="`Load ${itemsFromTemplatesNotInStudy.length} item${itemsFromTemplatesNotInStudy.length === 1 ? '' : 's'} from scenario templates`"
@@ -428,7 +432,7 @@ async function loadItemsFromTemplates() {
     <div v-else-if="!items.length" class="flex flex-col items-center gap-3 py-16">
       <h4 class="font-medium">Items</h4>
       <p class="text-sm text-surface-500 dark:text-surface-400">No items added to this study yet.</p>
-      <div class="flex gap-2">
+      <div v-if="!readOnly" class="flex gap-2">
         <UButton
           v-if="itemsFromTemplatesNotInStudy.length"
           :label="`Load ${itemsFromTemplatesNotInStudy.length} item${itemsFromTemplatesNotInStudy.length === 1 ? '' : 's'} from scenario templates`"
@@ -472,7 +476,7 @@ async function loadItemsFromTemplates() {
         filterDisplay="menu"
         context-menu
         :globalFilterFields="['item_category.name', 'item_subcategory.name', 'description', 'scenarioNames']"
-        :row-class="() => 'cursor-pointer hover:bg-elevated'"
+        :row-class="() => (readOnly ? 'hover:bg-elevated' : 'cursor-pointer hover:bg-elevated')"
         @row-contextmenu="onRowContextMenu"
         @row-click="onRowClick"
       >
@@ -526,7 +530,7 @@ async function loadItemsFromTemplates() {
             <UInput v-model="filterModel.value" type="text" placeholder="Search by scenario" />
           </template>
         </Column>
-        <Column header="" style="width: 4rem">
+        <Column v-if="!readOnly" header="" style="width: 4rem">
           <template #body="{ data }">
             <UButton
               icon="i-lucide-more-vertical"

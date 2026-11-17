@@ -11,6 +11,7 @@ import SkinDiseaseCategorySelect from '@/components/scenarios/SkinDiseaseCategor
 import DeterminationOfSheddingPropensityCategorySelect from '@/components/scenarios/DeterminationOfSheddingPropensityCategorySelect.vue'
 import NamedCategoryRadioGroup from '@/components/scenarios/NamedCategoryRadioGroup.vue'
 import { useConfirm } from '@/composables/useConfirm'
+import { useStudyReadOnly } from '@/composables/useStudyAccess'
 import { sexApi, dnaSheddingPropensityCategoryApi } from '@/api/categories'
 import {
   createIndividual,
@@ -25,6 +26,8 @@ import type { Individual, Scenario } from '@/api/types'
 import type { MenuItem } from 'openvue/menuitem'
 
 const props = defineProps<{ studyId: string; scenarios: Scenario[]; scenarioId: string | null }>()
+
+const readOnly = useStudyReadOnly()
 const emit = defineEmits<{ 'update:count': [count: number] }>()
 
 const confirm = useConfirm()
@@ -505,6 +508,7 @@ const contextMenuItems = computed<MenuItem[]>(() => {
 })
 
 function onRowContextMenu(event: { originalEvent: Event; data: IndividualGroup }) {
+  if (readOnly.value) return
   selectedGroup.value = event.data
   contextMenu.value?.show(event.originalEvent)
 }
@@ -594,6 +598,7 @@ async function saveMemberField(member: Individual, patch: Partial<Individual>) {
     <div class="flex items-center justify-between">
       <h4 class="font-medium">Individuals</h4>
       <UButton
+        v-if="!readOnly"
         label="Add individuals"
         icon="i-lucide-plus"
         variant="outline"
@@ -613,6 +618,7 @@ async function saveMemberField(member: Individual, patch: Partial<Individual>) {
             Clear Filters
           </UButton>
           <UButton
+            v-if="!readOnly"
             type="button"
             :label="editMode ? 'Done editing' : 'Edit table'"
             :icon="editMode ? 'i-lucide-check' : 'i-lucide-pencil-line'"
@@ -715,7 +721,7 @@ async function saveMemberField(member: Individual, patch: Partial<Individual>) {
             <UInput v-model="filterModel.value" type="text" placeholder="Search by scenario" />
           </template>
         </Column>
-        <Column header="" style="width: 6rem">
+        <Column v-if="!readOnly" header="" style="width: 6rem">
           <template #body="{ data }">
             <span class="flex items-center justify-end gap-1">
               <UButton
@@ -814,7 +820,7 @@ async function saveMemberField(member: Individual, patch: Partial<Individual>) {
                   </template>
                 </template>
               </Column>
-              <Column header="" style="width: 3rem">
+              <Column v-if="!readOnly" header="" style="width: 3rem">
                 <template #body="{ data: member }">
                   <UButton
                     icon="i-lucide-trash-2"

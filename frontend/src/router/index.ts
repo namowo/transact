@@ -56,7 +56,7 @@ const router = createRouter({
               name: 'studies-edit',
               component: () => import('@/views/studies/StudyFormView.vue'),
               props: true,
-              meta: { requiresAuth: true, breadcrumb: 'Edit study' },
+              meta: { requiresAuth: true, breadcrumb: 'Study' },
             },
             {
               path: ':studyId/scenarios',
