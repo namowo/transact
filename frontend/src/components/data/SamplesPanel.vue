@@ -10,6 +10,8 @@ import EntitySelect from '@/components/scenarios/EntitySelect.vue'
 import InlineCreatableSelect from '@/components/scenarios/InlineCreatableSelect.vue'
 import ScenarioBadges from '@/components/data/ScenarioBadges.vue'
 import SurfaceMultiSelect from './SurfaceMultiSelect.vue'
+import { sortRows, useTableSort } from '@/composables/useTableSort'
+import TableSortHint from '@/components/data/TableSortHint.vue'
 import { downloadTextFile, parseCsv, parseNumber, toCsv, type DecimalSeparator } from './csv'
 import { useToast } from '@nuxt/ui/composables'
 import { templateName } from './contactTemplateLabel'
@@ -65,28 +67,37 @@ const samples = computed(() =>
   ),
 )
 
-watch(samples, (value) => emit('update:samples', value), { immediate: true })
-
 const sampleSets = ref<SampleSet[]>([])
 
-// Samples with no sample_set_id are grouped under a single "Ungrouped"
-// bucket so the table always groups consistently.
-const groupedSamples = computed(() => {
-  const groups = new Map<string | null, Sample[]>()
-  for (const sample of samples.value) {
-    const key = sample.sample_set_id ?? null
-    if (!groups.has(key)) groups.set(key, [])
-    groups.get(key)!.push(sample)
-  }
-  return Array.from(groups.entries()).map(([sampleSetId, items]) => ({
-    sampleSetId,
-    sampleSet: sampleSets.value.find((set) => set.id === sampleSetId) ?? null,
-    items: items.map((sample) => ({
+// The column sort is saved per user (all studies). Ctrl/Cmd-click a header
+// to sort by several columns.
+const { multiSortMeta, isCustom: isCustomSort, resetSort } = useTableSort('samples', [
+  { field: 'scenarioNames', order: 1 },
+  { field: 'contactLabel', order: 1 },
+  { field: 'surfaceLabel', order: 1 },
+  { field: 'name', order: 1 },
+])
+
+// One table sorted by the user's column sort; the CSV download and the
+// Results tab follow this same order.
+const orderedSamples = computed(() =>
+  sortRows(
+    samples.value.map((sample) => ({
       ...sample,
-      scenarioNames: (props.surfaceScenarios[sample.surface_id ?? ''] ?? []).join(', '),
+      // Plain text fields so the columns can sort and filter on them.
+      scenarioNames: sampleScenarioNames(sample).join(', '),
+      contactLabel: contactLabelFor(sample.contact_id),
+      surfaceLabel: surfaceLabel(sample.surface),
+      sampleSetLabel: sample.sample_set_id
+        ? sampleSetLabel(sampleSets.value.find((set) => set.id === sample.sample_set_id))
+        : null,
+      samplingMethodLabel: samplingMethodLabel(sample.sampling_method),
     })),
-  }))
-})
+    multiSortMeta.value,
+  ),
+)
+
+watch(orderedSamples, (value) => emit('update:samples', value), { immediate: true })
 
 async function load() {
   loading.value = true
@@ -496,12 +507,12 @@ function sampleScenarioNames(sample: Sample): string[] {
 }
 
 function downloadCsv() {
-  const rows = samples.value.map((sample) => [
+  const rows = orderedSamples.value.map((sample) => [
     sample.id,
     sampleScenarioNames(sample).join('; '),
     contactLabelFor(sample.contact_id),
     surfaceLabel(sample.surface),
-    sampleSetLabel(sampleSets.value.find((set) => set.id === sample.sample_set_id) ?? null),
+    sample.sampleSetLabel ?? '—',
     sample.name,
     sample.elution_volume,
     sample.area,
@@ -756,87 +767,95 @@ function onSampleSetCreated(created: { id: string; name?: string | null }) {
 
     <UAlert v-if="loadError" color="error" variant="outline" :description="loadError" />
 
-    <div class="flex items-center justify-between gap-3">
-      <div class="flex gap-2">
-        <UButton type="button" icon="i-lucide-filter-x" variant="outline" size="sm" @click="clearFilters()">
-          Clear Filters
-        </UButton>
-        <UButton
-          type="button"
-          :label="editMode ? 'Done' : 'Edit values'"
-          :icon="editMode ? 'i-lucide-check' : 'i-lucide-pencil'"
-          :variant="editMode ? 'solid' : 'outline'"
-          size="sm"
-          :disabled="!samples.length"
-          @click="editMode = !editMode"
-        />
-        <div class="flex items-center gap-2 border border-default rounded-md px-2 py-1">
-          <span class="text-xs font-medium text-muted">CSV</span>
+    <div class="flex flex-col gap-3">
+      <div class="flex items-center justify-between gap-3">
+        <div class="flex flex-wrap gap-2">
+          <UButton type="button" icon="i-lucide-filter-x" variant="outline" size="sm" @click="clearFilters()">
+            Clear Filters
+          </UButton>
           <UButton
             type="button"
-            label="Download"
-            icon="i-lucide-download"
+            icon="i-lucide-arrow-up-down"
+            label="Reset sort"
             variant="outline"
             size="sm"
-            :disabled="!samples.length"
-            @click="onDownloadClick"
+            :disabled="!isCustomSort"
+            @click="resetSort()"
           />
           <UButton
             type="button"
-            label="Upload"
-            icon="i-lucide-upload"
-            variant="outline"
+            :label="editMode ? 'Done' : 'Edit values'"
+            :icon="editMode ? 'i-lucide-check' : 'i-lucide-pencil'"
+            :variant="editMode ? 'solid' : 'outline'"
             size="sm"
-            :loading="importing"
             :disabled="!samples.length"
-            @click="openImportDialog"
+            @click="editMode = !editMode"
           />
+          <div class="flex items-center gap-2 border border-default rounded-md px-2 py-1">
+            <span class="text-xs font-medium text-muted">CSV</span>
+            <UButton
+              type="button"
+              label="Download"
+              icon="i-lucide-download"
+              variant="outline"
+              size="sm"
+              :disabled="!samples.length"
+              @click="onDownloadClick"
+            />
+            <UButton
+              type="button"
+              label="Upload"
+              icon="i-lucide-upload"
+              variant="outline"
+              size="sm"
+              :loading="importing"
+              :disabled="!samples.length"
+              @click="openImportDialog"
+            />
+          </div>
         </div>
+        <UInput
+          v-model="filters['global'].value"
+          type="text"
+          icon="i-lucide-search"
+          placeholder="Keyword Search"
+        />
       </div>
-      <UInput
-        v-model="filters['global'].value"
-        type="text"
-        icon="i-lucide-search"
-        placeholder="Keyword Search"
+      <TableSortHint />
+
+      <DataTableSkeleton v-if="loading" :columns="5" />
+
+      <UAlert
+        v-else-if="!orderedSamples.length"
+        color="neutral"
+        variant="outline"
+        description="No samples yet."
       />
-    </div>
 
-    <DataTableSkeleton v-if="loading" :columns="5" />
-
-    <UAlert
-      v-else-if="!groupedSamples.length"
-      color="neutral"
-      variant="outline"
-      description="No samples yet."
-    />
-
-    <div
-      v-else
-      v-for="group in groupedSamples"
-      :key="group.sampleSetId ?? 'ungrouped'"
-      class="flex flex-col gap-2"
-    >
-      <h4 class="font-medium text-sm">
-        {{ group.sampleSetId === null ? 'Ungrouped' : sampleSetLabel(group.sampleSet) }}
-      </h4>
-      <div class="overflow-x-auto">
+      <div v-else class="overflow-x-auto">
         <DataTable
           v-model:filters="filters"
-          :value="group.items"
+          v-model:multi-sort-meta="multiSortMeta"
+          :value="orderedSamples"
           data-key="id"
+          sort-mode="multiple"
+          removable-sort
           paginator
           :rows="25"
           :rowsPerPageOptions="[25, 50, 100, 200]"
           filterDisplay="menu"
           :globalFilterFields="['extraction_method.extraction_protocol', 'elution_volume', 'area', 'scenarioNames']"
         >
-          <Column header="Contact">
-            <template #body="{ data }">{{ contactLabelFor(data.contact_id) }}</template>
+          <Column field="contactLabel" header="Contact" sortable>
+            <template #body="{ data }">{{ data.contactLabel }}</template>
           </Column>
-          <Column header="Surface">
-            <template #body="{ data }">{{ surfaceLabel(data.surface) }}</template>
+          <Column field="surfaceLabel" header="Surface" sortable>
+            <template #body="{ data }">{{ data.surfaceLabel }}</template>
           </Column>
-          <Column header="Name">
+          <Column field="sampleSetLabel" header="Sample set" sortable>
+            <template #body="{ data }">{{ data.sampleSetLabel ?? '—' }}</template>
+          </Column>
+          <Column field="name" header="Name" sortable>
             <template #body="{ data }">
               <UInput
                 v-if="editMode"
@@ -855,13 +874,13 @@ function onSampleSetCreated(created: { id: string; name?: string | null }) {
           :showFilterOperator="false"
           :showAddButton="false"
         >
-          <template #body="{ data }"><ScenarioBadges :names="surfaceScenarios[data.surface_id] ?? []" /></template>
+          <template #body="{ data }"><ScenarioBadges :names="sampleScenarioNames(data)" /></template>
           <template #filter="{ filterModel }">
             <UInput v-model="filterModel.value" type="text" placeholder="Search by scenario" />
           </template>
         </Column>
-          <Column header="Sampling method">
-            <template #body="{ data }">{{ samplingMethodLabel(data.sampling_method) }}</template>
+          <Column field="samplingMethodLabel" header="Sampling method" sortable>
+            <template #body="{ data }">{{ data.samplingMethodLabel }}</template>
           </Column>
           <Column
             field="extraction_method.extraction_protocol"

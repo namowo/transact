@@ -15,6 +15,8 @@ import { surfaceLabel } from '@/components/data/sampleLabel'
 import ScenarioBadges from '@/components/data/ScenarioBadges.vue'
 import { useAuthStore } from '@/stores/auth'
 import CsvRoundTrip from '@/components/data/CsvRoundTrip.vue'
+import { sortRows, useTableSort } from '@/composables/useTableSort'
+import TableSortHint from '@/components/data/TableSortHint.vue'
 import { parseNumber, type DecimalSeparator } from '@/components/data/csv'
 import { useToast } from '@nuxt/ui/composables'
 import { useIndividualOptions } from '@/components/scenarios/individualOptions'
@@ -122,21 +124,38 @@ function syncContributors(contributors: PCRContributorInput[], count: number | n
   return next
 }
 
-const sampleIds = computed(() => new Set(props.samples.map((r) => r.id)))
+// The Samples tab passes its samples already in the user's sort order (see
+// SamplesPanel), so results simply follow the position of their sample.
+const sampleOrder = computed(() => new Map(props.samples.map((sample, index) => [sample.id, index])))
 
 const allResults = ref<Result[]>([])
 const loading = ref(false)
 const loadError = ref('')
 
 const results = computed(() =>
-  allResults.value.filter((result) => result.sample_id != null && sampleIds.value.has(result.sample_id)),
+  allResults.value
+    .filter((result) => result.sample_id != null && sampleOrder.value.has(result.sample_id))
+    .sort((a, b) => sampleOrder.value.get(a.sample_id!)! - sampleOrder.value.get(b.sample_id!)!),
 )
 
+// The column sort is saved per user (all studies). With no sort, results
+// keep the order of the Samples tab.
+const { multiSortMeta, isCustom: isCustomSort, resetSort } = useTableSort('results')
+
+// Plain text fields so the columns can sort and filter on them. Sorted here
+// the same way the table sorts, so the CSV download matches the table.
 const resultRows = computed(() =>
-  results.value.map((result) => ({
-    ...result,
-    scenarioNames: (props.surfaceScenarios[result.sample?.surface_id ?? ''] ?? []).join(', '),
-  })),
+  sortRows(
+    results.value.map((result) => ({
+      ...result,
+      scenarioNames: (props.surfaceScenarios[result.sample?.surface_id ?? ''] ?? []).join(', '),
+      sampleLabel: sampleLabel(result.sample),
+      sampleName: result.sample?.name ?? null,
+      degradationLabel: result.degradation_category?.name ?? null,
+      pcrCount: result.pcrs.length,
+    })),
+    multiSortMeta.value,
+  ),
 )
 
 // -- Quick entry: one result per sample, then fill in the numbers --
@@ -256,7 +275,7 @@ function buildCsvRows() {
     'info_pcr_method',
     ...Object.values(CSV_PCR_COLUMNS),
   ]
-  const rows = results.value.flatMap((result) => {
+  const rows = resultRows.value.flatMap((result) => {
     const base = [
       result.id,
       null as string | null,
@@ -883,12 +902,23 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
 
     <UAlert v-if="loadError" color="error" variant="outline" :description="loadError" />
 
-    <div class="overflow-x-auto">
-      <div class="mb-3 flex items-center justify-between gap-3">
+    <ContextMenu ref="resultContextMenu" :model="resultContextMenuItems" />
+
+    <div class="flex flex-col gap-3">
+      <div class="flex items-center justify-between gap-3">
         <div class="flex flex-wrap gap-2">
           <UButton type="button" icon="i-lucide-filter-x" variant="outline" size="sm" @click="clearFilters()">
             Clear Filters
           </UButton>
+          <UButton
+            type="button"
+            icon="i-lucide-arrow-up-down"
+            label="Reset sort"
+            variant="outline"
+            size="sm"
+            :disabled="!isCustomSort"
+            @click="resetSort()"
+          />
           <UButton
             type="button"
             :label="editMode ? 'Done' : 'Edit values'"
@@ -917,137 +947,140 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
           placeholder="Keyword Search"
         />
       </div>
+      <TableSortHint />
 
-      <ContextMenu ref="resultContextMenu" :model="resultContextMenuItems" />
-
-      <DataTable
-        v-model:filters="filters"
-        v-model:expanded-rows="expandedRows"
-        :value="resultRows"
-        :loading="loading"
-        data-key="id"
-        paginator
-        :rows="25"
-        :rowsPerPageOptions="[25, 50, 100, 200]"
-        filterDisplay="menu"
-        removableSort
-        :globalFilterFields="['sample.surface.id', 'dna_concentration', 'scenarioNames']"
-        @row-contextmenu="({ originalEvent, data }: { originalEvent: Event; data: Result }) => openResultContextMenu(originalEvent, data)"
-      >
-        <template #empty>No results recorded yet.</template>
-        <Column expander style="width: 2.5rem" />
-        <Column header="Sample">
-          <template #body="{ data }">{{ sampleLabel(data.sample) }}</template>
-        </Column>
-        <Column header="Name">
-          <template #body="{ data }">{{ data.sample?.name || '—' }}</template>
-        </Column>
-        <Column
-          field="scenarioNames"
-          header="Scenario"
-          sortable
-          :showFilterOperator="false"
-          :showAddButton="false"
+      <div class="overflow-x-auto">
+        <DataTable
+          v-model:filters="filters"
+          v-model:expanded-rows="expandedRows"
+          v-model:multi-sort-meta="multiSortMeta"
+          :value="resultRows"
+          :loading="loading"
+          data-key="id"
+          sort-mode="multiple"
+          paginator
+          :rows="25"
+          :rowsPerPageOptions="[25, 50, 100, 200]"
+          filterDisplay="menu"
+          removableSort
+          :globalFilterFields="['sample.surface.id', 'dna_concentration', 'scenarioNames']"
+          @row-contextmenu="({ originalEvent, data }: { originalEvent: Event; data: Result }) => openResultContextMenu(originalEvent, data)"
         >
-          <template #body="{ data }"><ScenarioBadges :names="surfaceScenarios[data.sample?.surface_id] ?? []" /></template>
-          <template #filter="{ filterModel }">
-            <UInput v-model="filterModel.value" type="text" placeholder="Search by scenario" />
-          </template>
-        </Column>
-        <Column
-          field="dna_concentration"
-          header="DNA concentration"
-          sortable
-        >
-          <template #body="{ data }">
-            <UFieldGroup v-if="editMode" class="w-full min-w-44">
-              <UInputNumber
-                :model-value="data.dna_concentration ?? undefined"
-                :min="0"
-                :step="0.1"
-                :step-snapping="false"
-                :format-options="{ maximumFractionDigits: 6 }"
-                orientation="vertical"
-                class="w-full"
-                @update:model-value="(value: number | null) => saveConcentration(data, value)"
-              />
-              <UBadge color="neutral" variant="outline" size="lg" label="ng/µL" />
-            </UFieldGroup>
-            <template v-else>
-              {{ data.dna_concentration != null ? `${auth.formatNumber(data.dna_concentration, FIXED4)} ng/µL` : '—' }}
+          <template #empty>No results recorded yet.</template>
+          <Column expander style="width: 2.5rem" />
+          <Column field="sampleLabel" header="Sample" sortable>
+            <template #body="{ data }">{{ data.sampleLabel }}</template>
+          </Column>
+          <Column field="sampleName" header="Name" sortable>
+            <template #body="{ data }">{{ data.sampleName || '—' }}</template>
+          </Column>
+          <Column
+            field="scenarioNames"
+            header="Scenario"
+            sortable
+            :showFilterOperator="false"
+            :showAddButton="false"
+          >
+            <template #body="{ data }"><ScenarioBadges :names="surfaceScenarios[data.sample?.surface_id] ?? []" /></template>
+            <template #filter="{ filterModel }">
+              <UInput v-model="filterModel.value" type="text" placeholder="Search by scenario" />
             </template>
-          </template>
-        </Column>
-        <Column header="DNA quantity">
-          <template #body="{ data }">
-            {{ data.dna_quantity != null ? `${auth.formatNumber(data.dna_quantity, FIXED4)} ng` : '—' }}
-          </template>
-        </Column>
-        <Column header="Degradation Index">
-          <template #body="{ data }">{{ data.degradation_category?.name ?? '—' }}</template>
-        </Column>
-        <Column header="Genotyping results" style="width: 8rem">
-          <template #body="{ data }">{{ data.pcrs.length }}</template>
-        </Column>
-        <Column header="" style="width: 3rem">
-          <template #body="{ data }">
-            <UButton
-              icon="i-lucide-more-vertical"
-              color="neutral"
-              variant="ghost"
-              square
-              aria-label="Result options"
-              @click.stop="openResultContextMenu($event, data)"
-            />
-          </template>
-        </Column>
-
-        <template #expansion="{ data: result }">
-          <div class="flex flex-col gap-2 p-2">
-            <div class="flex items-center justify-between">
-              <h5 class="font-medium text-sm">Genotyping results</h5>
+          </Column>
+          <Column
+            field="dna_concentration"
+            header="DNA concentration"
+            sortable
+          >
+            <template #body="{ data }">
+              <UFieldGroup v-if="editMode" class="w-full min-w-44">
+                <UInputNumber
+                  :model-value="data.dna_concentration ?? undefined"
+                  :min="0"
+                  :step="0.1"
+                  :step-snapping="false"
+                  :format-options="{ maximumFractionDigits: 6 }"
+                  orientation="vertical"
+                  class="w-full"
+                  @update:model-value="(value: number | null) => saveConcentration(data, value)"
+                />
+                <UBadge color="neutral" variant="outline" size="lg" label="ng/µL" />
+              </UFieldGroup>
+              <template v-else>
+                {{ data.dna_concentration != null ? `${auth.formatNumber(data.dna_concentration, FIXED4)} ng/µL` : '—' }}
+              </template>
+            </template>
+          </Column>
+          <Column field="dna_quantity" header="DNA quantity" sortable>
+            <template #body="{ data }">
+              {{ data.dna_quantity != null ? `${auth.formatNumber(data.dna_quantity, FIXED4)} ng` : '—' }}
+            </template>
+          </Column>
+          <Column field="degradationLabel" header="Degradation Index" sortable>
+            <template #body="{ data }">{{ data.degradationLabel ?? '—' }}</template>
+          </Column>
+          <Column field="pcrCount" header="Genotyping results" sortable style="width: 8rem">
+            <template #body="{ data }">{{ data.pcrCount }}</template>
+          </Column>
+          <Column header="" style="width: 3rem">
+            <template #body="{ data }">
               <UButton
-                label="Add genotyping result"
-                icon="i-lucide-plus"
-                variant="outline"
-                size="sm"
-                @click="openCreatePcrDialog(result)"
+                icon="i-lucide-more-vertical"
+                color="neutral"
+                variant="ghost"
+                square
+                aria-label="Result options"
+                @click.stop="openResultContextMenu($event, data)"
               />
+            </template>
+          </Column>
+
+          <template #expansion="{ data: result }">
+            <div class="flex flex-col gap-2 p-2">
+              <div class="flex items-center justify-between">
+                <h5 class="font-medium text-sm">Genotyping results</h5>
+                <UButton
+                  label="Add genotyping result"
+                  icon="i-lucide-plus"
+                  variant="outline"
+                  size="sm"
+                  @click="openCreatePcrDialog(result)"
+                />
+              </div>
+              <ContextMenu ref="pcrContextMenu" :model="pcrContextMenuItems" />
+              <DataTable
+                :value="result.pcrs"
+                data-key="id"
+                @row-contextmenu="({ originalEvent, data }: { originalEvent: Event; data: PCR }) => openPcrContextMenu(originalEvent, result, data)"
+              >
+                <template #empty>No genotyping results recorded yet.</template>
+                <Column header="PCR method">
+                  <template #body="{ data }">{{ data.pcr_method ? methodLabel(data.pcr_method) : '—' }}</template>
+                </Column>
+                <Column header="No. of contributors">
+                  <template #body="{ data }">{{ data.no_of_contributors ?? '—' }}</template>
+                </Column>
+                <Column header="Total RFU">
+                  <template #body="{ data }">
+                    {{ data.total_rfu != null ? `${data.total_rfu} RFU` : '—' }}
+                  </template>
+                </Column>
+                <Column header="" style="width: 3rem">
+                  <template #body="{ data }">
+                    <UButton
+                      icon="i-lucide-more-vertical"
+                      color="neutral"
+                      variant="ghost"
+                      square
+                      aria-label="Genotyping result options"
+                      @click.stop="openPcrContextMenu($event, result, data)"
+                    />
+                  </template>
+                </Column>
+              </DataTable>
             </div>
-            <ContextMenu ref="pcrContextMenu" :model="pcrContextMenuItems" />
-            <DataTable
-              :value="result.pcrs"
-              data-key="id"
-              @row-contextmenu="({ originalEvent, data }: { originalEvent: Event; data: PCR }) => openPcrContextMenu(originalEvent, result, data)"
-            >
-              <template #empty>No genotyping results recorded yet.</template>
-              <Column header="PCR method">
-                <template #body="{ data }">{{ data.pcr_method ? methodLabel(data.pcr_method) : '—' }}</template>
-              </Column>
-              <Column header="No. of contributors">
-                <template #body="{ data }">{{ data.no_of_contributors ?? '—' }}</template>
-              </Column>
-              <Column header="Total RFU">
-                <template #body="{ data }">
-                  {{ data.total_rfu != null ? `${data.total_rfu} RFU` : '—' }}
-                </template>
-              </Column>
-              <Column header="" style="width: 3rem">
-                <template #body="{ data }">
-                  <UButton
-                    icon="i-lucide-more-vertical"
-                    color="neutral"
-                    variant="ghost"
-                    square
-                    aria-label="Genotyping result options"
-                    @click.stop="openPcrContextMenu($event, result, data)"
-                  />
-                </template>
-              </Column>
-            </DataTable>
-          </div>
-        </template>
-      </DataTable>
+          </template>
+        </DataTable>
+      </div>
     </div>
 
     <UModal
