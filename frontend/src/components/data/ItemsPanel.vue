@@ -26,15 +26,30 @@ const emit = defineEmits<{ 'update:count': [count: number] }>()
 const confirm = useConfirm()
 
 // Items are a shared catalog - this tab only shows the items this study has
-// explicitly added to itself, not every item in the whole catalog.
+// explicitly added to itself, not every item in the whole catalog. Within
+// the study, every item is assigned to at least one of its scenarios.
 const allItems = ref<Item[]>([])
 const items = computed(() =>
   allItems.value.filter(
     (item) =>
       item.studies?.some((study) => study.id === props.studyId) &&
-      (props.scenarioId === null || !item.scenario_ids?.length || item.scenario_ids.includes(props.scenarioId)),
+      (props.scenarioId === null || !!item.scenario_ids?.includes(props.scenarioId)),
   ),
 )
+
+const studyScenarioIds = computed(() => new Set(props.scenarios.map((scenario) => scenario.id)))
+
+// An item's scenario links, split into this study's and other studies'
+// scenarios - editing here only changes the former.
+function studyScenarioIdsOf(item: Item): string[] {
+  return (item.scenario_ids ?? []).filter((id) => studyScenarioIds.value.has(id))
+}
+
+function otherScenarioIdsOf(item: Item): string[] {
+  return (item.scenario_ids ?? []).filter((id) => !studyScenarioIds.value.has(id))
+}
+
+const scenarioRequiredMessage = 'Select at least one scenario.'
 watch(() => items.value.length, (count) => emit('update:count', count), { immediate: true })
 
 const loading = ref(false)
@@ -118,10 +133,16 @@ const savingItem = ref(false)
 const itemSaveError = ref('')
 
 const itemScenarioIds = ref<string[]>([])
+const itemScenarioError = ref('')
 
-function openCreateItemDialog() {
+watch(itemScenarioIds, (ids) => {
+  if (ids.length) itemScenarioError.value = ''
+})
+
+function openCreateItemDialog(scenarioIds?: string[]) {
   editingItemId.value = null
-  itemScenarioIds.value = props.scenarioId ? [props.scenarioId] : []
+  itemScenarioIds.value = scenarioIds?.length ? [...scenarioIds] : props.scenarioId ? [props.scenarioId] : []
+  itemScenarioError.value = ''
   resetItemForm({ values: emptyItemForm(null) })
   itemSaveError.value = ''
   itemDialogVisible.value = true
@@ -129,21 +150,29 @@ function openCreateItemDialog() {
 
 function openEditItemDialog(item: Item) {
   editingItemId.value = item.id
-  itemScenarioIds.value = [...(item.scenario_ids ?? [])]
+  itemScenarioIds.value = studyScenarioIdsOf(item)
+  itemScenarioError.value = ''
   resetItemForm({ values: emptyItemForm(item) })
   itemSaveError.value = ''
   itemDialogVisible.value = true
 }
 
-const saveItemForm = handleItemSubmit(async (values) => {
+function saveItemForm() {
+  itemScenarioError.value = itemScenarioIds.value.length ? '' : scenarioRequiredMessage
+  void submitItemForm()
+}
+
+const submitItemForm = handleItemSubmit(async (values) => {
+  if (itemScenarioError.value) return
   savingItem.value = true
   itemSaveError.value = ''
+  const editedItem = allItems.value.find((item) => item.id === editingItemId.value)
   try {
     const payload = {
       item_category_id: values.itemCategoryId,
       item_subcategory_id: values.itemSubcategoryId,
       description: values.description?.trim() ?? null,
-      scenario_ids: itemScenarioIds.value,
+      scenario_ids: [...(editedItem ? otherScenarioIdsOf(editedItem) : []), ...itemScenarioIds.value],
     }
     if (editingItemId.value === null) {
       const created = await Promise.all(
@@ -241,8 +270,6 @@ function onRowClick(event: { data: Item }) {
 }
 
 function itemScenarioNames(item: Item): string[] {
-  // Items without scenario links are usable in every scenario.
-  if (!item.scenario_ids?.length) return ['All scenarios']
   return props.scenarios.filter((s) => item.scenario_ids?.includes(s.id)).map((s) => s.name)
 }
 
@@ -262,14 +289,15 @@ const catalogItemsNotInStudy = computed(() => {
   return allItems.value.filter((item) => !visible.has(item.id))
 })
 
-// Study + scenario links an existing item needs to appear in the current view.
-function linksForCurrentView(item: Item) {
+// Study + scenario links that add an existing item to this study's
+// `scenarioIds`, keeping its other links.
+function linksAddingScenarios(item: Item, scenarioIds: string[]) {
   const studyIds = new Set((item.studies ?? []).map((study) => study.id))
   studyIds.add(props.studyId)
-  const scenarioIds = new Set(item.scenario_ids ?? [])
-  // An item with no scenario links already serves every scenario.
-  if (props.scenarioId && scenarioIds.size) scenarioIds.add(props.scenarioId)
-  return { study_ids: [...studyIds], scenario_ids: [...scenarioIds] }
+  return {
+    study_ids: [...studyIds],
+    scenario_ids: [...new Set([...(item.scenario_ids ?? []), ...scenarioIds])],
+  }
 }
 
 function describeCatalogItem(item: Item): string {
@@ -286,11 +314,21 @@ function initPickerFilters() {
 }
 
 const pickerFilters = ref(initPickerFilters())
+const pickerScenarioIds = ref<string[]>([])
+const pickerScenarioError = ref('')
+
+watch(pickerScenarioIds, (ids) => {
+  if (ids.length) pickerScenarioError.value = ''
+})
 
 async function addExistingItem(item: Item) {
+  if (!pickerScenarioIds.value.length) {
+    pickerScenarioError.value = scenarioRequiredMessage
+    return
+  }
   addingExistingItem.value = true
   try {
-    const updated = await updateItem(item.id, linksForCurrentView(item))
+    const updated = await updateItem(item.id, linksAddingScenarios(item, pickerScenarioIds.value))
     replaceItem(updated)
     pickerVisible.value = false
   } finally {
@@ -300,6 +338,8 @@ async function addExistingItem(item: Item) {
 
 function openPicker() {
   pickerFilters.value = initPickerFilters()
+  pickerScenarioIds.value = props.scenarioId ? [props.scenarioId] : []
+  pickerScenarioError.value = ''
   pickerVisible.value = true
 }
 
@@ -309,7 +349,7 @@ function openPicker() {
 // contact templates), so most of the time the item already exists.
 function openCreateItemDialogFromPicker() {
   pickerVisible.value = false
-  openCreateItemDialog()
+  openCreateItemDialog(pickerScenarioIds.value)
 }
 
 // -- Load items referenced by this study's planned scenario templates --
@@ -339,11 +379,22 @@ const itemsFromTemplatesNotInStudy = computed(() => {
 
 const loadingTemplateItems = ref(false)
 
+// The scenarios (in the current view) whose planned templates use the item.
+function scenariosUsingItem(item: Item): string[] {
+  const ids = props.scenarios
+    .filter((scenario) => props.scenarioId === null || scenario.id === props.scenarioId)
+    .filter((scenario) => templateItemIds(scenario.contact_templates).has(item.id))
+    .map((scenario) => scenario.id)
+  return ids.length || !props.scenarioId ? ids : [props.scenarioId]
+}
+
 async function loadItemsFromTemplates() {
   loadingTemplateItems.value = true
   try {
     for (const item of itemsFromTemplatesNotInStudy.value) {
-      const updated = await updateItem(item.id, linksForCurrentView(item))
+      const scenarioIds = scenariosUsingItem(item)
+      if (!scenarioIds.length) continue
+      const updated = await updateItem(item.id, linksAddingScenarios(item, scenarioIds))
       replaceItem(updated)
     }
   } finally {
@@ -497,7 +548,7 @@ async function loadItemsFromTemplates() {
     >
       <template #body>
         <div class="flex flex-col gap-4">
-          <ScenarioMultiSelect v-model="itemScenarioIds" :scenarios="scenarios" />
+          <ScenarioMultiSelect v-model="itemScenarioIds" :scenarios="scenarios" required :error="itemScenarioError" />
           <ItemCategoryFields
             v-model:category-id="itemCategoryId"
             v-model:subcategory-id="itemSubcategoryId"
@@ -534,6 +585,13 @@ async function loadItemsFromTemplates() {
     >
       <template #body>
         <div class="flex flex-col gap-3">
+          <ScenarioMultiSelect
+            v-model="pickerScenarioIds"
+            :scenarios="scenarios"
+            label="Add to scenarios"
+            required
+            :error="pickerScenarioError"
+          />
           <UInput
             v-model="pickerFilters['global'].value"
             type="text"
@@ -561,7 +619,7 @@ async function loadItemsFromTemplates() {
                   icon="i-lucide-plus"
                   variant="outline"
                   size="sm"
-                  @click="openCreateItemDialogFromPicker"
+                  @click="openCreateItemDialogFromPicker()"
                 />
               </div>
             </template>

@@ -1,7 +1,7 @@
 from typing import Optional
 
 from uuid import UUID
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class IndividualBase(BaseModel):
@@ -15,11 +15,13 @@ class IndividualBase(BaseModel):
 
 
 class IndividualCreate(IndividualBase):
-    scenario_ids: list[UUID] = []
+    # Every individual must be used in at least one scenario.
+    scenario_ids: list[UUID] = Field(min_length=1)
 
 
 class IndividualUpdate(IndividualBase):
-    scenario_ids: Optional[list[UUID]] = None
+    # Omit to keep the current scenarios; when given, at least one is required.
+    scenario_ids: Optional[list[UUID]] = Field(default=None, min_length=1)
 
 
 class IndividualReadNested(IndividualBase):
