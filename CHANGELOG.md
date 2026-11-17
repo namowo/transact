@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.0.0](https://github.com/namowo/transact/compare/v0.4.1...v1.0.0) (2026-11-17)
+
+
+### ⚠ BREAKING CHANGES
+
+* API routes /recoveries and /recovery-sets are now /samples and /sample-sets; result.recovery_id is now sample_id; CSV export columns are now info_sample_name and info_sample_set.
+
+### Features
+
+* require scenarios for individuals and items, pick scenario when adding contacts ([#20](https://github.com/namowo/transact/issues/20)) ([24e1849](https://github.com/namowo/transact/commit/24e1849f67ad2c24e26aa52aed1744bf197ab0ea))
+* saved multi-column sorting for samples and results ([#21](https://github.com/namowo/transact/issues/21)) ([bbb233c](https://github.com/namowo/transact/commit/bbb233ca1eacd21a94c67d443f3cb29cea11f1fd))
+
+
+### Bug Fixes
+
+* restrict study editing to the owning laboratory ([#25](https://github.com/namowo/transact/issues/25)) ([e31876b](https://github.com/namowo/transact/commit/e31876b36ffb4f8b90594e0baf798272633c01a2))
+* show shedding propensity on individuals table and seed categories on deploy ([#18](https://github.com/namowo/transact/issues/18)) ([068f358](https://github.com/namowo/transact/commit/068f35830dcd8c99bd44a19eeb9f704dfde86344))
+
+
+### Code Refactoring
+
+* rename recoveries to samples ([#15](https://github.com/namowo/transact/issues/15)) ([996c87b](https://github.com/namowo/transact/commit/996c87b75688cf2f0c74ad9b5f02c58fc4db9dd5))
+
 ## [0.4.1](https://github.com/namowo/transact/compare/v0.4.0...v0.4.1) (2026-11-03)
 
 
