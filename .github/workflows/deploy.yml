@@ -44,6 +44,9 @@ jobs:
             cd ${{ secrets.DEPLOY_PATH }}
             uv sync --frozen
             uv run --directory backend alembic upgrade head
+            # Seed lookup categories (sex, DNA shedding propensity, ...). Each
+            # table is only filled when empty, so this is safe to run every deploy.
+            uv run --directory backend python -m app.utils.init_data.categories
             sudo systemctl restart transact
 
       - name: Deploy frontend

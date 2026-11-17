@@ -11,7 +11,7 @@ import SkinDiseaseCategorySelect from '@/components/scenarios/SkinDiseaseCategor
 import DeterminationOfSheddingPropensityCategorySelect from '@/components/scenarios/DeterminationOfSheddingPropensityCategorySelect.vue'
 import NamedCategoryRadioGroup from '@/components/scenarios/NamedCategoryRadioGroup.vue'
 import { useConfirm } from '@/composables/useConfirm'
-import { sexApi, dnaSheddingPropensityCategoryApi, skinDiseaseCategoryApi } from '@/api/categories'
+import { sexApi, dnaSheddingPropensityCategoryApi } from '@/api/categories'
 import {
   createIndividual,
   deleteIndividual,
@@ -155,7 +155,7 @@ function initIndividualFilters() {
     'sex.name': { value: null, matchMode: FilterMatchMode.CONTAINS },
     age: { value: null, matchMode: FilterMatchMode.CONTAINS },
     scenarioNames: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    'skin_disease_category.name': { value: null, matchMode: FilterMatchMode.CONTAINS },
+    'dna_shedding_propensity_category.name': { value: null, matchMode: FilterMatchMode.CONTAINS },
   }
 }
 
@@ -494,15 +494,15 @@ function openRowContextMenu(event: Event, group: IndividualGroup) {
 
 const expandedGroupRows = ref<Record<string, boolean>>({})
 const sexOptions = ref<{ id: string; name?: string | null }[]>([])
-const skinDiseaseOptions = ref<{ id: string; name?: string | null }[]>([])
+const sheddingPropensityOptions = ref<{ id: string; name?: string | null }[]>([])
 
 async function loadInlineEditOptions() {
-  const [sexes, skinDiseases] = await Promise.all([
+  const [sexes, sheddingPropensities] = await Promise.all([
     sexApi.list(),
-    skinDiseaseCategoryApi.list(),
+    dnaSheddingPropensityCategoryApi.list(),
   ])
   sexOptions.value = sexes
-  skinDiseaseOptions.value = skinDiseases
+  sheddingPropensityOptions.value = sheddingPropensities
 }
 
 const editMode = ref(false)
@@ -545,7 +545,10 @@ async function saveMemberField(member: Individual, patch: Partial<Individual>) {
         patch.skin_disease_category_id !== undefined
           ? patch.skin_disease_category_id
           : member.skin_disease_category_id,
-      dna_shedding_propensity_category_id: member.dna_shedding_propensity_category_id,
+      dna_shedding_propensity_category_id:
+        patch.dna_shedding_propensity_category_id !== undefined
+          ? patch.dna_shedding_propensity_category_id
+          : member.dna_shedding_propensity_category_id,
       determination_of_shedding_propensity_category_id:
         member.determination_of_shedding_propensity_category_id,
     })
@@ -615,7 +618,7 @@ async function saveMemberField(member: Individual, patch: Partial<Individual>) {
         data-key="key"
         filterDisplay="menu"
         context-menu
-        :globalFilterFields="['sex.name', 'age', 'skin_disease_category.name', 'scenarioNames']"
+        :globalFilterFields="['sex.name', 'age', 'dna_shedding_propensity_category.name', 'scenarioNames']"
         :row-class="() => 'hover:bg-elevated'"
         @row-contextmenu="onRowContextMenu"
       >
@@ -660,20 +663,20 @@ async function saveMemberField(member: Individual, patch: Partial<Individual>) {
           </template>
         </Column>
         <Column
-          field="skin_disease_category.name"
-          header="Skin disease"
+          field="dna_shedding_propensity_category.name"
+          header="DNA shedding propensity"
           sortable
           :showFilterOperator="false"
           :showAddButton="false"
         >
           <template #body="{ data }">
-            <UBadge v-if="data.members[0].skin_disease_category?.name" color="neutral" variant="outline">
-              {{ data.members[0].skin_disease_category.name }}
+            <UBadge v-if="data.members[0].dna_shedding_propensity_category?.name" color="neutral" variant="outline">
+              {{ data.members[0].dna_shedding_propensity_category.name }}
             </UBadge>
             <span v-else>—</span>
           </template>
           <template #filter="{ filterModel }">
-            <UInput v-model="filterModel.value" type="text" placeholder="Search by skin disease" />
+            <UInput v-model="filterModel.value" type="text" placeholder="Search by shedding propensity" />
           </template>
         </Column>
         <Column
@@ -768,20 +771,20 @@ async function saveMemberField(member: Individual, patch: Partial<Individual>) {
                   <span v-else>{{ member.age ?? '—' }}</span>
                 </template>
               </Column>
-              <Column header="Skin disease">
+              <Column header="DNA shedding propensity">
                 <template #body="{ data: member }">
                   <USelect
                     v-if="editMode"
-                    :model-value="member.skin_disease_category_id ?? undefined"
-                    :items="skinDiseaseOptions.map((c) => ({ label: c.name, value: c.id }))"
+                    :model-value="member.dna_shedding_propensity_category_id ?? undefined"
+                    :items="sheddingPropensityOptions.map((c) => ({ label: c.name, value: c.id }))"
                     placeholder="—"
                     size="sm"
                     :loading="savingMemberIds.has(member.id)"
-                    @update:model-value="(value: string) => saveMemberField(member, { skin_disease_category_id: value ?? null })"
+                    @update:model-value="(value: string) => saveMemberField(member, { dna_shedding_propensity_category_id: value ?? null })"
                   />
                   <template v-else>
-                    <UBadge v-if="member.skin_disease_category?.name" color="neutral" variant="outline">
-                      {{ member.skin_disease_category.name }}
+                    <UBadge v-if="member.dna_shedding_propensity_category?.name" color="neutral" variant="outline">
+                      {{ member.dna_shedding_propensity_category.name }}
                     </UBadge>
                     <span v-else>—</span>
                   </template>
