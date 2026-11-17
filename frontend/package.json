@@ -19,7 +19,7 @@
     "@iconify-json/iconoir": "^1.2.11",
     "@iconify-json/lucide": "^1.2.135",
     "@nuxt/ui": "^4.11.1",
-    "@openvue/themes": "1.0.0",
+    "@openvue/themes": "1.1.1",
     "@primeicons/vue": "^8.0.0",
     "@simplewebauthn/browser": "^14.0.0",
     "@vueuse/core": "^15.0.0",
