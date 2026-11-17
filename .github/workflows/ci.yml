@@ -1,0 +1,124 @@
+name: CI
+
+on:
+  pull_request:
+  workflow_call:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  backend-tests:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: transact_test
+          POSTGRES_PASSWORD: transact_test
+          POSTGRES_DB: transact_test
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U transact_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: uv sync --frozen --group dev
+
+      - name: Run backend tests
+        run: uv run pytest backend/tests -v
+
+  backend-migrations:
+    name: Database migrations
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: transact_test
+          POSTGRES_PASSWORD: transact_test
+          POSTGRES_DB: transact_migrations
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U transact_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DB_HOSTNAME: localhost
+      DB_PORT: 55432
+      DB_USERNAME: transact_test
+      DB_PASSWORD: transact_test
+      DB_NAME: transact_migrations
+      ENVIRONMENT: local
+      JWT_SECRET_KEY: test-secret-key-for-ci-only-not-used-in-prod
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Ensure a single migration head
+        working-directory: backend
+        run: |
+          heads=$(uv run alembic heads | wc -l)
+          if [ "$heads" -ne 1 ]; then
+            echo "::error::Expected exactly one alembic head, found $heads. Merge the heads with 'alembic merge'."
+            uv run alembic heads
+            exit 1
+          fi
+
+      # Mirrors the deploy steps so a PR can't merge migrations or seed data
+      # that would fail on the server.
+      - name: Apply migrations to an empty database
+        working-directory: backend
+        run: uv run alembic upgrade head
+
+      - name: Seed lookup categories
+        working-directory: backend
+        run: uv run python -m app.utils.init_data.categories
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check
+        run: npm run type-check
+
+      - name: Run unit tests
+        run: npm run test:unit
+
+      - name: Build
+        run: npm run build-only
