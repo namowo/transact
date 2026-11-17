@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import ForeignKey
-from sqlalchemy.dialects.postgresql import UUID as PGUUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import text
 
@@ -42,6 +42,11 @@ class User(Base):
     locale: Mapped[str] = mapped_column(
         nullable=False, server_default=text("'en-US'")
     )
+
+    # The user's saved column sort per data table ({"samples": [{"field",
+    # "order"}, ...]}); CSV exports follow it too. Missing tables use the app
+    # default.
+    table_sorts: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
 
     laboratory_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         PGUUID(as_uuid=True), ForeignKey("laboratory.id", ondelete="RESTRICT")

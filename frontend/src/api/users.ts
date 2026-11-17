@@ -1,11 +1,12 @@
 import apiClient from './client'
-import type { User } from './types'
+import type { SortableTable, TableSortMeta, User } from './types'
 
 export interface UpdateProfilePayload {
   first_name?: string
   last_name?: string
   laboratory_id?: string
   locale?: string
+  table_sorts?: Partial<Record<SortableTable, TableSortMeta[]>>
 }
 
 export function updateMe(payload: UpdateProfilePayload) {

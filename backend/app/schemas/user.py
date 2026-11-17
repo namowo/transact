@@ -1,8 +1,16 @@
 from datetime import datetime
-from typing import Optional
+from typing import Dict, List, Literal, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+
+# Data tables whose column sort is saved on the user.
+SortableTable = Literal["samples", "results"]
+
+
+class TableSortMeta(BaseModel):
+    field: str = Field(max_length=100, pattern=r"^[A-Za-z0-9_.]+$")
+    order: Literal[1, -1]
 
 
 class UserBase(BaseModel):
@@ -34,6 +42,17 @@ class UserUpdate(BaseModel):
         default=None, pattern=r"^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$", max_length=35
     )
     laboratory_id: Optional[UUID] = None
+    table_sorts: Optional[Dict[SortableTable, List[TableSortMeta]]] = None
+
+    @field_validator("table_sorts")
+    @classmethod
+    def unique_sort_fields(cls, value: Optional[Dict[str, List[TableSortMeta]]]):
+        for metas in (value or {}).values():
+            if len(metas) > 20:
+                raise ValueError("Too many sort columns.")
+            if len({meta.field for meta in metas}) != len(metas):
+                raise ValueError("Each column may only be sorted once.")
+        return value
 
 
 class LaboratoryAssignment(BaseModel):
@@ -64,6 +83,7 @@ class UserRead(BaseModel):
     can_manage_lab_users: bool
     passkey_prompt_dismissed: bool
     locale: str = "en-US"
+    table_sorts: Optional[Dict[str, List[TableSortMeta]]] = None
     laboratory_id: Optional[UUID] = None
     laboratory: Optional["LaboratoryRead"] = None
     created_at: datetime

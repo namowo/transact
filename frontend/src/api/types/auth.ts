@@ -1,5 +1,13 @@
 import type { Laboratory } from './laboratory'
 
+// Data tables whose column sort is saved on the user.
+export type SortableTable = 'samples' | 'results'
+
+export interface TableSortMeta {
+  field: string
+  order: 1 | -1
+}
+
 export interface User {
   id: string
   email: string
@@ -12,6 +20,7 @@ export interface User {
   can_manage_lab_users: boolean
   passkey_prompt_dismissed: boolean
   locale: string
+  table_sorts?: Partial<Record<SortableTable, TableSortMeta[]>> | null
   laboratory_id: string | null
   laboratory?: Laboratory | null
   created_at: string
