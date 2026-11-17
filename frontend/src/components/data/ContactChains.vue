@@ -2,7 +2,7 @@
 import { computed, provide, ref } from 'vue'
 import ContactChainNodeView from './ContactChainNode.vue'
 import { contactChainDndKey } from './contactChain'
-import { buildContactChains, chainLength } from './contactChain'
+import { autoLinkOps, buildContactChains, chainLength, plannedTemplateSequences } from './contactChain'
 import { templateName } from './contactTemplateLabel'
 import type { ContactChainInfo } from './ContactChainNode.vue'
 import type { Contact, ContactTemplate } from '@/api/types'
@@ -12,6 +12,8 @@ const props = defineProps<{
   contactTemplates: ContactTemplate[]
   info: (contact: Contact) => ContactChainInfo
   canUndo?: boolean
+  // Contacts to point out, e.g. the ones just created in the workflow.
+  highlightIds?: string[]
 }>()
 
 export interface LinkOp {
@@ -27,25 +29,22 @@ const chains = computed(() => buildContactChains(props.contacts))
 // Planned chains: templates linked through previous_contact_template_id,
 // shown as ordered sequences (A, B, C) so the intended order is visible even
 // before any actual contact has been recorded.
-const plannedChains = computed(() => {
-  const byId = new Map(props.contactTemplates.map((t) => [t.id, t]))
-  const successorOf = new Map<string, ContactTemplate>()
-  for (const template of props.contactTemplates) {
-    if (template.previous_contact_template_id && byId.has(template.previous_contact_template_id)) {
-      successorOf.set(template.previous_contact_template_id, template)
-    }
-  }
-  return props.contactTemplates
-    .filter((t) => !(t.previous_contact_template_id && byId.has(t.previous_contact_template_id)))
-    .map((root) => {
-      const sequence = [root]
-      for (let next = successorOf.get(root.id); next && !sequence.includes(next); next = successorOf.get(next.id)) {
-        sequence.push(next)
-      }
-      return sequence
-    })
-    .filter((sequence) => sequence.length > 1)
-})
+const plannedChains = computed(() =>
+  plannedTemplateSequences(props.contactTemplates).filter((sequence) => sequence.length > 1),
+)
+
+const highlightSet = computed(() => new Set(props.highlightIds ?? []))
+
+// Links proposed for unchained contacts that share an individual or surface
+// with a contact of the previous step - limited to the highlighted (newly
+// created) contacts when there are any.
+const proposedLinks = computed(() =>
+  autoLinkOps(props.contacts, props.contactTemplates, highlightSet.value.size ? highlightSet.value : undefined),
+)
+
+function autoLink() {
+  if (proposedLinks.value.length) emit('change', proposedLinks.value)
+}
 
 // The board only lists contacts that are not in a chain yet; chained ones
 // live in "Recorded chains" below, which is also a drop target.
@@ -178,6 +177,18 @@ function previousTitle(contact: Contact): string | null {
           Drag a contact onto a contact of the neighbouring step to chain it, in either direction. Chained contacts move to "Recorded chains" below, where you can also drop contacts onto them, swap them (drop onto a contact of the same step) or remove a link with the x.
           </p>
         </div>
+        <div class="flex shrink-0 items-center gap-2">
+        <UButton
+          :label="proposedLinks.length ? `Link by shared individual (${proposedLinks.length})` : 'Link by shared individual'"
+          icon="i-lucide-wand-sparkles"
+          variant="outline"
+          size="sm"
+          :disabled="!proposedLinks.length"
+          :title="highlightSet.size
+            ? 'Links the new contacts to contacts of the previous or next step that share an individual or surface with them'
+            : 'Links unchained contacts to contacts of the previous step that share an individual or surface with them'"
+          @click="autoLink"
+        />
         <UButton
           label="Undo"
           icon="i-lucide-undo-2"
@@ -186,6 +197,7 @@ function previousTitle(contact: Contact): string | null {
           :disabled="!canUndo"
           @click="emit('undo')"
         />
+        </div>
       </div>
       <UAlert
         v-if="!plannedChains.length"
@@ -223,7 +235,9 @@ function previousTitle(contact: Contact): string | null {
                         ? 'border-primary border-dashed'
                         : isRelated(contact)
                           ? 'border-primary bg-elevated'
-                          : 'border-default',
+                          : highlightSet.has(contact.id)
+                            ? 'border-primary/60 bg-primary/5'
+                            : 'border-default',
                     dragged && dragged.id === contact.id ? 'opacity-40' : '',
                     dragged && !canDropOn(contact) && dragged.id !== contact.id ? 'opacity-50' : '',
                   ]"
@@ -235,7 +249,10 @@ function previousTitle(contact: Contact): string | null {
                   @mouseenter="highlighted = contact.id"
                   @mouseleave="highlighted = null"
                 >
-                  <span class="font-medium truncate">{{ info(contact).title }}</span>
+                  <span class="flex items-center justify-between gap-1">
+                    <span class="font-medium truncate">{{ info(contact).title }}</span>
+                    <UBadge v-if="highlightSet.has(contact.id)" label="New" color="primary" variant="subtle" size="sm" />
+                  </span>
                   <span class="flex items-center gap-1 truncate text-muted">
                     <UIcon v-if="info(contact).donor.icon" :name="info(contact).donor.icon!" class="shrink-0" />
                     {{ info(contact).donor.label }}

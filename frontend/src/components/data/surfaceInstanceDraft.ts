@@ -4,9 +4,10 @@ import type { Surface, SurfaceTemplate } from '@/api/types'
 // Fills in a SurfaceTemplate slot with a real Individual or Item to produce
 // an actual Surface. By default each actual Contact gets its own
 // freshly-created Surface row per slot, but setting existingSurfaceId
-// reuses a Surface already created for an earlier Contact instead - needed
-// to chain contacts (e.g. the item surface a donor touched is the same one
-// later touched by a recipient).
+// reuses a Surface already created for an earlier Contact instead. Only
+// individual surfaces are ever reused: contacts with the same tool use the
+// same kind of item, never the identical surface ("das gleiche, aber nicht
+// dasselbe"), which the backend enforces as well.
 export interface SurfaceInstanceDraft {
   individualId: string | null
   conditionOfItemPartCategoryId: string | null

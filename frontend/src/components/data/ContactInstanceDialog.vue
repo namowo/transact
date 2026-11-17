@@ -172,13 +172,12 @@ const allExistingSurfaces = computed<Surface[]>(() => {
   return [...byId.values()]
 })
 
-// Surfaces offered for reuse on a given slot - only those of the same kind
-// (item vs individual) as the slot's template, since a surface's shape is
-// fixed by the template it instantiated.
+// Surfaces offered for reuse on a given slot - only individual surfaces.
+// Item surfaces are never reused: contacts with the same tool use the same
+// kind of item, never the identical one ("das gleiche, aber nicht dasselbe").
 function existingSurfacesFor(template: { item_id?: string | null } | null | undefined): Surface[] {
-  if (!template) return []
-  const wantsItem = !!template.item_id
-  return allExistingSurfaces.value.filter((s) => !!s.surface_template?.item_id === wantsItem)
+  if (!template || template.item_id) return []
+  return allExistingSurfaces.value.filter((s) => !s.surface_template?.item_id)
 }
 
 const donorExistingSurfaces = computed(() =>
@@ -255,7 +254,6 @@ async function save() {
         selectedTemplate.value,
         individualSide.value,
         batchIndividualIds.value,
-        allExistingSurfaces.value,
         predecessorContacts.value,
       )
       emit('saved', contacts)

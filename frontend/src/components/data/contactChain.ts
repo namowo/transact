@@ -1,5 +1,5 @@
 import type { InjectionKey, Ref } from 'vue'
-import type { Contact } from '@/api/types'
+import type { Contact, ContactTemplate } from '@/api/types'
 
 export interface ContactChainNode {
   contact: Contact
@@ -52,3 +52,80 @@ export interface ContactChainDnd {
 }
 
 export const contactChainDndKey: InjectionKey<ContactChainDnd> = Symbol('contactChainDnd')
+
+// Contact templates grouped into their planned order, following
+// previous_contact_template_id: every chain of templates becomes one
+// sequence (A, B, C). Templates that are not chained to anything form a
+// sequence of their own, so every template appears exactly once.
+export function plannedTemplateSequences(templates: ContactTemplate[]): ContactTemplate[][] {
+  const byId = new Map(templates.map((t) => [t.id, t]))
+  const successorOf = new Map<string, ContactTemplate>()
+  for (const template of templates) {
+    const previousId = template.previous_contact_template_id
+    if (previousId && byId.has(previousId) && !successorOf.has(previousId)) {
+      successorOf.set(previousId, template)
+    }
+  }
+  const placed = new Set<string>()
+  const sequences: ContactTemplate[][] = []
+  const startSequence = (root: ContactTemplate) => {
+    const sequence = [root]
+    placed.add(root.id)
+    for (let next = successorOf.get(root.id); next && !placed.has(next.id); next = successorOf.get(next.id)) {
+      sequence.push(next)
+      placed.add(next.id)
+    }
+    sequences.push(sequence)
+  }
+  for (const template of templates) {
+    const previousId = template.previous_contact_template_id
+    if (!(previousId && byId.has(previousId))) startSequence(template)
+  }
+  // Anything left over sits in a cycle; start it anywhere rather than drop it.
+  for (const template of templates) if (!placed.has(template.id)) startSequence(template)
+  return sequences
+}
+
+// Ids of everything a contact touches - individuals and the surfaces
+// themselves - used to recognise that two contacts belong in one chain.
+function contactParticipants(contact: Contact): Set<string> {
+  const ids = new Set<string>(contactIndividualIds(contact).map((id) => `individual:${id}`))
+  for (const surface of [contact.donor_surface, contact.recipient_surface]) {
+    if (surface?.id) ids.add(`surface:${surface.id}`)
+  }
+  return ids
+}
+
+// Proposes links for contacts that are not chained yet: a contact of a
+// template that follows another template is linked to a contact of that
+// earlier template sharing an individual or a surface with it. Individuals
+// may occur any number of times in a chain; each contact can only be
+// followed by one other contact. When `onlyIds` is given, only links that
+// involve at least one of those contacts are proposed.
+export function autoLinkOps(
+  contacts: Contact[],
+  templates: ContactTemplate[],
+  onlyIds?: Set<string>,
+): { contactId: string; previousId: string }[] {
+  const templateById = new Map(templates.map((t) => [t.id, t]))
+  const followed = new Set(contacts.map((c) => c.previous_contact_id).filter((id): id is string => !!id))
+  const ops: { contactId: string; previousId: string }[] = []
+  for (const contact of contacts) {
+    if (contact.previous_contact_id) continue
+    const previousTemplateId = templateById.get(contact.contact_template_id ?? '')?.previous_contact_template_id
+    if (!previousTemplateId) continue
+    const own = contactParticipants(contact)
+    const predecessor = contacts.find(
+      (candidate) =>
+        candidate.id !== contact.id &&
+        candidate.contact_template_id === previousTemplateId &&
+        !followed.has(candidate.id) &&
+        (!onlyIds || onlyIds.has(contact.id) || onlyIds.has(candidate.id)) &&
+        [...contactParticipants(candidate)].some((id) => own.has(id)),
+    )
+    if (!predecessor) continue
+    followed.add(predecessor.id)
+    ops.push({ contactId: contact.id, previousId: predecessor.id })
+  }
+  return ops
+}

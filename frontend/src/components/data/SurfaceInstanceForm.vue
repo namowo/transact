@@ -13,9 +13,9 @@ const props = defineProps<{
   label: string
   template: SurfaceTemplate | null
   // Surfaces already created for earlier contacts in this study that match
-  // this slot's kind (item vs individual) - offered as a "reuse" option so
-  // e.g. the item a donor touched can be chained on as a recipient's
-  // surface in a later contact, instead of always creating a new instance.
+  // this slot - offered as a "reuse" option instead of always creating a
+  // new instance. Callers pass none for item slots, since every contact
+  // gets its own item surface.
   existingSurfaces?: Surface[]
   // Limits the individual picker to individuals of this scenario.
   scenarioId?: string | null

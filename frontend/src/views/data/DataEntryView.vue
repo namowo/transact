@@ -8,7 +8,7 @@ import { FilterMatchMode } from '@openvue/core/api'
 import type { TabsItem } from '@nuxt/ui'
 import type { MenuItem } from 'openvue/menuitem'
 import ScenarioBadges from '@/components/data/ScenarioBadges.vue'
-import ContactChains from '@/components/data/ContactChains.vue'
+import ContactWorkflow from '@/components/data/ContactWorkflow.vue'
 import type { LinkOp } from '@/components/data/ContactChains.vue'
 import ContactInstanceDialog from '@/components/data/ContactInstanceDialog.vue'
 import IndividualsPanel from '@/components/data/IndividualsPanel.vue'
@@ -418,19 +418,37 @@ function contactChainInfo(contact: Contact): ContactChainInfo {
   }
 }
 
-// Kept in the URL (?view=chains) so a reload stays on the same view.
-const contactsView = computed<'list' | 'chains'>({
+// Kept in the URL (?view=create / ?view=chains) so a reload stays on the
+// same view. Create and chain are the two steps of the contact workflow.
+type ContactsView = 'list' | 'create' | 'chains'
+
+const contactsView = computed<ContactsView>({
   get() {
-    return route.query.view === 'chains' ? 'chains' : 'list'
+    const view = route.query.view
+    return view === 'create' || view === 'chains' ? view : 'list'
   },
   set(value) {
     const { view: _drop, ...rest } = route.query
-    router.replace({ query: value === 'chains' ? { ...rest, view: 'chains' } : rest })
+    router.replace({ query: value === 'list' ? rest : { ...rest, view: value } })
   },
 })
+
+const contactsMode = computed<'list' | 'workflow'>({
+  get: () => (contactsView.value === 'list' ? 'list' : 'workflow'),
+  set: (value) => {
+    if (value === 'list') contactsView.value = 'list'
+    else if (contactsView.value === 'list') contactsView.value = 'create'
+  },
+})
+
+const workflowStep = computed<'create' | 'chains'>({
+  get: () => (contactsView.value === 'chains' ? 'chains' : 'create'),
+  set: (value) => (contactsView.value = value),
+})
+
 const contactsViewItems = [
   { label: 'List', value: 'list', icon: 'i-lucide-list' },
-  { label: 'Chains', value: 'chains', icon: 'i-lucide-link' },
+  { label: 'Create & chain', value: 'workflow', icon: 'i-lucide-workflow' },
 ]
 
 // Edit-names mode keeps every row's input mounted at once (so several
@@ -651,7 +669,7 @@ const activeTab = computed<string>({
           />
 
           <UTabs
-            v-model="contactsView"
+            v-model="contactsMode"
             :items="contactsViewItems"
             :content="false"
             variant="pill"
@@ -659,12 +677,18 @@ const activeTab = computed<string>({
             class="w-fit"
           />
 
-          <ContactChains
-            v-if="contactsView === 'chains'"
-            :contacts="visibleContacts"
+          <ContactWorkflow
+            v-show="contactsMode === 'workflow'"
+            v-model:step="workflowStep"
+            :study-id="studyId"
+            :scenarios="studyScenarios"
+            :scenario-id="selectedScenarioId"
             :contact-templates="visibleTemplates"
+            :contacts="visibleContacts"
             :info="contactChainInfo"
             :can-undo="chainUndoStack.length > 0"
+            :active="activeTab === 'contacts' && contactsMode === 'workflow'"
+            @saved="onContactSaved"
             @change="applyLinkOps"
             @undo="undoChainChange"
           />

@@ -71,17 +71,17 @@ export async function saveContactInstanceDraft(
   })
 }
 
-// Creates one actual Contact per individual, all sharing the same item-side
-// surface instance (the item surface is fixed per batch, only the
-// individual side varies). Used when exactly one of the template's two
-// surfaces is an individual slot - batching doesn't make sense when both
-// sides are individuals, since each pairing has to be picked by hand.
+// Creates one actual Contact per individual. The item side's settings are
+// the same for every contact, but each contact gets its own item surface:
+// the same kind of item, never the identical one ("das gleiche, aber nicht
+// dasselbe"). Used when exactly one of the template's two surfaces is an
+// individual slot - batching doesn't make sense when both sides are
+// individuals, since each pairing has to be picked by hand.
 export async function saveContactInstanceBatch(
   draft: ContactInstanceDraft,
   contactTemplate: ContactTemplate,
   individualSide: 'donor' | 'recipient',
   individualIds: string[],
-  existingSurfaces: Surface[] = [],
   predecessorCandidates: Contact[] = [],
 ): Promise<Contact[]> {
   const itemSide = individualSide === 'donor' ? 'recipient' : 'donor'
@@ -89,13 +89,10 @@ export async function saveContactInstanceBatch(
     (itemSide === 'donor'
       ? contactTemplate.donor_surface_template
       : contactTemplate.recipient_surface_template) ?? null
-  const itemSurfaceDraft = itemSide === 'donor' ? draft.donorSurface : draft.recipientSurface
-
-  const itemSurface = await createRequiredSurfaceInstance(
-    itemSurfaceDraft,
-    itemSurfaceTemplate,
-    existingSurfaces,
-  )
+  const itemSurfaceDraft: SurfaceInstanceDraft = {
+    ...(itemSide === 'donor' ? draft.donorSurface : draft.recipientSurface),
+    existingSurfaceId: null,
+  }
 
   const individualSurfaceTemplate =
     (individualSide === 'donor'
@@ -105,6 +102,7 @@ export async function saveContactInstanceBatch(
   const contacts: Contact[] = []
   const usedPredecessors = new Set<string>()
   for (const individualId of individualIds) {
+    const itemSurface = await createRequiredSurfaceInstance(itemSurfaceDraft, itemSurfaceTemplate)
     const individualSurface = await saveSurfaceInstanceDraft(
       { individualId, conditionOfItemPartCategoryId: null, existingSurfaceId: null },
       individualSurfaceTemplate,
