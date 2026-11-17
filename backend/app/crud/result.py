@@ -47,9 +47,9 @@ class CRUDResult(CRUDBase[Result, ResultCreate, ResultUpdate]):
 
     async def update(self, db: AsyncSession, id: UUID, obj_in: ResultUpdate) -> Result:
         result = await self.get(db, id)
-        update_data = obj_in.model_dump(
-            exclude={"pcrs"}, exclude_none=True, exclude_unset=True
-        )
+        # Only fields the client left out stay untouched; an explicit null
+        # clears the value (e.g. an emptied DNA concentration).
+        update_data = obj_in.model_dump(exclude={"pcrs"}, exclude_unset=True)
         for field, value in update_data.items():
             setattr(result, field, value)
 

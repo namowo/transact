@@ -168,28 +168,72 @@ const samplesWithoutResult = computed(() => {
 const addingAll = ref(false)
 const editMode = ref(false)
 
+// The quick-entry dialog asks how many genotyping runs each sample gets, so
+// the empty runs are created up front and only need their values filled in.
+// The optional methods are applied to every created result and run.
+const MAX_RUNS_PER_SAMPLE = 20
+const quickAddVisible = ref(false)
+const quickAdd = ref({
+  runsPerSample: 1 as number | null,
+  quantification_method_id: null as string | null,
+  pcr_method_id: null as string | null,
+  post_pcr_treatment_method_id: null as string | null,
+  ce_method_id: null as string | null,
+  epg_analysis_method_id: null as string | null,
+  epg_interpretation_method_id: null as string | null,
+})
+
+const quickAddCeMethodOptions = computed(() => {
+  const matching = ceMethods.value.filter((method) => method.pcr_method_id === quickAdd.value.pcr_method_id)
+  return matching.length ? matching : ceMethods.value
+})
+
+function openQuickAddDialog() {
+  loadError.value = ''
+  quickAddVisible.value = true
+}
+
 async function addResultsForAllSamples() {
   const missing = samplesWithoutResult.value
   if (!missing.length) return
+  const settings = quickAdd.value
+  const runs = Math.min(Math.max(Math.trunc(settings.runsPerSample ?? 0), 0), MAX_RUNS_PER_SAMPLE)
+  const run = (): PCRInput => ({
+    ...emptyPcrForm(),
+    pcr_method_id: settings.pcr_method_id,
+    post_pcr_treatment_method_id: settings.post_pcr_treatment_method_id,
+    ce_method_id: settings.ce_method_id,
+    epg_analysis_method_id: settings.epg_analysis_method_id,
+    epg_interpretation_method_id: settings.epg_interpretation_method_id,
+  })
   addingAll.value = true
   try {
     const created = await Promise.all(
       missing.map((sample) =>
         resultApi.create({
           sample_id: sample.id,
-          quantification_method_id: null,
+          quantification_method_id: settings.quantification_method_id,
           dna_concentration: null,
           degradation_category_id: null,
           inhibition_category_id: null,
+          pcrs: Array.from({ length: runs }, run),
         }),
       ),
     )
     allResults.value = [...allResults.value, ...created]
+    if (runs) {
+      expandedRows.value = {
+        ...expandedRows.value,
+        ...Object.fromEntries(created.map((result) => [result.id, true])),
+      }
+    }
     editMode.value = true
+    quickAddVisible.value = false
+    const runText = runs ? ` with ${runs} genotyping run${runs === 1 ? '' : 's'} each` : ''
     toast.add({
       color: 'success',
-      title: `Added ${created.length} result${created.length === 1 ? '' : 's'}`,
-      description: 'Enter the DNA concentrations in the table, or use the CSV download and upload.',
+      title: `Added ${created.length} result${created.length === 1 ? '' : 's'}${runText}`,
+      description: 'Enter the values in the table, or use the CSV download and upload.',
     })
   } catch {
     loadError.value = 'Could not add the results. Please try again.'
@@ -221,6 +265,46 @@ async function saveConcentration(result: Result, value: number | null | undefine
   } catch {
     loadError.value = 'Could not save this change. Please try again.'
   }
+}
+
+// Edit mode: genotyping run values are saved as soon as they are committed.
+// Runs are full-replace on update (the backend recreates them, so their ids
+// change), hence saves for one result run one after another, each built from
+// the latest saved state, so quick consecutive edits never overwrite each other.
+const pcrSaveQueues = new Map<string, Promise<void>>()
+
+function savePcrField(resultId: string, index: number, field: PcrNumericField, value: number | null | undefined) {
+  const next = numberOrNull(value)
+  const previous = pcrSaveQueues.get(resultId) ?? Promise.resolve()
+  const job = previous.then(async () => {
+    const result = allResults.value.find((item) => item.id === resultId)
+    const pcr = result?.pcrs[index]
+    if (!result || !pcr || next === (pcr[field] ?? null)) return
+    const pcrs = result.pcrs.map(pcrInputOf)
+    const target = pcrs[index]!
+    target[field] = next
+    if (field === 'no_of_contributors') target.contributors = syncContributors(target.contributors ?? [], next)
+    try {
+      const updated = await resultApi.update(result.id, { ...resultInputOf(result), pcrs })
+      allResults.value = allResults.value.map((item) => (item.id === updated.id ? updated : item))
+    } catch {
+      loadError.value = 'Could not save this change. Please try again.'
+    }
+  })
+  pcrSaveQueues.set(resultId, job)
+}
+
+const PCR_EDIT_COLUMNS: { field: PcrNumericField; header: string; unit?: string; integer?: boolean; step?: number }[] = [
+  { field: 'sample_input_volume_in_pcr', header: 'Sample input volume', unit: 'µL', step: 0.1 },
+  { field: 'dna_input_amount_in_pcr', header: 'DNA input amount', unit: 'pg', step: 0.001 },
+  { field: 'no_of_contributors', header: 'No. of contributors', integer: true },
+  { field: 'total_rfu', header: 'Total RFU', unit: 'RFU', step: 0.1 },
+  { field: 'total_no_of_alleles', header: 'Total no. of alleles', integer: true },
+]
+
+function formatPcrValue(value: number | null | undefined, unit?: string): string {
+  if (value == null) return '—'
+  return unit ? `${auth.formatNumber(value)} ${unit}` : String(value)
 }
 
 // -- CSV round trip --
@@ -881,7 +965,7 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
           variant="outline"
           :loading="addingAll"
           :disabled="!samplesWithoutResult.length"
-          @click="addResultsForAllSamples"
+          @click="openQuickAddDialog"
         />
         <UButton
           label="Add quantification result"
@@ -1047,21 +1131,35 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
                 />
               </div>
               <ContextMenu ref="pcrContextMenu" :model="pcrContextMenuItems" />
+              <!-- No data-key: rows are keyed by position, because saving a run
+                   recreates all runs with new ids and inputs must keep focus. -->
               <DataTable
                 :value="result.pcrs"
-                data-key="id"
                 @row-contextmenu="({ originalEvent, data }: { originalEvent: Event; data: PCR }) => openPcrContextMenu(originalEvent, result, data)"
               >
                 <template #empty>No genotyping results recorded yet.</template>
+                <Column header="Run" style="width: 3.5rem">
+                  <template #body="{ index }">{{ index + 1 }}</template>
+                </Column>
                 <Column header="PCR method">
                   <template #body="{ data }">{{ data.pcr_method ? methodLabel(data.pcr_method) : '—' }}</template>
                 </Column>
-                <Column header="No. of contributors">
-                  <template #body="{ data }">{{ data.no_of_contributors ?? '—' }}</template>
-                </Column>
-                <Column header="Total RFU">
-                  <template #body="{ data }">
-                    {{ data.total_rfu != null ? `${data.total_rfu} RFU` : '—' }}
+                <Column v-for="col in PCR_EDIT_COLUMNS" :key="col.field" :header="col.header">
+                  <template #body="{ data, index }">
+                    <UFieldGroup v-if="editMode" class="w-full min-w-36">
+                      <UInputNumber
+                        :model-value="data[col.field] ?? undefined"
+                        :min="0"
+                        :step="col.integer ? 1 : col.step"
+                        :step-snapping="!!col.integer"
+                        :format-options="col.integer ? { maximumFractionDigits: 0 } : { maximumFractionDigits: 6 }"
+                        orientation="vertical"
+                        class="w-full"
+                        @update:model-value="(value: number | null) => savePcrField(result.id, index, col.field, value)"
+                      />
+                      <UBadge v-if="col.unit" color="neutral" variant="outline" size="lg" :label="col.unit" />
+                    </UFieldGroup>
+                    <template v-else>{{ formatPcrValue(data[col.field], col.unit) }}</template>
                   </template>
                 </Column>
                 <Column header="" style="width: 3rem">
@@ -1328,6 +1426,82 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
       <template #footer>
         <UButton label="Cancel" icon="i-lucide-x" variant="ghost" @click="dialogVisible = false" />
         <UButton label="Save" icon="i-lucide-save" :loading="submitting" @click="submitForm" />
+      </template>
+    </UModal>
+
+    <UModal
+      v-model:open="quickAddVisible"
+      title="Add result for every sample"
+      :description="`Creates a result for the ${samplesWithoutResult.length} sample${samplesWithoutResult.length === 1 ? '' : 's'} without one.`"
+      :ui="{ content: 'max-w-xl', footer: 'justify-end' }"
+    >
+      <template #body>
+        <div class="flex flex-col gap-4">
+          <UFormField
+            label="Genotyping runs per sample"
+            help="Each result gets this many empty genotyping results, ready to fill in."
+          >
+            <UInputNumber
+              v-model="quickAdd.runsPerSample"
+              :min="0"
+              :max="MAX_RUNS_PER_SAMPLE"
+              orientation="vertical"
+              class="w-40"
+            />
+          </UFormField>
+
+          <USeparator label="Methods (optional, used for every entry)" />
+
+          <EntitySelect
+            v-model="quickAdd.quantification_method_id"
+            label="Quantification method"
+            :options="quantificationMethods"
+            :option-label="methodLabel"
+          />
+          <div v-if="quickAdd.runsPerSample" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <EntitySelect
+              v-model="quickAdd.pcr_method_id"
+              label="PCR method"
+              :options="pcrMethods"
+              :option-label="methodLabel"
+            />
+            <EntitySelect
+              v-model="quickAdd.post_pcr_treatment_method_id"
+              label="Post-PCR treatment method"
+              :options="postPcrTreatmentMethods"
+              :option-label="(m: PostPCRTreatmentMethod) => `#${m.id}`"
+            />
+            <EntitySelect
+              v-model="quickAdd.ce_method_id"
+              label="CE method"
+              :options="quickAddCeMethodOptions"
+              :option-label="methodLabel"
+            />
+            <EntitySelect
+              v-model="quickAdd.epg_analysis_method_id"
+              label="EPG analysis method"
+              :options="epgAnalysisMethods"
+              :option-label="methodLabel"
+            />
+            <EntitySelect
+              v-model="quickAdd.epg_interpretation_method_id"
+              label="EPG interpretation method"
+              :options="epgInterpretationMethods"
+              :option-label="methodLabel"
+            />
+          </div>
+
+          <UAlert v-if="loadError" color="error" variant="outline" :description="loadError" />
+        </div>
+      </template>
+      <template #footer>
+        <UButton label="Cancel" icon="i-lucide-x" variant="ghost" @click="quickAddVisible = false" />
+        <UButton
+          :label="`Add ${samplesWithoutResult.length} result${samplesWithoutResult.length === 1 ? '' : 's'}`"
+          icon="i-lucide-list-plus"
+          :loading="addingAll"
+          @click="addResultsForAllSamples"
+        />
       </template>
     </UModal>
 
