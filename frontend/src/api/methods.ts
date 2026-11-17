@@ -18,10 +18,10 @@ import type {
   PostPCRTreatmentMethodInput,
   QuantificationMethod,
   QuantificationMethodInput,
-  Recovery,
-  RecoveryInput,
-  RecoverySet,
-  RecoverySetInput,
+  Sample,
+  SampleInput,
+  SampleSet,
+  SampleSetInput,
   Result,
   ResultInput,
   SamplingMethod,
@@ -81,6 +81,6 @@ export const samplingMethodApi = methodApi<SamplingMethod, SamplingMethodInput>(
   '/sampling-methods',
 )
 
-export const recoveryApi = methodApi<Recovery, RecoveryInput>('/recoveries')
-export const recoverySetApi = methodApi<RecoverySet, RecoverySetInput>('/recovery-sets')
+export const sampleApi = methodApi<Sample, SampleInput>('/samples')
+export const sampleSetApi = methodApi<SampleSet, SampleSetInput>('/sample-sets')
 export const resultApi = methodApi<Result, ResultInput>('/results')

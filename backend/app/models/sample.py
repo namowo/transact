@@ -10,8 +10,8 @@ from sqlalchemy.sql import text
 from app.core.db import Base
 
 
-class Recovery(Base):
-    __tablename__ = "recovery"
+class Sample(Base):
+    __tablename__ = "sample"
 
     id: Mapped[uuid.UUID] = mapped_column(
         PGUUID(as_uuid=True), primary_key=True, index=True,
@@ -23,18 +23,18 @@ class Recovery(Base):
         ForeignKey("study.id", ondelete="SET NULL")
     )
     study: Mapped[Optional["Study"]] = relationship(
-        lazy="selectin", back_populates="recoveries", foreign_keys=[study_id]
+        lazy="selectin", back_populates="samples", foreign_keys=[study_id]
     )
-    recovery_set_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    sample_set_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         PGUUID(as_uuid=True),
-        ForeignKey("recovery_set.id", ondelete="SET NULL")
+        ForeignKey("sample_set.id", ondelete="SET NULL")
     )
-    recovery_set: Mapped[Optional["RecoverySet"]] = relationship(
-        lazy="selectin", back_populates="recoveries", foreign_keys=[recovery_set_id]
+    sample_set: Mapped[Optional["SampleSet"]] = relationship(
+        lazy="selectin", back_populates="samples", foreign_keys=[sample_set_id]
     )
     # The actual contact this sample was taken after. A batch of contacts can
     # share one item surface, so the surface alone doesn't identify which
-    # contact a recovery belongs to.
+    # contact a sample belongs to.
     contact_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         PGUUID(as_uuid=True),
         ForeignKey("contact.id", ondelete="SET NULL")
@@ -77,4 +77,4 @@ from app.models.sampling_method import SamplingMethod
 from app.models.extraction_method import ExtractionMethod
 from app.models.experience_level import ExperienceLevel
 from app.models.study import Study
-from app.models.recovery_set import RecoverySet
+from app.models.sample_set import SampleSet

@@ -13,15 +13,15 @@ import SurfaceMultiSelect from './SurfaceMultiSelect.vue'
 import { downloadTextFile, parseCsv, parseNumber, toCsv, type DecimalSeparator } from './csv'
 import { useToast } from '@nuxt/ui/composables'
 import { templateName } from './contactTemplateLabel'
-import { surfaceLabel, recoverySetLabel, extractionMethodLabel, samplingMethodLabel } from './recoveryLabel'
-import { recoveryApi, recoverySetApi, samplingMethodApi, extractionMethodApi } from '@/api/methods'
+import { surfaceLabel, sampleSetLabel, extractionMethodLabel, samplingMethodLabel } from './sampleLabel'
+import { sampleApi, sampleSetApi, samplingMethodApi, extractionMethodApi } from '@/api/methods'
 import { useAuthStore } from '@/stores/auth'
 import type {
   Contact,
   ContactTemplate,
-  Recovery,
-  RecoveryInput,
-  RecoverySet,
+  Sample,
+  SampleInput,
+  SampleSet,
   Scenario,
   SamplingMethod,
   ExtractionMethod,
@@ -38,7 +38,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  'update:recoveries': [recoveries: Recovery[]]
+  'update:samples': [samples: Sample[]]
 }>()
 
 const auth = useAuthStore()
@@ -55,35 +55,35 @@ const studySurfaces = computed<Surface[]>(() => {
 
 const studySurfaceIds = computed(() => new Set(studySurfaces.value.map((s) => s.id)))
 
-const allRecoveries = ref<Recovery[]>([])
+const allSamples = ref<Sample[]>([])
 const loading = ref(false)
 const loadError = ref('')
 
-const recoveries = computed(() =>
-  allRecoveries.value.filter(
-    (recovery) => recovery.surface_id != null && studySurfaceIds.value.has(recovery.surface_id),
+const samples = computed(() =>
+  allSamples.value.filter(
+    (sample) => sample.surface_id != null && studySurfaceIds.value.has(sample.surface_id),
   ),
 )
 
-watch(recoveries, (value) => emit('update:recoveries', value), { immediate: true })
+watch(samples, (value) => emit('update:samples', value), { immediate: true })
 
-const recoverySets = ref<RecoverySet[]>([])
+const sampleSets = ref<SampleSet[]>([])
 
-// Recoveries with no recovery_set_id are grouped under a single "Ungrouped"
+// Samples with no sample_set_id are grouped under a single "Ungrouped"
 // bucket so the table always groups consistently.
-const groupedRecoveries = computed(() => {
-  const groups = new Map<string | null, Recovery[]>()
-  for (const recovery of recoveries.value) {
-    const key = recovery.recovery_set_id ?? null
+const groupedSamples = computed(() => {
+  const groups = new Map<string | null, Sample[]>()
+  for (const sample of samples.value) {
+    const key = sample.sample_set_id ?? null
     if (!groups.has(key)) groups.set(key, [])
-    groups.get(key)!.push(recovery)
+    groups.get(key)!.push(sample)
   }
-  return Array.from(groups.entries()).map(([recoverySetId, items]) => ({
-    recoverySetId,
-    recoverySet: recoverySets.value.find((set) => set.id === recoverySetId) ?? null,
-    items: items.map((recovery) => ({
-      ...recovery,
-      scenarioNames: (props.surfaceScenarios[recovery.surface_id ?? ''] ?? []).join(', '),
+  return Array.from(groups.entries()).map(([sampleSetId, items]) => ({
+    sampleSetId,
+    sampleSet: sampleSets.value.find((set) => set.id === sampleSetId) ?? null,
+    items: items.map((sample) => ({
+      ...sample,
+      scenarioNames: (props.surfaceScenarios[sample.surface_id ?? ''] ?? []).join(', '),
     })),
   }))
 })
@@ -92,14 +92,14 @@ async function load() {
   loading.value = true
   loadError.value = ''
   try {
-    const [recoveryResults, recoverySetResults] = await Promise.all([
-      recoveryApi.list(),
-      recoverySetApi.list(),
+    const [sampleResults, sampleSetResults] = await Promise.all([
+      sampleApi.list(),
+      sampleSetApi.list(),
     ])
-    allRecoveries.value = recoveryResults
-    recoverySets.value = recoverySetResults
+    allSamples.value = sampleResults
+    sampleSets.value = sampleSetResults
   } catch {
-    loadError.value = 'Could not load recoveries. Please try again.'
+    loadError.value = 'Could not load samples. Please try again.'
   } finally {
     loading.value = false
   }
@@ -131,11 +131,11 @@ onMounted(async () => {
   extractionMethods.value = await extractionMethodApi.list()
 })
 
-function emptyForm(): RecoveryInput {
+function emptyForm(): SampleInput {
   return {
     name: null,
     study_id: props.studyId,
-    recovery_set_id: null,
+    sample_set_id: null,
     surface_id: null,
     sampling_method_id: null,
     extraction_method_id: null,
@@ -148,7 +148,7 @@ function emptyForm(): RecoveryInput {
 const schema = yup.object({
   name: yup.string().nullable().defined(),
   study_id: yup.string().nullable().defined(),
-  recovery_set_id: yup.string().nullable().defined(),
+  sample_set_id: yup.string().nullable().defined(),
   surface_id: yup.string().nullable().defined(),
   sampling_method_id: yup.string().nullable().defined(),
   extraction_method_id: yup.string().nullable().defined(),
@@ -157,20 +157,20 @@ const schema = yup.object({
   experience_level_of_sampler_id: yup.string().nullable().defined(),
 })
 
-const { defineField, errors, handleSubmit, resetForm } = useForm<RecoveryInput>({
+const { defineField, errors, handleSubmit, resetForm } = useForm<SampleInput>({
   validationSchema: schema,
   initialValues: emptyForm(),
 })
 
 const [name] = defineField('name')
 const [surfaceId] = defineField('surface_id')
-const [recoverySetId] = defineField('recovery_set_id')
+const [sampleSetId] = defineField('sample_set_id')
 const [samplingMethodId] = defineField('sampling_method_id')
 const [extractionMethodId] = defineField('extraction_method_id')
 const [elutionVolume] = defineField('elution_volume')
 const [area] = defineField('area')
 
-// Create mode: the selected contact sides ("<contact id>|<side>"), one recovery each.
+// Create mode: the selected contact sides ("<contact id>|<side>"), one sample each.
 const surfaceIds = ref<string[]>([])
 
 function contactLabelFor(contactId: string | null | undefined): string {
@@ -186,7 +186,7 @@ function surfaceEntryLabel(surfaceId: string): string {
   return surfaceLabel(studySurfaces.value.find((s) => s.id === surfaceId))
 }
 
-// Name template for batch-created recoveries: {#} -> 1, 2, 3; {##} -> 01, 02;
+// Name template for batch-created samples: {#} -> 1, 2, 3; {##} -> 01, 02;
 // {###} -> 001, 002 ... (the number of #s is the minimum digit count).
 const nameTemplate = ref('')
 const templateInput = ref<{ inputRef?: HTMLInputElement | null } | null>(null)
@@ -209,18 +209,18 @@ function applyNameTemplate(template: string, index: number): string {
   return template.replace(/\{(#+)\}/g, (_, hashes: string) => String(index).padStart(hashes.length, '0'))
 }
 
-// Recovery names must be unique within the study (case-insensitive).
+// Sample names must be unique within the study (case-insensitive).
 const normalizeName = (value: string | null | undefined) => (value ?? '').trim().toLowerCase()
 
-const studyRecoveryNames = computed(() =>
-  allRecoveries.value.filter((recovery) => recovery.study_id === props.studyId),
+const studySampleNames = computed(() =>
+  allSamples.value.filter((sample) => sample.study_id === props.studyId),
 )
 
 function nameTaken(name: string | null | undefined, ignoreId: string | null = null): boolean {
   const wanted = normalizeName(name)
   if (!wanted) return false
-  return studyRecoveryNames.value.some(
-    (recovery) => recovery.id !== ignoreId && normalizeName(recovery.name) === wanted,
+  return studySampleNames.value.some(
+    (sample) => sample.id !== ignoreId && normalizeName(sample.name) === wanted,
   )
 }
 
@@ -244,8 +244,8 @@ const templateStart = computed(() => {
     .join('')
   const regex = new RegExp(`^${pattern}$`, 'i')
   let highest = 0
-  for (const recovery of studyRecoveryNames.value) {
-    const match = regex.exec((recovery.name ?? '').trim())
+  for (const sample of studySampleNames.value) {
+    const match = regex.exec((sample.name ?? '').trim())
     if (match) highest = Math.max(highest, parseInt(match[1]!, 10))
   }
   return highest + 1
@@ -258,7 +258,7 @@ function generatedName(index: number): string | null {
 
 const dialogVisible = ref(false)
 // Create mode runs in two steps inside one dialog: 1 = pick surfaces and
-// shared settings, 2 = per-recovery details. Nothing is saved until step 2.
+// shared settings, 2 = per-sample details. Nothing is saved until step 2.
 const step = ref<1 | 2>(1)
 const editingId = ref<string | null>(null)
 const submitting = ref(false)
@@ -273,16 +273,16 @@ async function openCreateDialog() {
   step.value = 1
   submitError.value = ''
   dialogVisible.value = true
-  recoverySetId.value = await ensureDefaultRecoverySet()
+  sampleSetId.value = await ensureDefaultSampleSet()
 }
 
-function openEditDialog(row: Recovery) {
+function openEditDialog(row: Sample) {
   editingId.value = row.id
   resetForm({
     values: {
       name: row.name ?? null,
       study_id: row.study_id ?? props.studyId,
-      recovery_set_id: row.recovery_set_id ?? null,
+      sample_set_id: row.sample_set_id ?? null,
       surface_id: row.surface_id ?? null,
       sampling_method_id: row.sampling_method_id ?? null,
       extraction_method_id: row.extraction_method_id ?? null,
@@ -310,25 +310,25 @@ const submitForm = handleSubmit(async (formValues) => {
       return
     } else {
       if (nameTaken(formValues.name, editingId.value)) {
-        submitError.value = 'This name is already used by another recovery. Names must be unique.'
+        submitError.value = 'This name is already used by another sample. Names must be unique.'
         return
       }
-      const updated = await recoveryApi.update(editingId.value, {
+      const updated = await sampleApi.update(editingId.value, {
         ...formValues,
       })
-      allRecoveries.value = allRecoveries.value.map((item) =>
+      allSamples.value = allSamples.value.map((item) =>
         item.id === updated.id ? updated : item,
       )
     }
     dialogVisible.value = false
   } catch {
-    submitError.value = 'Could not save these recoveries. Please try again.'
+    submitError.value = 'Could not save these samples. Please try again.'
   } finally {
     submitting.value = false
   }
 })
 
-// -- Step 2: per-recovery details, then create the whole batch --
+// -- Step 2: per-sample details, then create the whole batch --
 
 interface DetailRow {
   key: string
@@ -340,12 +340,12 @@ interface DetailRow {
 }
 
 const detailRows = ref<DetailRow[]>([])
-const sharedValues = ref<RecoveryInput | null>(null)
+const sharedValues = ref<SampleInput | null>(null)
 const bulkOpen = ref(false)
 const bulkElutionVolume = ref<number | null>(null)
 const bulkArea = ref<number | null>(null)
 
-// Names that clash with an existing recovery or appear twice in this batch.
+// Names that clash with an existing sample or appear twice in this batch.
 const duplicateRowNames = computed(() => {
   const counts = new Map<string, number>()
   for (const row of detailRows.value) {
@@ -372,7 +372,7 @@ function applyToAllRows() {
 // Builds one row per selected surface. Rows for surfaces that stay selected
 // keep what was already entered, so going back and forth loses nothing; names
 // still following the template are regenerated if the order changed.
-function goToDetailsStep(formValues: RecoveryInput) {
+function goToDetailsStep(formValues: SampleInput) {
   sharedValues.value = formValues
   const existing = new Map(detailRows.value.map((row) => [row.key, row]))
   const rows: DetailRow[] = []
@@ -398,14 +398,14 @@ function goToDetailsStep(formValues: RecoveryInput) {
   step.value = 2
 }
 
-async function createRecoveries() {
+async function createSamples() {
   if (!sharedValues.value) return
   submitting.value = true
   submitError.value = ''
   try {
     const created = await Promise.all(
       detailRows.value.map(({ contactId, surfaceId, name, elutionVolume, area }) =>
-        recoveryApi.create({
+        sampleApi.create({
           ...sharedValues.value!,
           contact_id: contactId,
           surface_id: surfaceId,
@@ -415,17 +415,17 @@ async function createRecoveries() {
         }),
       ),
     )
-    allRecoveries.value = [...allRecoveries.value, ...created]
+    allSamples.value = [...allSamples.value, ...created]
     dialogVisible.value = false
   } catch {
-    submitError.value = 'Could not create these recoveries. Please try again.'
+    submitError.value = 'Could not create these samples. Please try again.'
   } finally {
     submitting.value = false
   }
 }
 
 // -- CSV round trip --
-// Download the study's recoveries, edit the numeric values in a spreadsheet,
+// Download the study's samples, edit the numeric values in a spreadsheet,
 // and upload the file again. Rows are matched by their id column; only the
 // elution volume and area are read back.
 
@@ -443,14 +443,14 @@ const CSV_HEADER = [
   'info_scenario',
   'info_contact',
   'info_surface',
-  'info_recovery_set',
+  'info_sample_set',
   CSV_NAME,
   CSV_VOLUME,
   CSV_AREA,
 ]
 
 // A short explanation is shown before each download until the user opts out.
-const CSV_HINT_KEY = 'transact.recoveries.csvHintDismissed'
+const CSV_HINT_KEY = 'transact.samples.csvHintDismissed'
 const csvHintVisible = ref(false)
 const csvHintDontShowAgain = ref(false)
 
@@ -483,33 +483,33 @@ function confirmCsvDownload() {
   downloadCsv()
 }
 
-// Scenarios of the contact the sample belongs to (via its template); recoveries
+// Scenarios of the contact the sample belongs to (via its template); samples
 // without a contact fall back to the scenarios of their surface.
-function recoveryScenarioNames(recovery: Recovery): string[] {
-  const contact = props.contacts.find((c) => c.id === recovery.contact_id)
+function sampleScenarioNames(sample: Sample): string[] {
+  const contact = props.contacts.find((c) => c.id === sample.contact_id)
   if (contact) {
     return props.scenarios
       .filter((s) => s.contact_templates.some((t) => t.id === contact.contact_template_id))
       .map((s) => s.name)
   }
-  return props.surfaceScenarios[recovery.surface_id ?? ''] ?? []
+  return props.surfaceScenarios[sample.surface_id ?? ''] ?? []
 }
 
 function downloadCsv() {
-  const rows = recoveries.value.map((recovery) => [
-    recovery.id,
-    recoveryScenarioNames(recovery).join('; '),
-    contactLabelFor(recovery.contact_id),
-    surfaceLabel(recovery.surface),
-    recoverySetLabel(recoverySets.value.find((set) => set.id === recovery.recovery_set_id) ?? null),
-    recovery.name,
-    recovery.elution_volume,
-    recovery.area,
+  const rows = samples.value.map((sample) => [
+    sample.id,
+    sampleScenarioNames(sample).join('; '),
+    contactLabelFor(sample.contact_id),
+    surfaceLabel(sample.surface),
+    sampleSetLabel(sampleSets.value.find((set) => set.id === sample.sample_set_id) ?? null),
+    sample.name,
+    sample.elution_volume,
+    sample.area,
   ])
   const date = new Date().toISOString().slice(0, 10)
   const prefix = props.exportName ? `${props.exportName}_` : ''
   // CSV files always use a point as decimal separator, whatever the profile's number format.
-  downloadTextFile(`${prefix}recoveries_${date}.csv`, toCsv([CSV_HEADER, ...rows]))
+  downloadTextFile(`${prefix}samples_${date}.csv`, toCsv([CSV_HEADER, ...rows]))
   // The next step of the round trip: edit the file, then upload it here.
   openImportDialog()
 }
@@ -551,9 +551,9 @@ async function importCsv() {
       return
     }
 
-    const byId = new Map(recoveries.value.map((recovery) => [recovery.id, recovery]))
+    const byId = new Map(samples.value.map((sample) => [sample.id, sample]))
     const changes: {
-      recovery: Recovery
+      sample: Sample
       name: string | null
       elution_volume: number | null
       area: number | null
@@ -563,8 +563,8 @@ async function importCsv() {
     table.slice(1).forEach((cells, index) => {
       const line = index + 2
       const id = (cells[idCol] ?? '').trim()
-      const recovery = byId.get(id)
-      if (!recovery) {
+      const sample = byId.get(id)
+      if (!sample) {
         problems.push(`line ${line}: unknown id`)
         return
       }
@@ -573,9 +573,9 @@ async function importCsv() {
         return
       }
       seenIds.add(id)
-      const name = nameCol === -1 ? (recovery.name ?? null) : (cells[nameCol] ?? '').trim() || null
-      const volume = volumeCol === -1 ? (recovery.elution_volume ?? null) : parseNumber(cells[volumeCol] ?? '', decimal)
-      const area = areaCol === -1 ? (recovery.area ?? null) : parseNumber(cells[areaCol] ?? '', decimal)
+      const name = nameCol === -1 ? (sample.name ?? null) : (cells[nameCol] ?? '').trim() || null
+      const volume = volumeCol === -1 ? (sample.elution_volume ?? null) : parseNumber(cells[volumeCol] ?? '', decimal)
+      const area = areaCol === -1 ? (sample.area ?? null) : parseNumber(cells[areaCol] ?? '', decimal)
       if ((volume !== null && (Number.isNaN(volume) || volume < 0)) || (area !== null && (Number.isNaN(area) || area < 0))) {
         const bad = [
           volumeCol !== -1 && !(volume === null || (!Number.isNaN(volume) && volume >= 0)) ? `${CSV_VOLUME} ${JSON.stringify(cells[volumeCol])}` : '',
@@ -585,18 +585,18 @@ async function importCsv() {
         return
       }
       if (
-        name !== (recovery.name ?? null) ||
-        volume !== (recovery.elution_volume ?? null) ||
-        area !== (recovery.area ?? null)
+        name !== (sample.name ?? null) ||
+        volume !== (sample.elution_volume ?? null) ||
+        area !== (sample.area ?? null)
       ) {
-        changes.push({ recovery, name, elution_volume: volume, area })
+        changes.push({ sample, name, elution_volume: volume, area })
       }
     })
 
     // Names must stay unique across the whole study once the changes are applied.
     if (!problems.length) {
-      const finalNames = new Map(studyRecoveryNames.value.map((recovery) => [recovery.id, recovery.name ?? null]))
-      for (const change of changes) finalNames.set(change.recovery.id, change.name)
+      const finalNames = new Map(studySampleNames.value.map((sample) => [sample.id, sample.name ?? null]))
+      for (const change of changes) finalNames.set(change.sample.id, change.name)
       const owners = new Map<string, number>()
       for (const name of finalNames.values()) {
         const key = normalizeName(name)
@@ -620,26 +620,26 @@ async function importCsv() {
     }
 
     const updated = await Promise.all(
-      changes.map(({ recovery, name, elution_volume, area }) =>
-        recoveryApi.update(recovery.id, {
+      changes.map(({ sample, name, elution_volume, area }) =>
+        sampleApi.update(sample.id, {
           name,
-          study_id: recovery.study_id ?? null,
-          recovery_set_id: recovery.recovery_set_id ?? null,
-          contact_id: recovery.contact_id ?? null,
-          surface_id: recovery.surface_id ?? null,
-          sampling_method_id: recovery.sampling_method_id ?? null,
-          extraction_method_id: recovery.extraction_method_id ?? null,
-          experience_level_of_sampler_id: recovery.experience_level_of_sampler_id ?? null,
+          study_id: sample.study_id ?? null,
+          sample_set_id: sample.sample_set_id ?? null,
+          contact_id: sample.contact_id ?? null,
+          surface_id: sample.surface_id ?? null,
+          sampling_method_id: sample.sampling_method_id ?? null,
+          extraction_method_id: sample.extraction_method_id ?? null,
+          experience_level_of_sampler_id: sample.experience_level_of_sampler_id ?? null,
           elution_volume,
           area,
         }),
       ),
     )
-    const updatedById = new Map(updated.map((recovery) => [recovery.id, recovery]))
-    allRecoveries.value = allRecoveries.value.map((item) => updatedById.get(item.id) ?? item)
+    const updatedById = new Map(updated.map((sample) => [sample.id, sample]))
+    allSamples.value = allSamples.value.map((item) => updatedById.get(item.id) ?? item)
     toast.add({
       color: 'success',
-      title: changes.length ? `Updated ${changes.length} recover${changes.length === 1 ? 'y' : 'ies'}` : 'No changes found',
+      title: changes.length ? `Updated ${changes.length} sample${changes.length === 1 ? '' : 's'}` : 'No changes found',
     })
   } catch {
     toast.add({ color: 'error', title: 'Import failed', description: 'Could not read or save this file. Please try again.' })
@@ -653,15 +653,15 @@ async function importCsv() {
 // saved when its input loses focus.
 
 const editMode = ref(false)
-const savingRecoveryIds = ref<Set<string>>(new Set())
+const savingSampleIds = ref<Set<string>>(new Set())
 
-async function saveRecoveryField(
-  row: Recovery,
-  patch: Partial<Pick<RecoveryInput, 'name' | 'elution_volume' | 'area'>>,
+async function saveSampleField(
+  row: Sample,
+  patch: Partial<Pick<SampleInput, 'name' | 'elution_volume' | 'area'>>,
 ) {
   const next = { ...row, ...patch }
   if (patch.name !== undefined && nameTaken(patch.name, row.id)) {
-    loadError.value = `The name "${patch.name}" is already used by another recovery. Names must be unique.`
+    loadError.value = `The name "${patch.name}" is already used by another sample. Names must be unique.`
     return
   }
   loadError.value = ''
@@ -671,12 +671,12 @@ async function saveRecoveryField(
     next.area === row.area
   )
     return
-  savingRecoveryIds.value = new Set(savingRecoveryIds.value).add(row.id)
+  savingSampleIds.value = new Set(savingSampleIds.value).add(row.id)
   try {
-    const updated = await recoveryApi.update(row.id, {
+    const updated = await sampleApi.update(row.id, {
       name: next.name ?? null,
       study_id: row.study_id ?? null,
-      recovery_set_id: row.recovery_set_id ?? null,
+      sample_set_id: row.sample_set_id ?? null,
       contact_id: row.contact_id ?? null,
       surface_id: row.surface_id ?? null,
       sampling_method_id: row.sampling_method_id ?? null,
@@ -685,50 +685,50 @@ async function saveRecoveryField(
       elution_volume: next.elution_volume ?? null,
       area: next.area ?? null,
     })
-    allRecoveries.value = allRecoveries.value.map((item) => (item.id === updated.id ? updated : item))
+    allSamples.value = allSamples.value.map((item) => (item.id === updated.id ? updated : item))
   } catch {
     loadError.value = 'Could not save this change. Please try again.'
   } finally {
-    const after = new Set(savingRecoveryIds.value)
+    const after = new Set(savingSampleIds.value)
     after.delete(row.id)
-    savingRecoveryIds.value = after
+    savingSampleIds.value = after
   }
 }
 
 const numberOrNull = (value: number | null | undefined) =>
   value == null || Number.isNaN(value) ? null : value
 
-async function deleteRow(row: Recovery) {
-  if (!window.confirm('Delete this recovery? This cannot be undone.')) return
+async function deleteRow(row: Sample) {
+  if (!window.confirm('Delete this sample? This cannot be undone.')) return
   try {
-    await recoveryApi.delete(row.id)
-    allRecoveries.value = allRecoveries.value.filter((item) => item.id !== row.id)
+    await sampleApi.delete(row.id)
+    allSamples.value = allSamples.value.filter((item) => item.id !== row.id)
   } catch {
-    loadError.value = 'Could not delete this recovery. Please try again.'
+    loadError.value = 'Could not delete this sample. Please try again.'
   }
 }
 
-async function createRecoverySet(name: string) {
-  return recoverySetApi.create({ name: name || null })
+async function createSampleSet(name: string) {
+  return sampleSetApi.create({ name: name || null })
 }
 
-// Pre-fills the recovery set field with the user's own laboratory name so
+// Pre-fills the sample set field with the user's own laboratory name so
 // it's never left pointing at someone else's set by accident, while still
 // letting them pick or create a different one.
-const defaultRecoverySetName = computed(() => auth.user?.laboratory?.laboratory_name ?? null)
+const defaultSampleSetName = computed(() => auth.user?.laboratory?.laboratory_name ?? null)
 
-async function ensureDefaultRecoverySet(): Promise<string | null> {
-  const name = defaultRecoverySetName.value
+async function ensureDefaultSampleSet(): Promise<string | null> {
+  const name = defaultSampleSetName.value
   if (!name) return null
-  const existing = recoverySets.value.find((set) => set.name === name)
+  const existing = sampleSets.value.find((set) => set.name === name)
   if (existing) return existing.id
-  const created = await createRecoverySet(name)
-  onRecoverySetCreated(created)
+  const created = await createSampleSet(name)
+  onSampleSetCreated(created)
   return created.id
 }
 
-function onRecoverySetCreated(created: { id: string; name?: string | null }) {
-  recoverySets.value = [...recoverySets.value, created as RecoverySet]
+function onSampleSetCreated(created: { id: string; name?: string | null }) {
+  sampleSets.value = [...sampleSets.value, created as SampleSet]
 }
 </script>
 
@@ -739,7 +739,7 @@ function onRecoverySetCreated(created: { id: string; name?: string | null }) {
         Samples recovered from this study's actual contacts' surfaces.
       </p>
       <UButton
-        label="Add recovery"
+        label="Add sample"
         icon="i-lucide-plus"
         variant="outline"
         :disabled="!studySurfaces.length"
@@ -751,7 +751,7 @@ function onRecoverySetCreated(created: { id: string; name?: string | null }) {
       v-if="!studySurfaces.length"
       color="info"
       variant="outline"
-      description="Add an actual contact before recording recoveries."
+      description="Add an actual contact before recording samples."
     />
 
     <UAlert v-if="loadError" color="error" variant="outline" :description="loadError" />
@@ -767,7 +767,7 @@ function onRecoverySetCreated(created: { id: string; name?: string | null }) {
           :icon="editMode ? 'i-lucide-check' : 'i-lucide-pencil'"
           :variant="editMode ? 'solid' : 'outline'"
           size="sm"
-          :disabled="!recoveries.length"
+          :disabled="!samples.length"
           @click="editMode = !editMode"
         />
         <div class="flex items-center gap-2 border border-default rounded-md px-2 py-1">
@@ -778,7 +778,7 @@ function onRecoverySetCreated(created: { id: string; name?: string | null }) {
             icon="i-lucide-download"
             variant="outline"
             size="sm"
-            :disabled="!recoveries.length"
+            :disabled="!samples.length"
             @click="onDownloadClick"
           />
           <UButton
@@ -788,7 +788,7 @@ function onRecoverySetCreated(created: { id: string; name?: string | null }) {
             variant="outline"
             size="sm"
             :loading="importing"
-            :disabled="!recoveries.length"
+            :disabled="!samples.length"
             @click="openImportDialog"
           />
         </div>
@@ -804,20 +804,20 @@ function onRecoverySetCreated(created: { id: string; name?: string | null }) {
     <DataTableSkeleton v-if="loading" :columns="5" />
 
     <UAlert
-      v-else-if="!groupedRecoveries.length"
+      v-else-if="!groupedSamples.length"
       color="neutral"
       variant="outline"
-      description="No recoveries yet."
+      description="No samples yet."
     />
 
     <div
       v-else
-      v-for="group in groupedRecoveries"
-      :key="group.recoverySetId ?? 'ungrouped'"
+      v-for="group in groupedSamples"
+      :key="group.sampleSetId ?? 'ungrouped'"
       class="flex flex-col gap-2"
     >
       <h4 class="font-medium text-sm">
-        {{ group.recoverySetId === null ? 'Ungrouped' : recoverySetLabel(group.recoverySet) }}
+        {{ group.sampleSetId === null ? 'Ungrouped' : sampleSetLabel(group.sampleSet) }}
       </h4>
       <div class="overflow-x-auto">
         <DataTable
@@ -843,7 +843,7 @@ function onRecoverySetCreated(created: { id: string; name?: string | null }) {
                 :model-value="data.name ?? ''"
                 placeholder="Optional"
                 class="w-full"
-                @change="(event: Event) => saveRecoveryField(data, { name: (event.target as HTMLInputElement).value.trim() || null })"
+                @change="(event: Event) => saveSampleField(data, { name: (event.target as HTMLInputElement).value.trim() || null })"
               />
               <template v-else>{{ data.name || '—' }}</template>
             </template>
@@ -888,7 +888,7 @@ function onRecoverySetCreated(created: { id: string; name?: string | null }) {
                 :model-value="data.elution_volume ?? undefined"
                 orientation="vertical"
                 class="w-full min-w-32"
-                @update:model-value="(value: number | null) => saveRecoveryField(data, { elution_volume: numberOrNull(value) })"
+                @update:model-value="(value: number | null) => saveSampleField(data, { elution_volume: numberOrNull(value) })"
               />
               <template v-else>{{ data.elution_volume != null ? auth.formatNumber(data.elution_volume) : '—' }}</template>
             </template>
@@ -909,7 +909,7 @@ function onRecoverySetCreated(created: { id: string; name?: string | null }) {
                 :model-value="data.area ?? undefined"
                 orientation="vertical"
                 class="w-full min-w-32"
-                @update:model-value="(value: number | null) => saveRecoveryField(data, { area: numberOrNull(value) })"
+                @update:model-value="(value: number | null) => saveSampleField(data, { area: numberOrNull(value) })"
               />
               <template v-else>{{ data.area != null ? auth.formatNumber(data.area) : '—' }}</template>
             </template>
@@ -939,10 +939,10 @@ function onRecoverySetCreated(created: { id: string; name?: string | null }) {
     <UModal
       v-model:open="dialogVisible"
       :title="editingId !== null
-        ? 'Edit recovery'
+        ? 'Edit sample'
         : step === 1
-          ? 'Add recovery - step 1 of 2'
-          : `Add recovery - step 2 of 2: details for ${detailRows.length} new recover${detailRows.length === 1 ? 'y' : 'ies'}`"
+          ? 'Add sample - step 1 of 2'
+          : `Add sample - step 2 of 2: details for ${detailRows.length} new sample${detailRows.length === 1 ? '' : 's'}`"
       :ui="{ content: 'max-w-5xl', footer: 'justify-end' }"
     >
       <template #body>
@@ -950,7 +950,7 @@ function onRecoverySetCreated(created: { id: string; name?: string | null }) {
           <UFormField
             v-if="editingId === null"
             label="Surfaces"
-            hint="One recovery is created per selected surface"
+            hint="One sample is created per selected surface"
           >
             <SurfaceMultiSelect
               v-model="surfaceIds"
@@ -968,16 +968,16 @@ function onRecoverySetCreated(created: { id: string; name?: string | null }) {
               :option-label="surfaceLabel"
               :error="errors.surface_id"
             />
-            <UFormField label="Internal name" hint="Optional - helps tell otherwise identical recoveries apart">
+            <UFormField label="Internal name" hint="Optional - helps tell otherwise identical samples apart">
               <UInput v-model="name" class="w-full" />
             </UFormField>
           </template>
-          <UFormField label="Recovery set" hint="Optional">
+          <UFormField label="Sample set" hint="Optional">
             <InlineCreatableSelect
-              v-model="recoverySetId"
-              :options="recoverySets.map((s) => ({ id: s.id, name: recoverySetLabel(s) }))"
-              :create="createRecoverySet"
-              @created="onRecoverySetCreated"
+              v-model="sampleSetId"
+              :options="sampleSets.map((s) => ({ id: s.id, name: sampleSetLabel(s) }))"
+              :create="createSampleSet"
+              @created="onSampleSetCreated"
             />
           </UFormField>
           <EntitySelect
@@ -1027,7 +1027,7 @@ function onRecoverySetCreated(created: { id: string; name?: string | null }) {
               </div>
               <UInput ref="templateInput" v-model="nameTemplate" placeholder="e.g. Sample {##}" class="w-full" />
               <template #help>
-                Recoveries are numbered in the order of the selected surfaces:
+                Samples are numbered in the order of the selected surfaces:
                 <code>{#}</code> gives 1, 2, 3 …, <code>{##}</code> gives 01, 02, 03 …,
                 <code>{###}</code> gives 001, 002, 003 …
               </template>
@@ -1052,7 +1052,7 @@ function onRecoverySetCreated(created: { id: string; name?: string | null }) {
         </div>
         <div v-else class="flex flex-col gap-3">
           <p class="text-sm text-surface-500 dark:text-surface-400">
-            Add a name, elution volume and area for each recovery, or leave them empty and fill them in later.
+            Add a name, elution volume and area for each sample, or leave them empty and fill them in later.
             Nothing is saved until you click Create.
           </p>
           <div class="flex justify-end">
@@ -1122,7 +1122,7 @@ function onRecoverySetCreated(created: { id: string; name?: string | null }) {
             v-if="duplicateRowNames.size"
             color="error"
             variant="outline"
-            :description="`${duplicateRowNames.size} recovery name${duplicateRowNames.size === 1 ? ' is' : 's are'} not unique (marked in red). Names must be unique within the study.`"
+            :description="`${duplicateRowNames.size} sample name${duplicateRowNames.size === 1 ? ' is' : 's are'} not unique (marked in red). Names must be unique within the study.`"
           />
           <UAlert v-if="submitError" color="error" variant="outline" :description="submitError" />
         </div>
@@ -1153,11 +1153,11 @@ function onRecoverySetCreated(created: { id: string; name?: string | null }) {
         />
         <UButton
           v-else
-          :label="detailRows.length > 1 ? `Create ${detailRows.length} recoveries` : 'Create'"
+          :label="detailRows.length > 1 ? `Create ${detailRows.length} samples` : 'Create'"
           icon="i-lucide-save"
           :loading="submitting"
           :disabled="!detailRows.length || duplicateRowNames.size > 0"
-          @click="createRecoveries"
+          @click="createSamples"
         />
       </template>
     </UModal>
@@ -1204,7 +1204,7 @@ function onRecoverySetCreated(created: { id: string; name?: string | null }) {
         <div class="flex flex-col gap-4 text-sm">
           <p>
             Edit the file in a spreadsheet and upload it again with <strong>Upload CSV</strong> to update the
-            recoveries.
+            samples.
           </p>
           <ul class="flex flex-col gap-2 list-disc pl-5">
             <li>
@@ -1212,12 +1212,12 @@ function onRecoverySetCreated(created: { id: string; name?: string | null }) {
               <code>area_cm2</code>. Names must be unique within the study.
             </li>
             <li>
-              <strong>Do not edit:</strong> <code>id_do_not_edit</code>. It tells the upload which recovery a row
+              <strong>Do not edit:</strong> <code>id_do_not_edit</code>. It tells the upload which sample a row
               belongs to, so don't change, delete or duplicate it, and don't add rows.
             </li>
             <li>
               <strong>Information only:</strong> <code>info_scenario</code>, <code>info_contact</code>, <code>info_surface</code>
-              and <code>info_recovery_set</code>. Changes to these columns are ignored.
+              and <code>info_sample_set</code>. Changes to these columns are ignored.
             </li>
           </ul>
           <p>Downloaded files always use a point as decimal separator (for example 1.5). When uploading you choose the decimal separator your file uses (point or comma); it defaults to your profile's number format.</p>

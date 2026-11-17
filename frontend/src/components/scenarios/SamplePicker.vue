@@ -3,25 +3,25 @@ import { computed, ref } from 'vue'
 import DataTable from 'openvue/datatable'
 import Column from 'openvue/column'
 import { FilterMatchMode } from '@openvue/core/api'
-import { surfaceLabel, recoverySetLabel, extractionMethodLabel } from '@/components/data/recoveryLabel'
-import type { Recovery } from '@/api/types'
+import { surfaceLabel, sampleSetLabel, extractionMethodLabel } from '@/components/data/sampleLabel'
+import type { Sample } from '@/api/types'
 
-// Picking a recovery by a bare id is meaningless once a study has more than
+// Picking a sample by a bare id is meaningless once a study has more than
 // a handful, so this mirrors ItemSelect's filterable-table picker: a button
 // showing the current pick opens a modal table with enough columns (surface,
-// recovery set, methods, elution volume, area) to tell rows apart at a
+// sample set, methods, elution volume, area) to tell rows apart at a
 // glance, instead of a flat dropdown of ids.
-const props = defineProps<{ recoveries: Recovery[]; error?: string }>()
+const props = defineProps<{ samples: Sample[]; error?: string }>()
 
-const recoveryId = defineModel<string | null>({ default: null })
+const sampleId = defineModel<string | null>({ default: null })
 
-const selectedRecovery = computed(
-  () => props.recoveries.find((r) => r.id === recoveryId.value) ?? null,
+const selectedSample = computed(
+  () => props.samples.find((r) => r.id === sampleId.value) ?? null,
 )
 
-function recoveryButtonLabel(recovery: Recovery | null): string {
-  if (!recovery) return 'Select a recovery'
-  return surfaceLabel(recovery.surface)
+function sampleButtonLabel(sample: Sample | null): string {
+  if (!sample) return 'Select a sample'
+  return surfaceLabel(sample.surface)
 }
 
 const pickerVisible = ref(false)
@@ -38,33 +38,33 @@ function clearFilters() {
   filters.value = initFilters()
 }
 
-interface RecoveryRow {
-  recovery: Recovery
+interface SampleRow {
+  sample: Sample
   surfaceLabel: string
-  recoverySetLabel: string
+  sampleSetLabel: string
   extractionMethodLabel: string
 }
 
-const rows = computed<RecoveryRow[]>(() =>
-  props.recoveries.map((recovery) => ({
-    recovery,
-    surfaceLabel: surfaceLabel(recovery.surface),
-    recoverySetLabel: recoverySetLabel(recovery.recovery_set),
-    extractionMethodLabel: extractionMethodLabel(recovery.extraction_method),
+const rows = computed<SampleRow[]>(() =>
+  props.samples.map((sample) => ({
+    sample,
+    surfaceLabel: surfaceLabel(sample.surface),
+    sampleSetLabel: sampleSetLabel(sample.sample_set),
+    extractionMethodLabel: extractionMethodLabel(sample.extraction_method),
   })),
 )
 
-function selectRecovery(recovery: Recovery) {
-  recoveryId.value = recovery.id
+function selectSample(sample: Sample) {
+  sampleId.value = sample.id
   pickerVisible.value = false
 }
 </script>
 
 <template>
-  <UFormField label="Recovery" :error="error">
+  <UFormField label="Sample" :error="error">
     <div class="flex gap-2">
       <UButton
-        :label="recoveryButtonLabel(selectedRecovery)"
+        :label="sampleButtonLabel(selectedSample)"
         icon="i-lucide-search"
         color="neutral"
         variant="outline"
@@ -73,18 +73,18 @@ function selectRecovery(recovery: Recovery) {
         @click="pickerVisible = true"
       />
       <UButton
-        v-if="recoveryId"
+        v-if="sampleId"
         icon="i-lucide-x"
         variant="ghost"
-        aria-label="Clear recovery"
-        @click="recoveryId = null"
+        aria-label="Clear sample"
+        @click="sampleId = null"
       />
     </div>
   </UFormField>
 
   <UModal
     v-model:open="pickerVisible"
-    title="Select a recovery"
+    title="Select a sample"
     :ui="{ content: 'max-w-3xl', footer: 'justify-end' }"
   >
     <template #body>
@@ -105,34 +105,34 @@ function selectRecovery(recovery: Recovery) {
         <DataTable
           v-model:filters="filters"
           :value="rows"
-          data-key="recovery.id"
-          :global-filter-fields="['surfaceLabel', 'recoverySetLabel', 'extractionMethodLabel']"
+          data-key="sample.id"
+          :global-filter-fields="['surfaceLabel', 'sampleSetLabel', 'extractionMethodLabel']"
           filter-display="menu"
           scrollable
           scroll-height="24rem"
           selection-mode="single"
           :meta-key-selection="false"
           :row-class="() => 'cursor-pointer hover:bg-elevated'"
-          @row-click="({ data }: { data: RecoveryRow }) => selectRecovery(data.recovery)"
+          @row-click="({ data }: { data: SampleRow }) => selectSample(data.sample)"
         >
-          <template #empty>No recoveries found.</template>
+          <template #empty>No samples found.</template>
           <Column field="surfaceLabel" header="Surface" sortable>
             <template #body="{ data }">{{ data.surfaceLabel }}</template>
           </Column>
-          <Column field="recoverySetLabel" header="Recovery set" sortable>
-            <template #body="{ data }">{{ data.recoverySetLabel }}</template>
+          <Column field="sampleSetLabel" header="Sample set" sortable>
+            <template #body="{ data }">{{ data.sampleSetLabel }}</template>
           </Column>
           <Column field="extractionMethodLabel" header="Extraction method" sortable>
             <template #body="{ data }">{{ data.extractionMethodLabel }}</template>
           </Column>
           <Column header="Elution volume">
             <template #body="{ data }">
-              {{ data.recovery.elution_volume != null ? `${data.recovery.elution_volume} µL` : '—' }}
+              {{ data.sample.elution_volume != null ? `${data.sample.elution_volume} µL` : '—' }}
             </template>
           </Column>
           <Column header="Area">
             <template #body="{ data }">
-              {{ data.recovery.area != null ? `${data.recovery.area} cm²` : '—' }}
+              {{ data.sample.area != null ? `${data.sample.area} cm²` : '—' }}
             </template>
           </Column>
         </DataTable>

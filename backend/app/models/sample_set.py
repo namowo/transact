@@ -9,21 +9,21 @@ from sqlalchemy.sql import text
 from app.core.db import Base
 
 
-class RecoverySet(Base):
-    """Groups recoveries that share the same attributes, to make data entry easier."""
+class SampleSet(Base):
+    """Groups samples that share the same attributes, to make data entry easier."""
 
-    __tablename__ = "recovery_set"
+    __tablename__ = "sample_set"
 
     id: Mapped[uuid.UUID] = mapped_column(
         PGUUID(as_uuid=True), primary_key=True, index=True,
         server_default=text("gen_random_uuid()")
     )
     name: Mapped[Optional[str]]
-    recoveries: Mapped[list["Recovery"]] = relationship(
+    samples: Mapped[list["Sample"]] = relationship(
         lazy="selectin",
-        back_populates="recovery_set",
-        foreign_keys="Recovery.recovery_set_id",
+        back_populates="sample_set",
+        foreign_keys="Sample.sample_set_id",
     )
 
 
-from app.models.recovery import Recovery
+from app.models.sample import Sample

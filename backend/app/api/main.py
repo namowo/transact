@@ -54,8 +54,8 @@ from app.api.routers import principle_of_quant_method_category
 from app.api.routers import quantification_kit
 from app.api.routers import quantification_method
 from app.api.routers import quantification_platform
-from app.api.routers import recovery
-from app.api.routers import recovery_set
+from app.api.routers import sample
+from app.api.routers import sample_set
 from app.api.routers import restriction_prior_to_sampling
 from app.api.routers import result
 from app.api.routers import sampling_method
@@ -211,6 +211,6 @@ api_router.include_router(persistence.router, prefix="/persistences", tags=["Sce
 api_router.include_router(scenario.router, prefix="/scenarios", tags=["Scenarios"])
 
 # Results
-api_router.include_router(recovery_set.router, prefix="/recovery-sets", tags=["Results"])
-api_router.include_router(recovery.router, prefix="/recoveries", tags=["Results"])
+api_router.include_router(sample_set.router, prefix="/sample-sets", tags=["Results"])
+api_router.include_router(sample.router, prefix="/samples", tags=["Results"])
 api_router.include_router(result.router, prefix="/results", tags=["Results"])
