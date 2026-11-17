@@ -1,7 +1,7 @@
 from typing import Optional
 
 from uuid import UUID
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class PCRContributorBase(BaseModel):
@@ -17,7 +17,13 @@ class PCRContributorBase(BaseModel):
 
 
 class PCRContributorCreate(PCRContributorBase):
-    pass
+    # Stored as a decimal fraction (0-1) with at most 5 decimal places.
+    mixture_proportion: Optional[float] = Field(default=None, ge=0, le=1)
+
+    @field_validator("mixture_proportion")
+    @classmethod
+    def _round_mixture_proportion(cls, value: Optional[float]) -> Optional[float]:
+        return None if value is None else round(value, 5)
 
 
 class PCRContributorRead(PCRContributorBase):

@@ -37,6 +37,7 @@ import type {
   ResultInput,
   PCR,
   PCRInput,
+  PCRContributor,
   PCRContributorInput,
   QuantificationMethod,
   PCRMethod,
@@ -58,12 +59,15 @@ const auth = useAuthStore()
 const FIXED4 = { minimumFractionDigits: 4, maximumFractionDigits: 4 }
 const toast = useToast()
 
-const { individualOptions } = useIndividualOptions(props.studyId)
+const { individuals, individualOptions, individualName } = useIndividualOptions(props.studyId)
 
 // Contributor picker options: known Individuals plus as many "UPn" (unknown
 // person) placeholders as could ever be needed. Unknown persons aren't
 // their own entity - just an auto-numbered label scoped to one PCR run.
-const unknownPersonOptions = Array.from({ length: 10 }, (_, i) => ({
+const MAX_CONTRIBUTORS = 8
+// Mixture proportions are decimal fractions (0-1) with up to 5 decimals.
+const MX_FORMAT = { maximumFractionDigits: 5 }
+const unknownPersonOptions = Array.from({ length: MAX_CONTRIBUTORS }, (_, i) => ({
   id: `__up_${i + 1}`,
   label: `UP${i + 1}`,
   unknownLabel: `UP${i + 1}`,
@@ -90,11 +94,24 @@ function possibleIndividualIds(sampleId: string | null | undefined): Set<string>
   return new Set(ids.filter((id): id is string => !!id))
 }
 
-function contributorOptionsFor(sampleId: string | null | undefined, selected: PCRContributorInput[]) {
+// Each individual / unknown person can only be picked once per run, so
+// options chosen on other rows are left out.
+function contributorOptionsFor(
+  sampleId: string | null | undefined,
+  selected: PCRContributorInput[],
+  currentIndex: number,
+) {
+  const takenElsewhere = new Set(
+    selected
+      .filter((_, index) => index !== currentIndex)
+      .map((c) => contributorKey(c))
+      .filter((key): key is string => !!key),
+  )
+  const options = contributorOptions.value.filter((option) => !takenElsewhere.has(option.id))
   const possible = possibleIndividualIds(sampleId)
-  if (possible === null) return contributorOptions.value
+  if (possible === null) return options
   const keep = new Set([...possible, ...selected.map((c) => c.individual_id).filter((id): id is string => !!id)])
-  return contributorOptions.value.filter((option) => option.unknownLabel !== null || keep.has(option.id))
+  return options.filter((option) => option.unknownLabel !== null || keep.has(option.id))
 }
 
 function contributorKey(contributor: PCRContributorInput): string | null {
@@ -105,20 +122,28 @@ function contributorKey(contributor: PCRContributorInput): string | null {
   return null
 }
 
-function setContributorKey(contributor: PCRContributorInput, key: string | null) {
-  const option = contributorOptions.value.find((candidate) => candidate.id === key)
-  contributor.individual_id = option && !option.unknownLabel ? option.id : null
-  contributor.unknown_label = option?.unknownLabel ?? null
-}
-
 function emptyContributor(): PCRContributorInput {
   return { individual_id: null, unknown_label: null, mixture_proportion: null }
+}
+
+// Mixture proportions may never exceed 1 in total, and once every contributor
+// has one they must add up to exactly 1. The tolerance absorbs rounding to
+// 5 decimals (e.g. 3 × 0.33333).
+const MX_SUM_TOLERANCE = 1e-4
+function mixtureSumProblem(contributors: PCRContributorInput[] | null | undefined): string | null {
+  const values = (contributors ?? []).map((contributor) => contributor.mixture_proportion)
+  const filled = values.filter((value): value is number => value != null)
+  if (!filled.length) return null
+  const sum = filled.reduce((total, value) => total + value, 0)
+  const complete = filled.length === values.length
+  if (sum <= 1 + MX_SUM_TOLERANCE && (!complete || sum >= 1 - MX_SUM_TOLERANCE)) return null
+  return `Mixture proportions must add up to 1 (currently ${Number(sum.toFixed(5))}).`
 }
 
 // Keeps the contributors array in sync with no_of_contributors: growing it
 // adds blank rows, shrinking it drops the extra ones from the end.
 function syncContributors(contributors: PCRContributorInput[], count: number | null): PCRContributorInput[] {
-  const target = count ?? 0
+  const target = Math.min(Math.max(count ?? 0, 0), MAX_CONTRIBUTORS)
   const next = contributors.slice(0, target)
   while (next.length < target) next.push(emptyContributor())
   return next
@@ -283,7 +308,14 @@ function savePcrField(resultId: string, index: number, field: PcrNumericField, v
     const pcrs = result.pcrs.map(pcrInputOf)
     const target = pcrs[index]!
     target[field] = next
-    if (field === 'no_of_contributors') target.contributors = syncContributors(target.contributors ?? [], next)
+    if (field === 'no_of_contributors') {
+      target.contributors = syncContributors(target.contributors ?? [], next)
+      const problem = mixtureSumProblem(target.contributors)
+      if (problem) {
+        loadError.value = `${problem} Adjust them in the genotyping result dialog.`
+        return
+      }
+    }
     try {
       const updated = await resultApi.update(result.id, { ...resultInputOf(result), pcrs })
       allResults.value = allResults.value.map((item) => (item.id === updated.id ? updated : item))
@@ -294,10 +326,10 @@ function savePcrField(resultId: string, index: number, field: PcrNumericField, v
   pcrSaveQueues.set(resultId, job)
 }
 
-const PCR_EDIT_COLUMNS: { field: PcrNumericField; header: string; unit?: string; integer?: boolean; step?: number }[] = [
+const PCR_EDIT_COLUMNS: { field: PcrNumericField; header: string; unit?: string; integer?: boolean; step?: number; max?: number }[] = [
   { field: 'sample_input_volume_in_pcr', header: 'Sample input volume', unit: 'µL', step: 0.1 },
   { field: 'dna_input_amount_in_pcr', header: 'DNA input amount', unit: 'pg', step: 0.001 },
-  { field: 'no_of_contributors', header: 'No. of contributors', integer: true },
+  { field: 'no_of_contributors', header: 'No. of contributors', integer: true, max: MAX_CONTRIBUTORS },
   { field: 'total_rfu', header: 'Total RFU', unit: 'RFU', step: 0.1 },
   { field: 'total_no_of_alleles', header: 'Total no. of alleles', integer: true },
 ]
@@ -328,7 +360,17 @@ type PcrNumericField = keyof typeof CSV_PCR_COLUMNS
 const PCR_INTEGER_FIELDS: PcrNumericField[] = ['no_of_contributors', 'total_no_of_alleles']
 const PCR_FIELDS = Object.keys(CSV_PCR_COLUMNS) as PcrNumericField[]
 
-const CSV_EDITABLE_COLUMNS = [CSV_CONCENTRATION, ...Object.values(CSV_PCR_COLUMNS)]
+// Contributors as pairs of columns: who (an individual's name or UP1-UP8)
+// and their mixture proportion.
+const CSV_CONTRIBUTOR_COLUMNS = Array.from({ length: MAX_CONTRIBUTORS }, (_, i) => ({
+  who: `contributor_${i + 1}`,
+  mx: `mx_${i + 1}`,
+}))
+const CSV_EDITABLE_COLUMNS = [
+  CSV_CONCENTRATION,
+  ...Object.values(CSV_PCR_COLUMNS),
+  ...CSV_CONTRIBUTOR_COLUMNS.flatMap(({ who, mx }) => [who, mx]),
+]
 const CSV_INFO_COLUMNS = [
   'info_scenario',
   'info_sample_name',
@@ -340,7 +382,43 @@ const CSV_INFO_COLUMNS = [
 const CSV_NOTES = [
   'To add a genotyping result, copy a row of the same result, clear the cell in genotyping_id_do_not_edit and enter the values. Its methods are taken from the latest genotyping result of that result; set them in the table afterwards if needed.',
   'Genotyping results can not be deleted through the file; rows you remove are simply left unchanged.',
+  `Contributors go in contributor_1 to contributor_${MAX_CONTRIBUTORS}: the individual's name as shown in the app, or UP1 to UP${MAX_CONTRIBUTORS} for unknown persons. Each is followed by its mixture proportion (mx_1 …) as a decimal between 0 and 1 with up to 5 decimals; together they must add up to 1. Only the first no_of_contributors pairs may be filled.`,
 ]
+
+function csvContributorName(contributor: PCRContributor): string | null {
+  if (contributor.unknown_label) return contributor.unknown_label
+  if (!contributor.individual_id) return null
+  const individual = individuals.value.find((candidate) => candidate.id === contributor.individual_id)
+  return individual ? individualName(individual) : (contributor.individual?.name ?? null)
+}
+
+// Resolves a contributor cell to an individual or unknown person, or returns
+// an error message.
+function resolveCsvContributor(text: string): Pick<PCRContributorInput, 'individual_id' | 'unknown_label'> | string {
+  const up = /^up\s*(\d+)$/i.exec(text)
+  if (up) {
+    const number = Number(up[1])
+    if (number >= 1 && number <= MAX_CONTRIBUTORS) return { individual_id: null, unknown_label: `UP${number}` }
+    return `${JSON.stringify(text)} is not a valid unknown person (UP1 to UP${MAX_CONTRIBUTORS})`
+  }
+  const wanted = text.toLowerCase()
+  const matches = individuals.value.filter((individual) => individualName(individual).trim().toLowerCase() === wanted)
+  if (matches.length === 1) return { individual_id: matches[0]!.id, unknown_label: null }
+  if (matches.length > 1) return `${JSON.stringify(text)} matches more than one individual`
+  return `${JSON.stringify(text)} is not an individual of this study`
+}
+
+function sameContributors(a: PCRContributorInput[], b: PCRContributorInput[]): boolean {
+  return (
+    a.length === b.length &&
+    a.every(
+      (contributor, i) =>
+        (contributor.individual_id ?? null) === (b[i]!.individual_id ?? null) &&
+        (contributor.unknown_label ?? null) === (b[i]!.unknown_label ?? null) &&
+        (contributor.mixture_proportion ?? null) === (b[i]!.mixture_proportion ?? null),
+    )
+  )
+}
 
 function scenarioNamesOf(result: Result): string {
   return (props.surfaceScenarios[result.sample?.surface_id ?? ''] ?? []).join('; ')
@@ -358,6 +436,7 @@ function buildCsvRows() {
     'info_dna_quantity_ng',
     'info_pcr_method',
     ...Object.values(CSV_PCR_COLUMNS),
+    ...CSV_CONTRIBUTOR_COLUMNS.flatMap(({ who, mx }) => [who, mx]),
   ]
   const rows = resultRows.value.flatMap((result) => {
     const base = [
@@ -377,6 +456,10 @@ function buildCsvRows() {
       result.dna_quantity,
       pcr?.pcr_method ? methodLabel(pcr.pcr_method) : null,
       ...PCR_FIELDS.map((field) => pcr?.[field] ?? null),
+      ...CSV_CONTRIBUTOR_COLUMNS.flatMap((_, i) => {
+        const contributor = pcr?.contributors?.[i]
+        return contributor ? [csvContributorName(contributor), contributor.mixture_proportion ?? null] : [null, null]
+      }),
     ])
   })
   return [header, ...rows]
@@ -397,7 +480,9 @@ async function applyCsvImport(table: string[][], decimal: DecimalSeparator) {
     PcrNumericField,
     number
   >
-  const hasPcrCols = PCR_FIELDS.some((field) => pcrCols[field] !== -1)
+  const contributorCols = CSV_CONTRIBUTOR_COLUMNS.map(({ who, mx }) => ({ who: header.indexOf(who), mx: header.indexOf(mx) }))
+  const hasContributorCols = contributorCols.some(({ who, mx }) => who !== -1 || mx !== -1)
+  const hasPcrCols = hasContributorCols || PCR_FIELDS.some((field) => pcrCols[field] !== -1)
   if (idCol === -1 || (concentrationCol === -1 && !hasPcrCols)) {
     return {
       ok: false,
@@ -466,6 +551,57 @@ async function applyCsvImport(table: string[][], decimal: DecimalSeparator) {
         return
       }
     }
+    if (values.no_of_contributors != null && values.no_of_contributors > MAX_CONTRIBUTORS) {
+      problems.push(`line ${line}: ${CSV_PCR_COLUMNS.no_of_contributors} must be at most ${MAX_CONTRIBUTORS}`)
+      return
+    }
+
+    // Contributor pairs; undefined when the file has no contributor columns,
+    // which leaves the existing contributors as they are.
+    let csvContributors: PCRContributorInput[] | undefined
+    if (hasContributorCols) {
+      csvContributors = []
+      const possible = possibleIndividualIds(result.sample_id)
+      const current = new Set(
+        result.pcrs.flatMap((pcr) => pcr.contributors ?? []).map((c) => c.individual_id).filter(Boolean),
+      )
+      const seen = new Set<string>()
+      for (const [i, cols] of contributorCols.entries()) {
+        const { who: whoColumn, mx: mxColumn } = CSV_CONTRIBUTOR_COLUMNS[i]!
+        const contributor = emptyContributor()
+        const who = cols.who === -1 ? '' : (cells[cols.who] ?? '').trim()
+        if (who) {
+          const resolved = resolveCsvContributor(who)
+          if (typeof resolved === 'string') {
+            problems.push(`line ${line}: ${whoColumn} ${resolved}`)
+            return
+          }
+          const { individual_id: individualId } = resolved
+          if (individualId && possible && !possible.has(individualId) && !current.has(individualId)) {
+            problems.push(`line ${line}: ${whoColumn} ${JSON.stringify(who)} is not a donor or recipient of this sample's contact`)
+            return
+          }
+          const key = individualId ?? resolved.unknown_label!
+          if (seen.has(key)) {
+            problems.push(`line ${line}: ${whoColumn} ${JSON.stringify(who)} is listed more than once`)
+            return
+          }
+          seen.add(key)
+          Object.assign(contributor, resolved)
+        }
+        const mx = parse(cells, cols.mx)
+        if (mx != null) {
+          if (Number.isNaN(mx) || mx < 0 || mx > 1 || Math.abs(mx * 1e5 - Math.round(mx * 1e5)) > 1e-6) {
+            problems.push(
+              `line ${line}: ${mxColumn} ${JSON.stringify(cells[cols.mx])} must be a number between 0 and 1 with at most 5 decimals, written with a "${decimal}" decimal separator`,
+            )
+            return
+          }
+          contributor.mixture_proportion = mx
+        }
+        csvContributors.push(contributor)
+      }
+    }
 
     const pcrId = pcrIdCol === -1 ? '' : (cells[pcrIdCol] ?? '').trim()
     const apply = (target: PCRInput) => {
@@ -477,8 +613,23 @@ async function applyCsvImport(table: string[][], decimal: DecimalSeparator) {
           changed = true
         }
       }
-      if (changed && values.no_of_contributors !== undefined) {
-        target.contributors = syncContributors(target.contributors ?? [], target.no_of_contributors)
+      const count = target.no_of_contributors ?? 0
+      let contributors = syncContributors(target.contributors ?? [], target.no_of_contributors)
+      if (csvContributors) {
+        const overflow = csvContributors.findIndex((c, i) => i >= count && !isBlankContributor(c))
+        if (overflow !== -1) {
+          problems.push(
+            `line ${line}: ${CSV_CONTRIBUTOR_COLUMNS[overflow]!.who} is filled, but no_of_contributors is ${count}`,
+          )
+          return changed
+        }
+        contributors = csvContributors.slice(0, count)
+      }
+      if (!sameContributors(contributors, target.contributors ?? [])) {
+        target.contributors = contributors
+        changed = true
+        const problem = mixtureSumProblem(contributors)
+        if (problem) problems.push(`line ${line}: ${problem}`)
       }
       return changed
     }
@@ -495,7 +646,10 @@ async function applyCsvImport(table: string[][], decimal: DecimalSeparator) {
       }
       plan.touchedPcrIds.add(pcrId)
       if (apply(plan.pcrs[position]!)) plan.pcrsChanged = true
-    } else if (PCR_FIELDS.some((field) => values[field] != null)) {
+    } else if (
+      PCR_FIELDS.some((field) => values[field] != null) ||
+      csvContributors?.some((contributor) => !isBlankContributor(contributor))
+    ) {
       // No genotyping id but values: a new genotyping result, with the methods
       // of the latest existing one.
       const latest = plan.pcrs.length ? plan.pcrs[plan.pcrs.length - 1] : null
@@ -656,7 +810,8 @@ const pcrSchema = yup.object({
     .number()
     .nullable()
     .integer('No. of contributors must be a whole number.')
-    .min(0, 'No. of contributors must be zero or greater.'),
+    .min(0, 'No. of contributors must be zero or greater.')
+    .max(MAX_CONTRIBUTORS, `No. of contributors can be at most ${MAX_CONTRIBUTORS}.`),
   total_rfu: yup.number().nullable().min(0, 'Total RFU must be zero or greater.'),
   total_no_of_alleles: yup
     .number()
@@ -673,10 +828,19 @@ const pcrSchema = yup.object({
           .number()
           .nullable()
           .min(0, 'Mixture proportion must be between 0 and 1.')
-          .max(1, 'Mixture proportion must be between 0 and 1.'),
+          .max(1, 'Mixture proportion must be between 0 and 1.')
+          .test(
+            'max-5-decimals',
+            'Mixture proportion can have at most 5 decimal places.',
+            (value) => value == null || Math.abs(value * 1e5 - Math.round(value * 1e5)) < 1e-6,
+          ),
       }),
     )
-    .defined(),
+    .defined()
+    .test('mx-sum', function (contributors) {
+      const problem = mixtureSumProblem(contributors as PCRContributorInput[])
+      return problem ? this.createError({ message: problem }) : true
+    }),
 })
 
 const {
@@ -713,6 +877,34 @@ const ceMethodOptions = computed(() => {
 watch(noOfContributors, (count) => {
   setPcrFieldValue('contributors', syncContributors(pcrFormValues.contributors ?? [], count))
 })
+
+// useForm's values are read-only, so contributor rows are changed through
+// setFieldValue rather than by assigning to them.
+function updateContributor(index: number, changes: Partial<PCRContributorInput>) {
+  const contributors = (pcrFormValues.contributors ?? []).map((contributor, i) =>
+    i === index ? { ...contributor, ...changes } : { ...contributor },
+  )
+  setPcrFieldValue('contributors', contributors)
+}
+
+function setContributorKey(index: number, key: string | null) {
+  const option = contributorOptions.value.find((candidate) => candidate.id === key)
+  updateContributor(index, {
+    individual_id: option && !option.unknownLabel ? option.id : null,
+    unknown_label: option?.unknownLabel ?? null,
+  })
+}
+
+function setMixtureProportion(index: number, value: number | null | undefined) {
+  updateContributor(index, { mixture_proportion: value ?? null })
+}
+
+// Shown live while typing; the schema test still blocks saving.
+const mixtureSumError = computed(() => mixtureSumProblem(pcrFormValues.contributors) ?? pcrErrors.value.contributors)
+
+function mixtureProportionError(index: number): string | undefined {
+  return (pcrErrors.value as Record<string, string | undefined>)[`contributors[${index}].mixture_proportion`]
+}
 
 function isBlankContributor(contributor: PCRContributorInput): boolean {
   return Object.values(contributor).every((value) => value === null)
@@ -1150,6 +1342,7 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
                       <UInputNumber
                         :model-value="data[col.field] ?? undefined"
                         :min="0"
+                        :max="col.max"
                         :step="col.integer ? 1 : col.step"
                         :step-snapping="!!col.integer"
                         :format-options="col.integer ? { maximumFractionDigits: 0 } : { maximumFractionDigits: 6 }"
@@ -1184,7 +1377,7 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
     <UModal
       v-model:open="dialogVisible"
       :title="editingId === null ? 'Add quantification result' : 'Edit quantification result'"
-      :ui="{ content: 'max-w-xl', footer: 'justify-end' }"
+      :ui="{ content: 'max-w-3xl', footer: 'justify-end' }"
     >
       <template #body>
         <div v-if="editingId !== null" class="flex flex-col gap-4">
@@ -1362,9 +1555,6 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
                     <UBadge color="neutral" variant="outline" size="lg" label="pg" />
                   </UFieldGroup>
                 </UFormField>
-                <UFormField label="No. of contributors" :error="pcrErrors.no_of_contributors">
-                  <UInputNumber v-model="noOfContributors" :min="0" orientation="vertical" class="w-full" />
-                </UFormField>
                 <UFormField label="Total RFU" :error="pcrErrors.total_rfu">
                   <UFieldGroup>
                     <UInputNumber v-model="totalRfu" :min="0" :step="0.1" :step-snapping="false" :format-options="{ maximumFractionDigits: 6 }" orientation="vertical" class="w-full" />
@@ -1376,38 +1566,54 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
                 </UFormField>
               </div>
 
-              <div v-if="pcrFormValues.contributors?.length" class="flex flex-col gap-2">
-                <label class="font-medium text-sm">Mixture proportions</label>
-                <div
-                  v-for="(contributor, index) in pcrFormValues.contributors"
-                  :key="index"
-                  class="flex items-end gap-2"
-                >
-                  <UFormField :label="`Contributor ${index + 1}`" class="flex-1">
-                    <USelectMenu
-                      :model-value="contributorKey(contributor)"
-                      :items="contributorOptionsFor(sampleId, pcrFormValues.contributors ?? [])"
-                      value-key="id"
-                      placeholder="Select an individual or unknown person"
-                      clear
-                      class="w-full"
-                      @update:model-value="setContributorKey(contributor, $event)"
-                    />
+              <UCard variant="subtle" :ui="{ body: 'p-4 sm:p-4' }">
+                <template #header>
+                  <UFormField
+                    label="No. of contributors"
+                    :description="`Up to ${MAX_CONTRIBUTORS} people, each with their mixture proportion (Mx, 0–1).`"
+                    :error="pcrErrors.no_of_contributors"
+                    orientation="horizontal"
+                  >
+                    <UInputNumber v-model="noOfContributors" :min="0" :max="MAX_CONTRIBUTORS" orientation="vertical" class="w-28" />
                   </UFormField>
-                  <UFormField label="Mx" class="w-28">
-                    <UInputNumber
-                      v-model="contributor.mixture_proportion"
-                      :min="0"
-                      :max="1"
-                      :step="0.01"
-                      :step-snapping="false"
-                      :format-options="{ maximumFractionDigits: 6 }"
-                      orientation="vertical"
-                      class="w-full"
-                    />
-                  </UFormField>
-                </div>
-              </div>
+                </template>
+                <template v-if="pcrFormValues.contributors?.length" #default>
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
+                    <div
+                      v-for="(contributor, index) in pcrFormValues.contributors"
+                      :key="index"
+                      class="flex items-start gap-2"
+                    >
+                      <UFormField :label="`Contributor ${index + 1}`" class="flex-1 min-w-0">
+                        <USelectMenu
+                          :model-value="contributorKey(contributor)"
+                          :items="contributorOptionsFor(sampleId, pcrFormValues.contributors ?? [], index)"
+                          value-key="id"
+                          placeholder="Individual or unknown"
+                          clear
+                          class="w-full"
+                          @update:model-value="setContributorKey(index, $event)"
+                        />
+                      </UFormField>
+                      <UFormField label="Mx" :error="mixtureProportionError(index)" class="w-32 shrink-0">
+                        <UInputNumber
+                          :model-value="contributor.mixture_proportion ?? undefined"
+@update:model-value="(value: number | null) => setMixtureProportion(index, value)"
+                          :min="0"
+                          :max="1"
+                          :step="0.01"
+                          :step-snapping="false"
+                          :format-options="MX_FORMAT"
+                          placeholder="0–1"
+                          orientation="vertical"
+                          class="w-full"
+                        />
+                      </UFormField>
+                  </div>
+                  </div>
+                  <p v-if="mixtureSumError" class="mt-3 text-sm text-error">{{ mixtureSumError }}</p>
+                </template>
+              </UCard>
 
               <div class="flex justify-start mt-2">
                 <UButton
@@ -1508,7 +1714,7 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
     <UModal
       v-model:open="pcrDialogVisible"
       :title="editingPcrId === null ? 'Add genotyping result' : 'Edit genotyping result'"
-      :ui="{ content: 'max-w-xl', footer: 'justify-end' }"
+      :ui="{ content: 'max-w-3xl', footer: 'justify-end' }"
     >
       <template #body>
         <div class="flex flex-col gap-4">
@@ -1598,9 +1804,6 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
                 <UBadge color="neutral" variant="outline" size="lg" label="pg" />
               </UFieldGroup>
             </UFormField>
-            <UFormField label="No. of contributors" :error="pcrErrors.no_of_contributors">
-              <UInputNumber v-model="noOfContributors" :min="0" orientation="vertical" class="w-full" />
-            </UFormField>
             <UFormField label="Total RFU" :error="pcrErrors.total_rfu">
               <UFieldGroup>
                 <UInputNumber v-model="totalRfu" :min="0" :step="0.1" :step-snapping="false" :format-options="{ maximumFractionDigits: 6 }" orientation="vertical" class="w-full" />
@@ -1612,38 +1815,54 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
             </UFormField>
           </div>
 
-          <div v-if="pcrFormValues.contributors?.length" class="flex flex-col gap-2">
-            <label class="font-medium text-sm">Mixture proportions</label>
-            <div
-              v-for="(contributor, index) in pcrFormValues.contributors"
-              :key="index"
-              class="flex items-end gap-2"
-            >
-              <UFormField :label="`Contributor ${index + 1}`" class="flex-1">
-                <USelectMenu
-                  :model-value="contributorKey(contributor)"
-                  :items="contributorOptionsFor(pcrDialogResult?.sample_id, pcrFormValues.contributors ?? [])"
-                  value-key="id"
-                  placeholder="Select an individual or unknown person"
-                  clear
-                  class="w-full"
-                  @update:model-value="setContributorKey(contributor, $event)"
-                />
+          <UCard variant="subtle" :ui="{ body: 'p-4 sm:p-4' }">
+            <template #header>
+              <UFormField
+                label="No. of contributors"
+                :description="`Up to ${MAX_CONTRIBUTORS} people, each with their mixture proportion (Mx, 0–1).`"
+                :error="pcrErrors.no_of_contributors"
+                orientation="horizontal"
+              >
+                <UInputNumber v-model="noOfContributors" :min="0" :max="MAX_CONTRIBUTORS" orientation="vertical" class="w-28" />
               </UFormField>
-              <UFormField label="Mx" class="w-28">
-                <UInputNumber
-                  v-model="contributor.mixture_proportion"
-                  :min="0"
-                  :max="1"
-                  :step="0.01"
-                  :step-snapping="false"
-                  :format-options="{ maximumFractionDigits: 6 }"
-                  orientation="vertical"
-                  class="w-full"
-                />
-              </UFormField>
-            </div>
-          </div>
+            </template>
+            <template v-if="pcrFormValues.contributors?.length" #default>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
+                <div
+                  v-for="(contributor, index) in pcrFormValues.contributors"
+                  :key="index"
+                  class="flex items-start gap-2"
+                >
+                  <UFormField :label="`Contributor ${index + 1}`" class="flex-1 min-w-0">
+                    <USelectMenu
+                      :model-value="contributorKey(contributor)"
+                      :items="contributorOptionsFor(pcrDialogResult?.sample_id, pcrFormValues.contributors ?? [], index)"
+                      value-key="id"
+                      placeholder="Individual or unknown"
+                      clear
+                      class="w-full"
+                      @update:model-value="setContributorKey(index, $event)"
+                    />
+                  </UFormField>
+                  <UFormField label="Mx" :error="mixtureProportionError(index)" class="w-32 shrink-0">
+                    <UInputNumber
+                      :model-value="contributor.mixture_proportion ?? undefined"
+@update:model-value="(value: number | null) => setMixtureProportion(index, value)"
+                      :min="0"
+                      :max="1"
+                      :step="0.01"
+                      :step-snapping="false"
+                      :format-options="MX_FORMAT"
+                      placeholder="0–1"
+                      orientation="vertical"
+                      class="w-full"
+                    />
+                  </UFormField>
+              </div>
+              </div>
+              <p v-if="mixtureSumError" class="mt-3 text-sm text-error">{{ mixtureSumError }}</p>
+            </template>
+          </UCard>
 
           <UAlert v-if="submitPcrError" color="error" variant="outline" :description="submitPcrError" />
         </div>
