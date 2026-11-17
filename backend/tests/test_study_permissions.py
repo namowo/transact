@@ -53,22 +53,22 @@ def _login(client, user: User):
 async def test_superuser_can_view_but_not_edit_foreign_study(
     superuser_client, foreign_study
 ):
-    response = await superuser_client.get(f"/api/v1/v1/studies/{foreign_study.id}")
+    response = await superuser_client.get(f"/api/v1/studies/{foreign_study.id}")
     assert response.status_code == 200
 
     response = await superuser_client.patch(
-        f"/api/v1/v1/studies/{foreign_study.id}", json={"title": "Hijacked"}
+        f"/api/v1/studies/{foreign_study.id}", json={"title": "Hijacked"}
     )
     assert response.status_code == 403
 
-    response = await superuser_client.delete(f"/api/v1/v1/studies/{foreign_study.id}")
+    response = await superuser_client.delete(f"/api/v1/studies/{foreign_study.id}")
     assert response.status_code == 403
 
 
 @pytest.mark.asyncio
 async def test_regular_user_cannot_edit_foreign_study(auth_client, foreign_study):
     response = await auth_client.patch(
-        f"/api/v1/v1/studies/{foreign_study.id}", json={"title": "Hijacked"}
+        f"/api/v1/studies/{foreign_study.id}", json={"title": "Hijacked"}
     )
     assert response.status_code == 403
 
@@ -76,7 +76,7 @@ async def test_regular_user_cannot_edit_foreign_study(auth_client, foreign_study
 @pytest.mark.asyncio
 async def test_member_can_edit_own_study(auth_client, own_study):
     response = await auth_client.patch(
-        f"/api/v1/v1/studies/{own_study.id}", json={"title": "Renamed"}
+        f"/api/v1/studies/{own_study.id}", json={"title": "Renamed"}
     )
     assert response.status_code == 200
     assert response.json()["title"] == "Renamed"
@@ -87,7 +87,7 @@ async def test_regular_user_cannot_move_study_to_other_lab(
     auth_client, own_study, other_lab
 ):
     response = await auth_client.patch(
-        f"/api/v1/v1/studies/{own_study.id}", json={"laboratory_id": str(other_lab.id)}
+        f"/api/v1/studies/{own_study.id}", json={"laboratory_id": str(other_lab.id)}
     )
     assert response.status_code == 200
     assert response.json()["laboratory_id"] == str(own_study.laboratory_id)
@@ -125,10 +125,10 @@ async def test_superuser_cannot_edit_results_of_foreign_study(
 
     _login(client, superuser)
     response = await client.patch(
-        f"/api/v1/v1/results/{result['id']}", json={"dna_concentration": 1.0}
+        f"/api/v1/results/{result['id']}", json={"dna_concentration": 1.0}
     )
     assert response.status_code == 403
-    response = await client.delete(f"/api/v1/v1/samples/{sample['id']}")
+    response = await client.delete(f"/api/v1/samples/{sample['id']}")
     assert response.status_code == 403
 
 
@@ -159,18 +159,18 @@ async def test_foreign_scenario_can_be_linked_but_not_edited(
     _login(client, superuser)
     # Linking it into our own study is fine...
     response = await client.patch(
-        f"/api/v1/v1/scenarios/{scenario['id']}",
+        f"/api/v1/scenarios/{scenario['id']}",
         json={"study_ids": [str(foreign_study.id), str(own_study.id)]},
     )
     assert response.status_code == 200
     # ...but editing it, or unlinking it from its own study, is not.
     response = await client.patch(
-        f"/api/v1/v1/scenarios/{scenario['id']}", json={"name": "Mine now"}
+        f"/api/v1/scenarios/{scenario['id']}", json={"name": "Mine now"}
     )
     assert response.status_code == 403
     response = await client.patch(
-        f"/api/v1/v1/scenarios/{scenario['id']}", json={"study_ids": [str(own_study.id)]}
+        f"/api/v1/scenarios/{scenario['id']}", json={"study_ids": [str(own_study.id)]}
     )
     assert response.status_code == 403
-    response = await client.delete(f"/api/v1/v1/scenarios/{scenario['id']}")
+    response = await client.delete(f"/api/v1/scenarios/{scenario['id']}")
     assert response.status_code == 403
