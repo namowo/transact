@@ -201,6 +201,7 @@ async def test_foreign_studys_item_can_be_used_in_own_surface_templates(
             "/api/v1/scenarios",
             json={
                 "name": "Theirs",
+                "realistic": True,
                 "scenario_category_id": category["id"],
                 "owning_study_id": str(foreign_study.id),
                 "study_ids": [str(foreign_study.id)],
