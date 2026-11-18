@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/namowo/transact/compare/v1.0.2...v1.1.0) (2026-11-18)
+
+
+### Features
+
+* download repository data with data models ([#30](https://github.com/namowo/transact/issues/30)) ([d7418f1](https://github.com/namowo/transact/commit/d7418f1723cc17ead3f24cad45cc52d5b4631cde))
+
 ## [1.0.2](https://github.com/namowo/transact/compare/v1.0.1...v1.0.2) (2026-11-18)
 
 
