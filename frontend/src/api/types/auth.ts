@@ -19,6 +19,8 @@ export interface User {
   can_quality_check: boolean
   can_manage_lab_users: boolean
   passkey_prompt_dismissed: boolean
+  // Interactive guides the user finished or skipped.
+  completed_tours?: string[]
   locale: string
   table_sorts?: Partial<Record<SortableTable, TableSortMeta[]>> | null
   laboratory_id: string | null

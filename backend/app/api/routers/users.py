@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -91,6 +91,19 @@ async def dismiss_passkey_prompt(
     db: AsyncSession = Depends(get_async_session),
 ):
     return await crud_user.dismiss_passkey_prompt(db, user)
+
+
+# Interactive guides the frontend knows about.
+TourId = Literal["onboarding", "new-study", "data-entry"]
+
+
+@router.post("/me/completed-tours/{tour}", response_model=UserRead)
+async def complete_tour(
+    tour: TourId,
+    user: User = Depends(current_active_user),
+    db: AsyncSession = Depends(get_async_session),
+):
+    return await crud_user.complete_tour(db, user, tour)
 
 
 @router.post(

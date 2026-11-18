@@ -160,6 +160,7 @@ function onRowClick(event: { data: Study }) {
       </div>
       <UButton
         v-if="auth.isAuthenticated"
+        data-tour="add-study"
         label="Add study"
         icon="i-lucide-plus"
         @click="showPurposeDialog = true"
@@ -334,18 +335,20 @@ function onRowClick(event: { data: Study }) {
       :ui="{ content: 'max-w-lg', footer: 'justify-end' }"
     >
       <template #body>
-      <div class="flex flex-col sm:flex-row gap-3">
-        <UButton
-          label="Plan a transfer experiment"
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <UPageCard
+          title="Plan a transfer experiment"
+          description="Design a new experiment: describe it, plan its scenarios and print a checklist for the lab."
           icon="i-lucide-network"
-          class="flex-1"
-          @click="choosePurpose('transfer')"
+          variant="outline"
+          :on-click="() => choosePurpose('transfer')"
         />
-        <UButton
-          label="Add data to repository"
+        <UPageCard
+          title="Add data to repository"
+          description="Share an experiment you've carried out: describe it, plan its scenarios and enter the results."
           icon="i-lucide-database"
-          class="flex-1"
-          @click="choosePurpose('repository')"
+          variant="outline"
+          :on-click="() => choosePurpose('repository')"
         />
       </div>
       </template>

@@ -37,6 +37,12 @@ class User(Base):
         nullable=False, server_default=text("false")
     )
 
+    # Interactive guides (e.g. "onboarding", "new-study") the user has
+    # finished or skipped, so they aren't started automatically again.
+    completed_tours: Mapped[list[str]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'[]'::jsonb")
+    )
+
     # BCP 47 language tag (e.g. "en-US", "de-DE"); decides how numbers are
     # typed and shown, e.g. the decimal separator.
     locale: Mapped[str] = mapped_column(

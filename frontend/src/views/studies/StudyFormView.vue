@@ -7,6 +7,7 @@ import type { StepperItem } from '@nuxt/ui'
 import { useConfirm } from '@/composables/useConfirm'
 import { createStudy, deleteStudy, getStudy, updateStudy } from '@/api/studies'
 import { useAuthStore } from '@/stores/auth'
+import { useTourStore } from '@/stores/tour'
 import { canEditStudy, provideStudyReadOnly } from '@/composables/useStudyAccess'
 import ScenariosList from '@/components/scenarios/ScenariosList.vue'
 import DataEntryView from '@/views/data/DataEntryView.vue'
@@ -18,6 +19,7 @@ const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 const confirm = useConfirm()
+const tour = useTourStore()
 
 const editingId = computed(() => props.id ?? null)
 const loadingStudy = ref(false)
@@ -207,8 +209,9 @@ function clearCorrespondingAuthor() {
   correspondingEmail.value = ''
 }
 
-function onCorrespondingAuthorChange(value: number | null) {
-  if (value === null) {
+function onCorrespondingAuthorChange(value: number | null | undefined) {
+  // Clearing the select can report undefined as well as null.
+  if (value == null) {
     clearCorrespondingAuthor()
   }
 }
@@ -238,6 +241,8 @@ onMounted(async () => {
       return
     }
     purpose.value = queryPurpose
+    // First study: guide the user through the form and the next steps.
+    tour.start('new-study')
     return
   }
 
@@ -283,6 +288,23 @@ const submitting = ref(false)
 const submitError = ref('')
 
 const continueAfterSubmit = ref(false)
+
+// While the new-study guide waits on the save button, a failed save would
+// leave the user stuck behind the dimmed page - send the guide back to the
+// first field that still needs to be filled in.
+function onInvalidSubmit({ errors: invalid }: { errors: Partial<Record<string, string>> }) {
+  if (tour.tourId !== 'new-study') return
+  const fields = Object.keys(invalid)
+  if (fields.includes('title')) {
+    tour.goTo('title', 'Enter a title to save the study.')
+  } else if (fields.some((field) => field.startsWith('authors'))) {
+    tour.goTo('authors', 'Enter the first and last name of at least one author.')
+  } else if (fields.includes('year') || fields.includes('doi')) {
+    tour.goTo('publication', 'Please correct the publication details.')
+  } else if (fields.includes('corresponding_author_email')) {
+    tour.goTo('contact', 'Please enter a valid email address.')
+  }
+}
 
 const onSubmit = handleSubmit(async (values) => {
   submitting.value = true
@@ -334,7 +356,7 @@ const onSubmit = handleSubmit(async (values) => {
     submitting.value = false
     continueAfterSubmit.value = false
   }
-})
+}, onInvalidSubmit)
 
 function onSaveAndContinue() {
   continueAfterSubmit.value = true
@@ -413,9 +435,30 @@ function confirmDeleteStudy() {
 
 <template>
   <div class="flex flex-col gap-6">
-    <h1 v-if="editingId === null" class="text-2xl font-bold text-surface-900 dark:text-surface-0">
-      {{ purposeOptions.find((option) => option.value === purpose)?.label ?? 'Add study' }}
-    </h1>
+    <div v-if="editingId === null" class="flex items-center justify-between gap-3">
+      <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-0">
+        {{ purposeOptions.find((option) => option.value === purpose)?.label ?? 'Add study' }}
+      </h1>
+      <UButton
+        label="Guide me"
+        icon="i-lucide-circle-help"
+        color="neutral"
+        variant="ghost"
+        @click="tour.start('new-study', { force: true })"
+      />
+    </div>
+
+    <!-- Existing study: restart the guide from the step that's open. The data
+         entry step has its own guide and button. -->
+    <div v-if="editingId !== null && !readOnly && !loadingStudy && activeStep !== '3'" class="flex justify-end -mb-4">
+      <UButton
+        label="Guide me"
+        icon="i-lucide-circle-help"
+        color="neutral"
+        variant="ghost"
+        @click="tour.start('new-study', { force: true })"
+      />
+    </div>
 
     <UAlert
       v-if="readOnly"
@@ -435,6 +478,7 @@ function confirmDeleteStudy() {
     <UStepper
       v-else
       v-model="activeStep"
+      data-tour="study-stepper"
       :items="stepItems"
       :linear="false"
       class="bg-transparent!"
@@ -442,7 +486,7 @@ function confirmDeleteStudy() {
         <template #1>
           <form class="flex flex-col gap-4 max-w-2xl" @submit.prevent="onSubmit">
             <fieldset :disabled="readOnly" class="contents">
-            <UFormField label="Title" :error="errors.title">
+            <UFormField label="Title" :error="errors.title" data-tour="study-title">
               <UInput
                 id="study-title"
                 v-model="title"
@@ -452,7 +496,7 @@ function confirmDeleteStudy() {
               />
             </UFormField>
 
-            <UFormField label="Description" hint="Optional">
+            <UFormField label="Description" hint="Optional" data-tour="study-description">
               <UTextarea
                 id="study-description"
                 v-model="description"
@@ -462,7 +506,7 @@ function confirmDeleteStudy() {
               />
             </UFormField>
 
-            <div class="flex flex-col gap-2">
+            <div class="flex flex-col gap-2" data-tour="study-authors">
               <div class="flex items-center justify-between">
                 <label class="font-medium text-sm">Authors</label>
                 <UButton v-if="!readOnly" label="Add author" icon="i-lucide-plus" variant="ghost" size="sm" @click="addAuthor" />
@@ -505,7 +549,7 @@ function confirmDeleteStudy() {
               </div>
             </div>
 
-            <template v-if="purpose === 'repository'">
+            <div v-if="purpose === 'repository'" class="flex flex-col gap-4" data-tour="study-publication">
               <UFormField label="Journal" hint="Optional">
                 <UInput id="study-journal" v-model="journal" v-bind="journalAttrs" class="w-full" />
               </UFormField>
@@ -543,13 +587,15 @@ function confirmDeleteStudy() {
                   class="w-full"
                 />
               </UFormField>
-            </template>
+            </div>
 
+            <div class="flex flex-col gap-4" data-tour="study-contact">
             <UFormField label="Corresponding author contact" hint="Optional">
               <USelectMenu
                 id="study-contact-author"
                 v-model="correspondingAuthorIndex"
                 :items="correspondingAuthorOptions"
+                value-key="value"
                 :placeholder="
                   correspondingAuthorOptions.length
                     ? 'Select an author'
@@ -572,6 +618,7 @@ function confirmDeleteStudy() {
                 class="w-full"
               />
             </UFormField>
+            </div>
 
             </fieldset>
 
@@ -598,6 +645,7 @@ function confirmDeleteStudy() {
             <template v-else>
             <div v-if="editingId !== null" class="flex justify-end mt-2">
               <UButton
+                data-tour="study-save-continue"
                 label="Save & continue"
                 trailing-icon="i-lucide-arrow-right"
                 variant="ghost"
@@ -610,6 +658,7 @@ function confirmDeleteStudy() {
             <div class="flex gap-2 mt-4">
               <UButton
                 type="submit"
+                data-tour="study-submit"
                 :icon="editingId === null ? undefined : 'i-lucide-save'"
                 :trailing-icon="editingId === null ? 'i-lucide-arrow-right' : undefined"
                 :label="editingId === null ? 'Add study & continue' : 'Save changes'"
@@ -695,6 +744,7 @@ function confirmDeleteStudy() {
         <template #2>
           <div v-if="editingId !== null" class="flex justify-end mb-2">
             <UButton
+              data-tour="planning-checklist"
               label="Print planning checklist"
               icon="i-lucide-printer"
               variant="outline"
@@ -707,6 +757,7 @@ function confirmDeleteStudy() {
             <UButton label="Previous step" icon="i-lucide-arrow-left" variant="ghost" type="button" @click="activeStep = '1'" />
             <UButton
               v-if="purpose === 'repository'"
+              data-tour="study-add-data"
               label="Next step"
               trailing-icon="i-lucide-arrow-right"
               variant="ghost"

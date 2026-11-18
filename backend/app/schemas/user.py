@@ -82,6 +82,7 @@ class UserRead(BaseModel):
     can_quality_check: bool
     can_manage_lab_users: bool
     passkey_prompt_dismissed: bool
+    completed_tours: List[str] = []
     locale: str = "en-US"
     table_sorts: Optional[Dict[str, List[TableSortMeta]]] = None
     laboratory_id: Optional[UUID] = None

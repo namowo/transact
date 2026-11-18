@@ -71,3 +71,21 @@ async def test_delete_other_user_as_superuser(
 async def test_delete_user_requires_superuser(auth_client: AsyncClient, regular_user: User):
     resp = await auth_client.delete(f"/api/v1/users/{uuid.uuid4()}")
     assert resp.status_code == 403
+
+
+async def test_complete_tour_is_recorded_once(auth_client: AsyncClient):
+    resp = await auth_client.get("/api/v1/users/me")
+    assert resp.json()["completed_tours"] == []
+
+    for _ in range(2):
+        resp = await auth_client.post("/api/v1/users/me/completed-tours/onboarding")
+        assert resp.status_code == 200
+    assert resp.json()["completed_tours"] == ["onboarding"]
+
+    resp = await auth_client.post("/api/v1/users/me/completed-tours/new-study")
+    assert resp.json()["completed_tours"] == ["onboarding", "new-study"]
+
+
+async def test_complete_unknown_tour_rejected(auth_client: AsyncClient):
+    resp = await auth_client.post("/api/v1/users/me/completed-tours/nope")
+    assert resp.status_code == 422

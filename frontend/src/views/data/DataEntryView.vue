@@ -21,6 +21,7 @@ import { useIndividualOptions } from '@/components/scenarios/individualOptions'
 import { useConfirm } from '@/composables/useConfirm'
 import { canEditStudy, provideStudyReadOnly, useStudyReadOnly } from '@/composables/useStudyAccess'
 import { useAuthStore } from '@/stores/auth'
+import { useTourStore } from '@/stores/tour'
 import { listScenarios } from '@/api/scenarios'
 import { getStudy } from '@/api/studies'
 import { listContacts, deleteContact, updateContact } from '@/api/contacts'
@@ -86,7 +87,16 @@ async function load() {
   }
 }
 
-onMounted(load)
+// First time entering data: hand over from the new-study guide (if it led
+// here) to the data-entry guide. Waits for the study so read-only studies of
+// other laboratories are known.
+const tour = useTourStore()
+onMounted(async () => {
+  await load()
+  if (readOnly.value || loadError.value) return
+  if (tour.tourId === 'new-study') await tour.finish()
+  tour.start('data-entry')
+})
 
 const dialogVisible = ref(false)
 const editingNames = ref(false)
@@ -623,7 +633,17 @@ const activeTab = computed<string>({
 
 <template>
   <div class="flex flex-col gap-6">
-    <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-0">{{ readOnly ? 'Data' : 'Data entry' }}</h1>
+    <div class="flex items-center justify-between gap-3">
+      <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-0">{{ readOnly ? 'Data' : 'Data entry' }}</h1>
+      <UButton
+        v-if="!readOnly"
+        label="Guide me"
+        icon="i-lucide-circle-help"
+        color="neutral"
+        variant="ghost"
+        @click="tour.start('data-entry', { force: true })"
+      />
+    </div>
 
     <div v-if="loading" class="flex justify-center py-12">
       <UProgress class="w-12" />
@@ -632,7 +652,7 @@ const activeTab = computed<string>({
     <UAlert v-else-if="loadError" color="error" variant="outline" :description="loadError" />
 
     <div v-if="!loading && !loadError" class="flex flex-wrap items-end gap-3">
-      <UFormField label="Scenario" :hint="readOnly ? 'Choose a scenario to filter the data' : 'Choose a scenario to add data to it, or view all data'">
+      <UFormField label="Scenario" data-tour="data-scenario" :hint="readOnly ? 'Choose a scenario to filter the data' : 'Choose a scenario to add data to it, or view all data'">
         <USelect v-model="scenarioSelectValue" :items="scenarioOptions" class="w-72" />
       </UFormField>
       <p v-if="!studyScenarios.length && !readOnly" class="text-sm text-warning pb-2">
@@ -640,7 +660,7 @@ const activeTab = computed<string>({
       </p>
     </div>
 
-    <UTabs v-if="!loading && !loadError" v-model="activeTab" :items="tabItems" :unmount-on-hide="false" class="w-full">
+    <UTabs v-if="!loading && !loadError" v-model="activeTab" data-tour="data-tabs" :items="tabItems" :unmount-on-hide="false" class="w-full">
       <template #individuals>
         <IndividualsPanel :study-id="studyId" :scenarios="studyScenarios" :scenario-id="selectedScenarioId" @update:count="individualCountOverride = $event" />
       </template>
@@ -650,13 +670,14 @@ const activeTab = computed<string>({
       </template>
 
       <template #contacts>
-        <div class="flex flex-col gap-4">
+        <div class="flex flex-col gap-4" data-tour="contacts-panel">
           <div class="flex items-center justify-between">
             <p class="text-sm text-surface-500 dark:text-surface-400">
               Actual contacts recorded for this study's planned scenarios.
             </p>
             <UButton
               v-if="!readOnly"
+              data-tour="add-contact"
               label="Add actual contact"
               icon="i-lucide-plus"
               variant="outline"

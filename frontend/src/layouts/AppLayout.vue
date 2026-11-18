@@ -1,18 +1,24 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import type { NavigationMenuItem } from '@nuxt/ui'
 import NotificationCenter from '@/components/NotificationCenter.vue'
 import ThemeToggle from '@/components/ThemeToggle.vue'
+import TourGuide from '@/components/tour/TourGuide.vue'
 import { useAuthStore } from '@/stores/auth'
-import { useUiStore } from '@/stores/ui'
+import { useTourStore } from '@/stores/tour'
 import { defaultDocSlug, docPages } from '@/data/docs'
 import { usePendingRequests } from '@/composables/usePendingRequests'
 
 const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
-const ui = useUiStore()
+// The sidebar's slide-over menu on small screens. It must start closed:
+// while open it's a modal layer that blocks pointer events on the rest of
+// the page, even at desktop widths where it's hidden. Desktop collapsing is
+// separate and persisted by UDashboardGroup.
+const mobileMenuOpen = ref(false)
+const tour = useTourStore()
 const { labRequestCount, newLabRequestCount, load: loadPendingRequests } = usePendingRequests()
 
 if (auth.isAuthenticated) loadPendingRequests()
@@ -26,19 +32,26 @@ const navGroups = computed<NavigationMenuItem[][]>(() =>
             label: 'Studies',
             icon: 'i-lucide-book-open',
             type: 'trigger',
+            class: 'tour-nav-studies',
             defaultOpen: route.name?.toString().startsWith('studies-'),
             children: [
               { label: 'By Laboratory', to: { name: 'studies-laboratory' } },
               { label: 'All', to: { name: 'studies-all' } },
             ],
           },
-          { label: 'Data download', icon: 'i-lucide-download', to: { name: 'data-models' } },
+          {
+            label: 'Data download',
+            icon: 'i-lucide-download',
+            to: { name: 'data-models' },
+            class: 'tour-nav-data',
+          },
           ...(auth.canQualityCheck
             ? [
                 {
                   label: 'Quality Check',
                   icon: 'i-lucide-square-check',
                   to: { name: 'studies-quality-check' },
+                  class: 'tour-nav-quality',
                 },
               ]
             : []),
@@ -48,6 +61,7 @@ const navGroups = computed<NavigationMenuItem[][]>(() =>
             label: 'Laboratory',
             icon: 'i-lucide-building-2',
             type: 'trigger',
+            class: 'tour-nav-laboratory',
             defaultOpen: route.name?.toString().startsWith('settings-methods-') || route.name === 'lab-users',
             badge: labRequestCount.value > 0 ? labRequestCount.value : undefined,
             children: [
@@ -69,6 +83,7 @@ const navGroups = computed<NavigationMenuItem[][]>(() =>
                   label: 'Admin',
                   icon: 'i-lucide-shield',
                   type: 'trigger' as const,
+                  class: 'tour-nav-admin',
                   defaultOpen:
                     route.name === 'admin-users' ||
                     route.name === 'laboratories' ||
@@ -118,6 +133,11 @@ const userMenuItems = computed(() => [
       label: 'Edit profile',
       icon: 'i-lucide-user-pen',
       onSelect: () => router.push({ name: 'profile' }),
+    },
+    {
+      label: 'Take the tour',
+      icon: 'i-lucide-map',
+      onSelect: () => tour.start('onboarding', { force: true }),
     },
   ],
   [
@@ -187,7 +207,7 @@ const footerLinks = [
   <UDashboardGroup unit="rem" storage="local">
     <UDashboardSidebar
       id="app-sidebar"
-      v-model:open="ui.sidebarOpen"
+      v-model:open="mobileMenuOpen"
       collapsible
       resizable
       class="bg-elevated/25"
@@ -222,6 +242,7 @@ const footerLinks = [
           tooltip
           popover
           :class="index > 0 && 'mt-4'"
+          :data-tour="index === navGroups.length - 1 ? 'nav-docs' : undefined"
         />
 
         <UNavigationMenu
@@ -237,6 +258,7 @@ const footerLinks = [
       <template #footer="{ collapsed }">
         <UDropdownMenu v-if="auth.isAuthenticated" :items="userMenuItems" :content="{ align: 'center' }">
           <UButton
+            data-tour="user-menu"
             color="neutral"
             variant="ghost"
             block
@@ -274,7 +296,9 @@ const footerLinks = [
           </template>
 
           <template #right>
-            <NotificationCenter v-if="auth.isAuthenticated" />
+            <div v-if="auth.isAuthenticated" data-tour="notifications" class="flex">
+              <NotificationCenter />
+            </div>
             <ThemeToggle />
           </template>
         </UDashboardNavbar>
@@ -298,5 +322,7 @@ const footerLinks = [
         </UFooter>
       </template>
     </UDashboardPanel>
+
+    <TourGuide v-if="auth.isAuthenticated" />
   </UDashboardGroup>
 </template>
