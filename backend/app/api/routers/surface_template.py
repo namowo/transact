@@ -38,7 +38,8 @@ async def create(
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_superuser),
 ):
-    await P.assert_can_edit_studies(db, user, await P.study_ids_of_item(db, obj_in.item_id))
+    # A new surface template isn't used by any contact template yet, and the
+    # item it references is a shared catalog entry, so there's nothing to own.
     return await crud.create(db, obj_in)
 
 
@@ -53,7 +54,7 @@ async def update(
     user: User = Depends(current_superuser),
 ):
     await P.assert_can_edit_studies(
-        db, user, (await P.study_ids_of_item(db, (await crud.get(db, id)).item_id)) | (await P.study_ids_of_item(db, obj_in.item_id))
+        db, user, await P.study_ids_of_surface_template(db, id)
     )
     return await crud.update(db, id, obj_in)
 
@@ -67,5 +68,5 @@ async def delete(
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_superuser),
 ):
-    await P.assert_can_edit_studies(db, user, await P.study_ids_of_item(db, (await crud.get(db, id)).item_id))
+    await P.assert_can_edit_studies(db, user, await P.study_ids_of_surface_template(db, id))
     await crud.delete(db, id)

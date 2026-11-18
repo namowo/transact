@@ -174,3 +174,71 @@ async def test_foreign_scenario_can_be_linked_but_not_edited(
     assert response.status_code == 403
     response = await client.delete(f"/api/v1/scenarios/{scenario['id']}")
     assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_foreign_studys_item_can_be_used_in_own_surface_templates(
+    client, db_session, other_lab, foreign_study, own_study, superuser
+):
+    """Items are a shared catalog: referencing another lab's item in our own
+    contact templates must not be blocked, but their surface templates stay
+    theirs."""
+    other_admin = await _make_user(
+        db_session, other_lab, email="other@example.com", is_superuser=True
+    )
+    _login(client, other_admin)
+    item = (
+        await client.post(
+            "/api/v1/items",
+            json={"description": "Their mug", "study_ids": [str(foreign_study.id)]},
+        )
+    ).json()
+    category = (
+        await client.post("/api/v1/scenario-categories", json={"name": "Cat"})
+    ).json()
+    their_scenario = (
+        await client.post(
+            "/api/v1/scenarios",
+            json={
+                "name": "Theirs",
+                "realistic": True,
+                "scenario_category_id": category["id"],
+                "owning_study_id": str(foreign_study.id),
+                "study_ids": [str(foreign_study.id)],
+            },
+        )
+    ).json()
+    their_surface_template = (
+        await client.post("/api/v1/surface-templates", json={"item_id": item["id"]})
+    ).json()
+    response = await client.post(
+        "/api/v1/contact-templates",
+        json={
+            "donor_surface_template_id": their_surface_template["id"],
+            "scenario_ids": [their_scenario["id"]],
+        },
+    )
+    assert response.status_code == 201
+
+    _login(client, superuser)
+    # Building our own scenario around their item works...
+    response = await client.post(
+        "/api/v1/surface-templates", json={"item_id": item["id"]}
+    )
+    assert response.status_code == 201
+    surface_template = response.json()
+    response = await client.patch(
+        f"/api/v1/surface-templates/{surface_template['id']}",
+        json={"further_description_of_background_and_prevalence": "Mine"},
+    )
+    assert response.status_code == 200
+    # ...but their surface templates can't be changed.
+    response = await client.patch(
+        f"/api/v1/surface-templates/{their_surface_template['id']}",
+        json={"item_id": None},
+    )
+    assert response.status_code == 403
+    response = await client.delete(
+        f"/api/v1/surface-templates/{their_surface_template['id']}"
+    )
+    assert response.status_code == 403
