@@ -19,6 +19,7 @@ from app.api.routers import condition_of_item_part_category
 from app.api.routers import contact
 from app.api.routers import contact_template
 from app.api.routers import cutting_method
+from app.api.routers import data_model
 from app.api.routers import degradation_category
 from app.api.routers import determination_of_shedding_propensity_category
 from app.api.routers import disturbance_category
@@ -209,6 +210,9 @@ api_router.include_router(contact.router, prefix="/contacts", tags=["Contacts"])
 # Scenarios
 api_router.include_router(persistence.router, prefix="/persistences", tags=["Scenarios"])
 api_router.include_router(scenario.router, prefix="/scenarios", tags=["Scenarios"])
+
+# Data download
+api_router.include_router(data_model.router, prefix="/data-models", tags=["Data Download"])
 
 # Results
 api_router.include_router(sample_set.router, prefix="/sample-sets", tags=["Results"])

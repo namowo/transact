@@ -102,6 +102,32 @@ const router = createRouter({
           ],
         },
         {
+          path: 'data',
+          name: 'data',
+          redirect: { name: 'data-models' },
+          meta: { breadcrumb: 'Data download' },
+          children: [
+            {
+              path: 'models',
+              name: 'data-models',
+              component: () => import('@/views/data-models/DataModelsView.vue'),
+            },
+            {
+              path: 'models/new',
+              name: 'data-models-new',
+              component: () => import('@/views/data-models/DataModelBuilderView.vue'),
+              meta: { breadcrumb: 'New data model' },
+            },
+            {
+              path: 'models/:id',
+              name: 'data-models-edit',
+              component: () => import('@/views/data-models/DataModelBuilderView.vue'),
+              props: true,
+              meta: { breadcrumb: 'Data model' },
+            },
+          ],
+        },
+        {
           path: 'quality-check',
           name: 'studies-quality-check',
           component: () => import('@/views/studies/QualityCheckQueueView.vue'),

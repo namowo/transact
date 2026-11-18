@@ -21,6 +21,7 @@ from .contact import Contact
 from .contact_template import ContactTemplate
 from .cutting_device import CuttingDevice
 from .cutting_method import CuttingMethod
+from .data_model import DataModel
 from .degradation_category import DegradationCategory
 from .determination_of_shedding_propensity_category import DeterminationOfSheddingPropensityCategory
 from .determination_of_shedding_propensity_category_restriction import DeterminationOfSheddingPropensityCategoryRestriction
