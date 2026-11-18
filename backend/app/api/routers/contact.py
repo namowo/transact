@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from uuid import UUID
 
@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import permissions as P
+from app.crud.study_scope import contact_in_study
 from app.core.deps import current_superuser, get_async_session
 from app.models.user import User
 from app.crud.contact import crud_contact as crud
@@ -19,7 +20,11 @@ router = APIRouter()
 
 
 @router.get("", response_model=List[ReadSchema])
-async def get_all(db: AsyncSession = Depends(get_async_session)):
+async def get_all(
+    study_id: Optional[UUID] = None, db: AsyncSession = Depends(get_async_session)
+):
+    if study_id is not None:
+        return await crud.get_all_where(db, contact_in_study(study_id))
     return await crud.get_all(db)
 
 

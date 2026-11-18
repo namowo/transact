@@ -462,7 +462,7 @@ async function load() {
   loading.value = true
   loadError.value = ''
   try {
-    allResults.value = await resultApi.list()
+    allResults.value = await resultApi.list({ study_id: props.studyId })
   } catch {
     loadError.value = 'Could not load results. Please try again.'
   } finally {
@@ -480,12 +480,21 @@ const epgAnalysisMethods = ref<EPGAnalysisMethod[]>([])
 const epgInterpretationMethods = ref<EPGInterpretationMethod[]>([])
 
 onMounted(async () => {
-  quantificationMethods.value = await quantificationMethodApi.list()
-  pcrMethods.value = await pcrMethodApi.list()
-  postPcrTreatmentMethods.value = await postPcrTreatmentMethodApi.list()
-  ceMethods.value = await ceMethodApi.list()
-  epgAnalysisMethods.value = await epgAnalysisMethodApi.list()
-  epgInterpretationMethods.value = await epgInterpretationMethodApi.list()
+  ;[
+    quantificationMethods.value,
+    pcrMethods.value,
+    postPcrTreatmentMethods.value,
+    ceMethods.value,
+    epgAnalysisMethods.value,
+    epgInterpretationMethods.value,
+  ] = await Promise.all([
+    quantificationMethodApi.list(),
+    pcrMethodApi.list(),
+    postPcrTreatmentMethodApi.list(),
+    ceMethodApi.list(),
+    epgAnalysisMethodApi.list(),
+    epgInterpretationMethodApi.list(),
+  ])
 })
 
 const degradationIcons: Record<string, string> = {

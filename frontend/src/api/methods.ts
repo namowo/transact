@@ -40,7 +40,9 @@ import type {
 // update, delete), just under a different URL prefix and payload type.
 export function methodApi<TRead, TInput>(basePath: string) {
   return {
-    list: () => apiClient.get<TRead[]>(basePath).then((r) => r.data),
+    // `params` narrows the list where the endpoint supports it, e.g. { study_id }.
+    list: (params?: Record<string, string>) =>
+      apiClient.get<TRead[]>(basePath, { params }).then((r) => r.data),
     create: (payload: TInput) => apiClient.post<TRead>(basePath, payload).then((r) => r.data),
     update: (id: string, payload: TInput) =>
       apiClient.patch<TRead>(`${basePath}/${id}`, payload).then((r) => r.data),

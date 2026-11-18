@@ -65,17 +65,18 @@ async function load() {
         ownStudy.value = canEditStudy(study, auth.user)
       })
       .catch(() => {})
-    const allScenarios = await listScenarios()
-    const scenariosOfStudy = allScenarios.filter((scenario) =>
-      scenario.studies.some((study) => study.id === studyId.value),
-    )
+    const [scenariosOfStudy, studyContacts] = await Promise.all([
+      listScenarios(studyId.value),
+      listContacts(studyId.value),
+    ])
     studyScenarios.value = scenariosOfStudy
     const templates = scenariosOfStudy.flatMap((scenario) => scenario.contact_templates)
     contactTemplates.value = templates
 
+    // The study filter also returns contacts that only involve the study's
+    // individuals; this page lists the ones of its scenarios' templates.
     const templateIds = new Set(templates.map((t) => t.id))
-    const allContacts = await listContacts()
-    contacts.value = allContacts.filter(
+    contacts.value = studyContacts.filter(
       (contact) => contact.contact_template_id != null && templateIds.has(contact.contact_template_id),
     )
   } catch {

@@ -107,7 +107,7 @@ async function load() {
   loadError.value = ''
   try {
     const [sampleResults, sampleSetResults] = await Promise.all([
-      sampleApi.list(),
+      sampleApi.list({ study_id: props.studyId }),
       sampleSetApi.list(),
     ])
     allSamples.value = sampleResults
@@ -141,8 +141,10 @@ const samplingMethods = ref<SamplingMethod[]>([])
 const extractionMethods = ref<ExtractionMethod[]>([])
 
 onMounted(async () => {
-  samplingMethods.value = await samplingMethodApi.list()
-  extractionMethods.value = await extractionMethodApi.list()
+  ;[samplingMethods.value, extractionMethods.value] = await Promise.all([
+    samplingMethodApi.list(),
+    extractionMethodApi.list(),
+  ])
 })
 
 function emptyForm(): SampleInput {

@@ -6,8 +6,12 @@ import type {
   ConditionDuringContactInput,
 } from './types'
 
-export function listContacts() {
-  return apiClient.get<Contact[]>('/contacts').then((r) => r.data)
+// With a study, only the contacts recorded for it: those of its scenarios'
+// contact templates, plus any involving the study's individuals.
+export function listContacts(studyId?: string) {
+  return apiClient
+    .get<Contact[]>('/contacts', { params: studyId ? { study_id: studyId } : {} })
+    .then((r) => r.data)
 }
 
 export function getContact(id: string) {

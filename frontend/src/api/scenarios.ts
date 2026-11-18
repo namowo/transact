@@ -1,8 +1,11 @@
 import apiClient from './client'
 import type { Scenario, ScenarioInput } from './types'
 
-export function listScenarios() {
-  return apiClient.get<Scenario[]>('/scenarios').then((r) => r.data)
+// With a study, only the scenarios linked to that study.
+export function listScenarios(studyId?: string) {
+  return apiClient
+    .get<Scenario[]>('/scenarios', { params: studyId ? { study_id: studyId } : {} })
+    .then((r) => r.data)
 }
 
 export function getScenario(id: string) {

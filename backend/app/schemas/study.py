@@ -42,8 +42,9 @@ class StudyUpdate(StudyBase):
 
 
 class StudyReadNested(StudyBase):
-    """Study as embedded in a ScenarioRead - omits `scenarios` to avoid an
-    infinite Study <-> Scenario cycle."""
+    """Study as embedded in a ScenarioRead, ItemRead or PersistenceRead -
+    omits `scenarios` to avoid an infinite Study <-> Scenario cycle, and
+    `samples`, which would repeat every sample of the study in each of those."""
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -54,11 +55,11 @@ class StudyReadNested(StudyBase):
     quality_checked_by_id: Optional[UUID] = None
     quality_checked_by: Optional["UserRead"] = None
     quality_checked_at: Optional[datetime] = None
-    samples: List["SampleRead"] = []
 
 
 class StudyRead(StudyReadNested):
     scenarios: List["ScenarioReadNested"] = []
+    samples: List["SampleRead"] = []
 
 
 from app.schemas.author import AuthorCreate, AuthorRead
