@@ -19,8 +19,10 @@ class SampleSet(Base):
         server_default=text("gen_random_uuid()")
     )
     name: Mapped[Optional[str]]
+    # Not eager-loaded: nothing reads a set's samples, and loading them made
+    # listing the sets fetch every sample with all its details.
     samples: Mapped[list["Sample"]] = relationship(
-        lazy="selectin",
+        lazy="select",
         back_populates="sample_set",
         foreign_keys="Sample.sample_set_id",
     )

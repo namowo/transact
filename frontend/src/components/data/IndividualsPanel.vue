@@ -55,7 +55,7 @@ async function load() {
   try {
     const [loadedIndividuals, contacts] = await Promise.all([
       listIndividuals(props.studyId),
-      listContacts(),
+      listContacts(props.studyId),
     ])
     individuals.value = loadedIndividuals
     const used = new Set<string>()

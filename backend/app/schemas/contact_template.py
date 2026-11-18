@@ -38,7 +38,6 @@ class ContactTemplateRead(ContactTemplateBase):
     friction_applied_estimate: Optional["FrictionAppliedEstimateRead"] = None
     activity_category: Optional["ActivityCategoryRead"] = None
     condition_during_contact: Optional["ConditionDuringContactRead"] = None
-    contacts: list["ContactRead"] = []
 
 
 from app.schemas.surface_template import SurfaceTemplateRead
@@ -46,4 +45,3 @@ from app.schemas.pressure_estimate import PressureEstimateRead
 from app.schemas.friction_applied_estimate import FrictionAppliedEstimateRead
 from app.schemas.activity_category import ActivityCategoryRead
 from app.schemas.condition_during_contact import ConditionDuringContactRead
-from app.schemas.contact import ContactRead

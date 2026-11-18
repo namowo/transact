@@ -1,13 +1,17 @@
-from typing import List
+from typing import List, Optional
 
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core import permissions as P
+from app.crud.study_scope import scenario_ids_of_study
 from app.core.deps import current_superuser, get_async_session
+from app.models.contact_template import ContactTemplate
 from app.models.scenario import Scenario
+from app.models.study import Study
 from app.models.user import User
 from app.crud.scenario import crud_scenario as crud
 from app.schemas.scenario import (
@@ -28,7 +32,20 @@ def _owners(scenario: Scenario) -> set:
 
 
 @router.get("", response_model=List[ReadSchema])
-async def get_all(db: AsyncSession = Depends(get_async_session)):
+async def get_all(
+    study_id: Optional[UUID] = None, db: AsyncSession = Depends(get_async_session)
+):
+    if study_id is not None:
+        return await crud.get_all_where(
+            db,
+            Scenario.id.in_(scenario_ids_of_study(study_id)),
+            # Neither collection is part of ScenarioRead, and loading them
+            # pulls in every contact and sample with all their details.
+            options=[
+                selectinload(Scenario.studies).noload(Study.samples),
+                selectinload(Scenario.contact_templates).noload(ContactTemplate.contacts),
+            ],
+        )
     return await crud.get_all(db)
 
 

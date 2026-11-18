@@ -221,6 +221,15 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
 
         return instances
 
+    async def get_all_where(
+        self, db: AsyncSession, *conditions: Any, options: List[Any] = []
+    ) -> List[ModelType]:
+        """Retrieve the records matching all `conditions`, with optional loader
+        `options` (e.g. to skip eager loads the caller doesn't serialize)."""
+        statement = select(self.model).where(*conditions).options(*options)
+        result = await db.execute(statement)
+        return list(result.scalars().all())
+
     async def get(
         self, db: AsyncSession, id: Any, extra_fields: List[Any] = []
     ) -> Optional[ModelType]:
