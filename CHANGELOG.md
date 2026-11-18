@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/namowo/transact/compare/v1.1.0...v1.2.0) (2026-11-18)
+
+
+### Features
+
+* interactive guides for first sign-in, adding a study and data entry ([#32](https://github.com/namowo/transact/issues/32)) ([84b5bdd](https://github.com/namowo/transact/commit/84b5bdd8b174d9d410605864e778f423c715cc36))
+
 ## [1.1.0](https://github.com/namowo/transact/compare/v1.0.2...v1.1.0) (2026-11-18)
 
 
