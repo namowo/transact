@@ -599,6 +599,7 @@ async function saveMemberField(member: Individual, patch: Partial<Individual>) {
       <h4 class="font-medium">Individuals</h4>
       <UButton
         v-if="!readOnly"
+        data-tour="add-individuals"
         label="Add individuals"
         icon="i-lucide-plus"
         variant="outline"
@@ -907,7 +908,7 @@ async function saveMemberField(member: Individual, patch: Partial<Individual>) {
       :ui="{ content: 'max-w-md', footer: 'justify-end' }"
     >
       <template #body>
-        <div class="flex flex-col gap-4">
+        <div class="flex flex-col gap-4" data-tour="individuals-dialog">
           <p class="text-sm text-surface-500 dark:text-surface-400">
             Leave the count at 1 to add a single individual, or raise it to add several at once
             sharing the same details below. They'll show up as a single grouped row until you

@@ -408,12 +408,12 @@ async function loadItemsFromTemplates() {
 </script>
 
 <template>
-  <div class="flex flex-col gap-4">
+  <div class="flex flex-col gap-4" data-tour="items-panel">
     <UAlert v-if="loadError" color="error" variant="outline" :description="loadError" />
 
     <div v-if="loading || items.length" class="flex items-center justify-between">
       <h4 class="font-medium">Items</h4>
-      <div v-if="!readOnly" class="flex gap-2">
+      <div v-if="!readOnly" class="flex gap-2" data-tour="items-actions">
         <UButton
           v-if="itemsFromTemplatesNotInStudy.length"
           :label="`Load ${itemsFromTemplatesNotInStudy.length} item${itemsFromTemplatesNotInStudy.length === 1 ? '' : 's'} from scenario templates`"
@@ -432,7 +432,7 @@ async function loadItemsFromTemplates() {
     <div v-else-if="!items.length" class="flex flex-col items-center gap-3 py-16">
       <h4 class="font-medium">Items</h4>
       <p class="text-sm text-surface-500 dark:text-surface-400">No items added to this study yet.</p>
-      <div v-if="!readOnly" class="flex gap-2">
+      <div v-if="!readOnly" class="flex gap-2" data-tour="items-actions">
         <UButton
           v-if="itemsFromTemplatesNotInStudy.length"
           :label="`Load ${itemsFromTemplatesNotInStudy.length} item${itemsFromTemplatesNotInStudy.length === 1 ? '' : 's'} from scenario templates`"
@@ -588,7 +588,7 @@ async function loadItemsFromTemplates() {
       :ui="{ content: 'max-w-3xl', footer: 'justify-end' }"
     >
       <template #body>
-        <div class="flex flex-col gap-3">
+        <div class="flex flex-col gap-3" data-tour="item-picker">
           <ScenarioMultiSelect
             v-model="pickerScenarioIds"
             :scenarios="scenarios"

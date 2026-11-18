@@ -1,5 +1,6 @@
 import apiClient from './client'
 import type { SortableTable, TableSortMeta, User } from './types'
+import type { TourId } from '@/tours/types'
 
 export interface UpdateProfilePayload {
   first_name?: string
@@ -33,6 +34,11 @@ export function changeEmail(payload: ChangeEmailPayload) {
 
 export function dismissPasskeyPrompt() {
   return apiClient.post<User>('/users/me/dismiss-passkey-prompt').then((r) => r.data)
+}
+
+// Remembers that the user finished or skipped an interactive guide.
+export function completeTour(tour: TourId) {
+  return apiClient.post<User>(`/users/me/completed-tours/${tour}`).then((r) => r.data)
 }
 
 export function grantQualityCheck(id: string) {

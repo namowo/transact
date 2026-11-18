@@ -599,7 +599,7 @@ const title = computed(() =>
         description="This scenario was created for another study, so it can only be edited there. You can still view it here, or remove it from this study on the scenarios list."
       />
 
-      <form v-else id="scenario-form" class="flex flex-col gap-4" @submit.prevent="onSubmit">
+      <form v-else id="scenario-form" data-tour="scenario-dialog" class="flex flex-col gap-4" @submit.prevent="onSubmit">
         <UStepper
           v-model="activeStep"
           :items="stepItems"
@@ -607,7 +607,7 @@ const title = computed(() =>
           class="bg-transparent!"
         >
           <template #1>
-            <div class="flex flex-col gap-4">
+            <div class="flex flex-col gap-4" data-tour="scenario-details">
               <UFormField label="Name" required :error="errors.name">
                 <UInput v-model="name" placeholder="e.g. Handshake, dry hands" class="w-full" />
               </UFormField>
@@ -633,7 +633,7 @@ const title = computed(() =>
               </div>
 
               <div class="flex justify-end mt-2">
-                <UButton label="Continue" trailing-icon="i-lucide-arrow-right" @click="activeStep = '2'" />
+                <UButton data-tour="scenario-continue-details" label="Continue" trailing-icon="i-lucide-arrow-right" @click="activeStep = '2'" />
               </div>
             </div>
           </template>
@@ -660,7 +660,7 @@ const title = computed(() =>
                 @remove="removePersistence(index)"
               />
 
-              <div class="flex gap-2">
+              <div class="flex gap-2" data-tour="scenario-persistence">
                 <UButton
                   label="Add new persistence"
                   icon="i-lucide-plus"
@@ -686,6 +686,7 @@ const title = computed(() =>
               <div class="flex justify-between mt-2">
                 <UButton label="Back" icon="i-lucide-arrow-left" variant="ghost" @click="activeStep = '1'" />
                 <UButton
+                  data-tour="scenario-continue-persistence"
                   label="Continue"
                   trailing-icon="i-lucide-arrow-right"
                   @click="activeStep = '3'"
@@ -710,6 +711,7 @@ const title = computed(() =>
               />
 
               <UButton
+                data-tour="scenario-contacts"
                 label="Add contact template"
                 icon="i-lucide-plus"
                 variant="outline"
@@ -719,6 +721,7 @@ const title = computed(() =>
 
               <ContactTemplateChainEditor
                 v-if="contactTemplateFields.length > 0"
+                data-tour="scenario-chain"
                 :drafts="contactTemplateFields.map((f) => f.value)"
                 @move="moveInChain"
               />
@@ -741,6 +744,7 @@ const title = computed(() =>
           <UButton
             type="submit"
             form="scenario-form"
+            data-tour="scenario-save"
             :icon="editingId === null ? 'i-lucide-plus' : 'i-lucide-save'"
             :label="editingId === null ? 'Add scenario' : 'Save changes'"
             :loading="submitting"

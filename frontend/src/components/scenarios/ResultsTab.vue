@@ -882,12 +882,12 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
 </script>
 
 <template>
-  <div class="flex flex-col gap-6">
+  <div class="flex flex-col gap-6" data-tour="results-panel">
     <div class="flex items-center justify-between">
       <p class="text-sm text-surface-500 dark:text-surface-400">
         Lab results derived from this scenario's samples.
       </p>
-      <div v-if="!readOnly" class="flex flex-wrap gap-2">
+      <div v-if="!readOnly" class="flex flex-wrap gap-2" data-tour="results-actions">
         <UButton
           label="Add result for every sample"
           icon="i-lucide-list-plus"
@@ -1104,7 +1104,7 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
       :ui="{ content: 'max-w-xl', footer: 'justify-end' }"
     >
       <template #body>
-        <div v-if="editingId !== null" class="flex flex-col gap-4">
+        <div v-if="editingId !== null" class="flex flex-col gap-4" data-tour="result-dialog">
           <SamplePicker v-model="sampleId" :samples="samples" :error="errors.sample_id" />
 
           <EntitySelect
@@ -1141,6 +1141,7 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
         <UStepper
           v-else
           v-model="activeStep"
+          data-tour="result-dialog"
           :items="stepItems"
           :linear="false"
           class="bg-transparent!"

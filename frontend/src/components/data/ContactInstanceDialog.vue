@@ -283,7 +283,7 @@ async function save() {
     :ui="{ content: 'max-w-3xl', footer: 'justify-end' }"
   >
     <template #body>
-      <div class="flex flex-col gap-4">
+      <div class="flex flex-col gap-4" data-tour="contact-dialog">
         <UBreadcrumb
           v-if="step === 'details' || (step === 'template' && needsScenarioStep)"
           :items="breadcrumbItems"

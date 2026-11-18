@@ -344,12 +344,14 @@ defineExpose({ load })
   <div class="flex flex-col gap-6">
     <div v-if="!readOnly" class="flex items-center justify-end gap-2">
       <UButton
+        data-tour="duplicate-scenario"
         label="Duplicate scenario from another study"
         icon="i-lucide-copy"
         variant="outline"
         @click="openDuplicateFlow"
       />
       <UButton
+        data-tour="add-scenario"
         label="Add scenario"
         icon="i-lucide-plus"
         @click="openAddDialog"

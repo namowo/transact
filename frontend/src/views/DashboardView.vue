@@ -2,18 +2,23 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useTourStore } from '@/stores/tour'
 import * as webauthnApi from '@/api/webauthn'
 import { listStudies } from '@/api/studies'
 import type { Study } from '@/api/types'
 
 const auth = useAuthStore()
 const router = useRouter()
+const tour = useTourStore()
 
 const showPasskeyBanner = ref(false)
 const studies = ref<Study[]>([])
 const statsLoading = ref(false)
 
 onMounted(async () => {
+  // First visit after signing in: show the getting-started guide once.
+  tour.start('onboarding')
+
   if (auth.user && !auth.user.passkey_prompt_dismissed) {
     const credentials = await webauthnApi.listCredentials().catch(() => [])
     showPasskeyBanner.value = credentials.length === 0

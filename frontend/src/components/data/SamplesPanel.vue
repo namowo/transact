@@ -749,13 +749,14 @@ function onSampleSetCreated(created: { id: string; name?: string | null }) {
 </script>
 
 <template>
-  <div class="flex flex-col gap-6">
+  <div class="flex flex-col gap-6" data-tour="samples-panel">
     <div class="flex items-center justify-between">
       <p class="text-sm text-surface-500 dark:text-surface-400">
         Samples recovered from this study's actual contacts' surfaces.
       </p>
       <UButton
         v-if="!readOnly"
+        data-tour="add-sample"
         label="Add sample"
         icon="i-lucide-plus"
         variant="outline"
@@ -798,7 +799,7 @@ function onSampleSetCreated(created: { id: string; name?: string | null }) {
             :disabled="!samples.length"
             @click="editMode = !editMode"
           />
-          <div class="flex items-center gap-2 border border-default rounded-md px-2 py-1">
+          <div class="flex items-center gap-2 border border-default rounded-md px-2 py-1" data-tour="samples-csv">
             <span class="text-xs font-medium text-muted">CSV</span>
             <UButton
               type="button"
@@ -973,7 +974,7 @@ function onSampleSetCreated(created: { id: string; name?: string | null }) {
       :ui="{ content: 'max-w-5xl', footer: 'justify-end' }"
     >
       <template #body>
-        <div v-if="step === 1" class="flex flex-col gap-4">
+        <div v-if="step === 1" class="flex flex-col gap-4" data-tour="sample-dialog">
           <UFormField
             v-if="editingId === null"
             label="Surfaces"
@@ -1077,7 +1078,7 @@ function onSampleSetCreated(created: { id: string; name?: string | null }) {
 
           <UAlert v-if="submitError" color="error" variant="outline" :description="submitError" />
         </div>
-        <div v-else class="flex flex-col gap-3">
+        <div v-else class="flex flex-col gap-3" data-tour="sample-dialog">
           <p class="text-sm text-surface-500 dark:text-surface-400">
             Add a name, elution volume and area for each sample, or leave them empty and fill them in later.
             Nothing is saved until you click Create.

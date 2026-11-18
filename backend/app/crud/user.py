@@ -94,6 +94,19 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
 
         return user
 
+    async def complete_tour(self, db: AsyncSession, user: User, tour: str) -> User:
+        if tour not in (user.completed_tours or []):
+            # Reassign rather than append so SQLAlchemy sees the JSONB change.
+            user.completed_tours = [*(user.completed_tours or []), tour]
+        try:
+            await db.commit()
+            await db.refresh(user)
+        except SQLAlchemyError as e:
+            await db.rollback()
+            raise DatabaseCommitError(message=str(e))
+
+        return user
+
     async def set_can_quality_check(
         self, db: AsyncSession, user: User, value: bool
     ) -> User:
