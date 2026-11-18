@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.2](https://github.com/namowo/transact/compare/v1.0.1...v1.0.2) (2026-11-18)
+
+
+### Performance Improvements
+
+* speed up loading of the add data pane ([#28](https://github.com/namowo/transact/issues/28)) ([a2a87ab](https://github.com/namowo/transact/commit/a2a87ab078ff6a22fd54e84d3e977853c17ba0a6))
+
 ## [1.0.1](https://github.com/namowo/transact/compare/v1.0.0...v1.0.1) (2026-11-18)
 
 
