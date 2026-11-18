@@ -82,15 +82,34 @@ async def study_ids_of_individual(
     return set(result.scalars())
 
 
-async def study_ids_of_item(db: AsyncSession, item_id: Optional[UUID]) -> set:
-    from app.models.item import study_item
+async def study_ids_of_surface_template(
+    db: AsyncSession, surface_template_id: Optional[UUID]
+) -> set:
+    """The studies owning the scenarios whose contact templates use this
+    surface template as donor or recipient.
 
-    if item_id is None:
+    The item a surface template references is deliberately not considered:
+    items are a shared catalog, and referencing one doesn't change it."""
+    from sqlalchemy import or_
+
+    from app.models.contact_template import ContactTemplate, scenario_contact_template
+
+    if surface_template_id is None:
         return set()
     result = await db.execute(
-        select(study_item.c.study_id).where(study_item.c.item_id == item_id)
+        select(scenario_contact_template.c.scenario_id)
+        .join(
+            ContactTemplate,
+            ContactTemplate.id == scenario_contact_template.c.contact_template_id,
+        )
+        .where(
+            or_(
+                ContactTemplate.donor_surface_template_id == surface_template_id,
+                ContactTemplate.recipient_surface_template_id == surface_template_id,
+            )
+        )
     )
-    return set(result.scalars())
+    return await study_ids_of_scenarios(db, result.scalars())
 
 
 async def study_ids_of_scenarios(db: AsyncSession, scenario_ids: Iterable[UUID]) -> set:
