@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/namowo/transact/compare/v1.0.0...v1.0.1) (2026-11-18)
+
+
+### Bug Fixes
+
+* allow shared catalog items in own surface templates ([#26](https://github.com/namowo/transact/issues/26)) ([777147a](https://github.com/namowo/transact/commit/777147a5a05d317ee2cac73d7f5864632fed97ac))
+
 ## [1.0.0](https://github.com/namowo/transact/compare/v0.4.1...v1.0.0) (2026-11-17)
 
 
