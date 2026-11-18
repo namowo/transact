@@ -18,7 +18,8 @@ The project is in an early build-up phase. Implemented so far:
 - [ ] Finalize the input forms for all reference-data categories.
 - [ ] Refine the UI/UX of the frontend.
 - [ ] Extensive testing phase (backend and frontend).
-- [ ] Implement data export and import.
+- [x] Implement data export: data models for downloading data across studies as CSV or Excel.
+- [ ] Implement data import.
 
 ## Note
 

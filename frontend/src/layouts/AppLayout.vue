@@ -32,6 +32,7 @@ const navGroups = computed<NavigationMenuItem[][]>(() =>
               { label: 'All', to: { name: 'studies-all' } },
             ],
           },
+          { label: 'Data download', icon: 'i-lucide-download', to: { name: 'data-models' } },
           ...(auth.canQualityCheck
             ? [
                 {
@@ -97,7 +98,10 @@ const navGroups = computed<NavigationMenuItem[][]>(() =>
         ],
       ]
     : [
-        [{ label: 'Studies', icon: 'i-lucide-book-open', to: { name: 'studies-all' } }],
+        [
+          { label: 'Studies', icon: 'i-lucide-book-open', to: { name: 'studies-all' } },
+          { label: 'Data download', icon: 'i-lucide-download', to: { name: 'data-models' } },
+        ],
         [
           ...docPages.map((page) => ({
             label: page.title,
