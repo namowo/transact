@@ -24,7 +24,7 @@ const onboarding: TourDefinition = {
       side: 'right',
       title: 'Studies',
       description:
-        "Your laboratory's studies are under By Laboratory. All lists the studies of every laboratory; those from other laboratories open read-only.",
+        "Find your laboratory's studies under 'By Laboratory'. 'All' shows every study. You can view other laboratories' studies but not edit them.",
     },
     {
       id: 'data-download',
@@ -33,7 +33,7 @@ const onboarding: TourDefinition = {
       side: 'right',
       title: 'Data download',
       description:
-        'Build a data model by choosing tables, columns and filters, preview the result and download the repository data.',
+        'Choose the tables, columns and filters you need, preview the result and download it. Save your selection as a data model to reuse or share it.',
     },
     {
       id: 'quality-check',
@@ -41,7 +41,7 @@ const onboarding: TourDefinition = {
       target: '.tour-nav-quality',
       side: 'right',
       title: 'Quality check',
-      description: 'Studies that are waiting for your review before publication are listed here.',
+      description: 'Studies waiting for your review before they become publicly accessible are listed here.',
       when: ({ auth }) => auth.canQualityCheck,
     },
     {
