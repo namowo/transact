@@ -35,7 +35,9 @@ if settings.all_cors_origins:
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
-        expose_headers=["*"],
+        # Browsers ignore a "*" wildcard on credentialed requests, so headers
+        # the frontend reads must be named - here the download file names.
+        expose_headers=["Content-Disposition"],
     )
 
 app.add_exception_handler(AuthorizationError, authorization_exception_handler)

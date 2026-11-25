@@ -95,4 +95,11 @@ body {
   body:has(#print-area) > *:not(:has(#print-area)) {
     display: none;
   }
+  /* An open dialog locks page scrolling; undo that so a long print-out
+     isn't cut off after the first page. */
+  html:has(#print-area),
+  body:has(#print-area) {
+    overflow: visible !important;
+    height: auto !important;
+  }
 }
