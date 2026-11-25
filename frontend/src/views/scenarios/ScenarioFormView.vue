@@ -12,6 +12,7 @@ import PersistenceCard from '@/components/scenarios/PersistenceCard.vue'
 import PersistencePickerDialog from '@/components/scenarios/PersistencePickerDialog.vue'
 import { scenarioCategoryApi } from '@/api/categories'
 import { getScenario, listScenarios, createScenario, updateScenario } from '@/api/scenarios'
+import { getErrorMessage } from '@/api/errors'
 import {
   clonePersistenceDraftForDuplication,
   emptyPersistenceDraft,
@@ -138,11 +139,6 @@ const persistenceSchema = yup.object({
     .min(0, 'UV irradiation must be zero or greater.'),
   indoors: yup.boolean().defined(),
   changeOverTime: yup.boolean().defined(),
-  durationOfDisturbance: yup
-    .number()
-    .transform(nanToNull)
-    .nullable()
-    .min(0, 'Duration of disturbance must be zero or greater.'),
   descriptionOfDisturbance: yup.string().nullable().defined(),
   geographicLocationCategoryId: yup.string().nullable().defined(),
 })
@@ -418,8 +414,9 @@ const onSubmit = handleSubmit(async (formValues) => {
       params: { id: studyId.value },
       query: { step: 'planning' },
     })
-  } catch {
-    submitError.value = 'Could not save the scenario. Please try again.'
+  } catch (err) {
+    // E.g. the study already has a scenario with this name.
+    submitError.value = getErrorMessage(err, 'Could not save the scenario. Please try again.')
   } finally {
     submitting.value = false
   }

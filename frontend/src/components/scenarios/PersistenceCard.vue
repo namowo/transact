@@ -75,10 +75,6 @@ function formatDuration(seconds: number | null): string | null {
         <div v-if="draft.uvIrradiation != null">
           <span class="font-medium">UV irradiation:</span> {{ draft.uvIrradiation }} mW/cm²
         </div>
-        <div v-if="draft.durationOfDisturbance != null">
-          <span class="font-medium">Duration of disturbance:</span>
-          {{ formatDuration(draft.durationOfDisturbance) }}
-        </div>
         <div v-if="draft.indoors">Indoors</div>
         <div v-if="draft.changeOverTime">Changes over time</div>
       </div>
@@ -164,12 +160,6 @@ function formatDuration(seconds: number | null): string | null {
             <UBadge color="neutral" variant="outline" size="lg" label="mW/cm²" />
           </UFieldGroup>
         </UFormField>
-        <UFormField label="Duration of disturbance" hint="Optional" :error="errorFor('durationOfDisturbance')">
-          <DurationValueInput
-            v-model="draft.durationOfDisturbance"
-            :invalid="!!errorFor('durationOfDisturbance')"
-          />
-        </UFormField>
       </div>
       <div class="flex flex-wrap gap-6">
         <div class="flex items-center gap-2">
@@ -189,7 +179,7 @@ function formatDuration(seconds: number | null): string | null {
       <UFormField>
         <template #label>
           <FieldLabel
-            label="Description of disturbance"
+            label="Description of persistence"
             hint="Optional"
             description="Describe if there have been other environmental conditions (e.g. rain, rapid change in temperature, etc.)"
           />
