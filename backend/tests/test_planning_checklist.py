@@ -10,6 +10,7 @@ from app.core.security import create_access_token
 from app.models.laboratory import Laboratory, LaboratoryApprovalStatus
 from app.models.study import Study
 from app.services.planning_checklist import DEFAULT_SECTIONS
+from app.core.permission_catalog import SystemGroup
 from tests.conftest import _make_user
 
 CUSTOM = [
@@ -89,7 +90,8 @@ async def test_only_own_lab_admins_can_edit(client, db_session, study, laborator
     db_session.add(other)
     await db_session.commit()
     other_admin = await _make_user(
-        db_session, other, email="otheradmin@example.com", can_manage_lab_users=True
+        db_session, other, email="otheradmin@example.com",
+        groups=[SystemGroup.LAB_ADMINISTRATOR],
     )
     _login(client, other_admin)
     response = await client.put(

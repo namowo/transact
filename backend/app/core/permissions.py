@@ -1,10 +1,17 @@
 """Ownership checks for study data.
 
 A study belongs to the laboratory that created it. Anyone may view a
-published study, but only members of the owning laboratory may change it or
-any of the records that hang off it (scenarios, samples, results, ...).
-This applies to superusers as well: their admin powers cover the platform,
-not other laboratories' research data.
+published study. Changing a study - or the records that hang off it
+(scenarios, samples, results, ...) - is reserved to:
+
+- members of the owning laboratory. Any member may edit the study itself;
+  its data additionally needs the "Enter study data" permission.
+- users with "Edit data of all laboratories" (platform admins preparing data
+  for a laboratory), unless the laboratory has switched that off
+  (Laboratory.allow_admin_data_entry).
+
+Nothing else - including managing users or laboratories - grants access to
+another laboratory's research data.
 """
 
 from typing import Iterable, Optional
@@ -14,18 +21,66 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.permission_catalog import Permission
+from app.models.laboratory import Laboratory
 from app.models.study import Study
 from app.models.user import User
 
 EDIT_FORBIDDEN_MESSAGE = "You can only edit studies belonging to your own laboratory."
+DATA_FORBIDDEN_MESSAGE = "You are not allowed to enter data for this study."
 
 
-def can_edit_study(study: Study, user: Optional[User]) -> bool:
+def acts_for_laboratory(
+    user: Optional[User], laboratory: Optional[Laboratory]
+) -> bool:
+    """Whether `user` may work on `laboratory`'s data although they aren't a
+    member of it."""
+    return (
+        user is not None
+        and laboratory is not None
+        and laboratory.allow_admin_data_entry
+        and user.can(Permission.EDIT_ALL_LABORATORY_DATA)
+    )
+
+
+def _is_member(user: Optional[User], laboratory_id: Optional[UUID]) -> bool:
     return (
         user is not None
         and user.laboratory_id is not None
-        and study.laboratory_id == user.laboratory_id
+        and laboratory_id == user.laboratory_id
     )
+
+
+def can_edit_study(study: Study, user: Optional[User]) -> bool:
+    """Whether `user` may edit the study itself (title, design, ...)."""
+    return _is_member(user, study.laboratory_id) or acts_for_laboratory(
+        user, study.laboratory
+    )
+
+
+def can_enter_study_data(study: Study, user: Optional[User]) -> bool:
+    """Whether `user` may add and change the study's data."""
+    if _is_member(user, study.laboratory_id) and user.can(Permission.ENTER_DATA):
+        return True
+    return acts_for_laboratory(user, study.laboratory)
+
+
+def can_view_study(study: Study, user: Optional[User]) -> bool:
+    if study.published:
+        return True
+    if user is None:
+        return False
+    return (
+        user.can(Permission.VIEW_ALL_STUDIES)
+        or _is_member(user, study.laboratory_id)
+        or acts_for_laboratory(user, study.laboratory)
+    )
+
+
+def can_create_study_for(user: User, laboratory: Optional[Laboratory]) -> bool:
+    if laboratory is None:
+        return False
+    return _is_member(user, laboratory.id) or acts_for_laboratory(user, laboratory)
 
 
 def assert_can_edit_study(study: Study, user: User) -> None:
@@ -38,19 +93,26 @@ def assert_can_edit_study(study: Study, user: User) -> None:
 async def assert_can_edit_studies(
     db: AsyncSession, user: User, study_ids: Iterable[Optional[UUID]]
 ) -> None:
-    """Raise 403 unless `user` may edit every study in `study_ids`.
+    """Raise 403 unless `user` may enter data for every study in `study_ids`.
 
     `None` entries (records not attached to a study) are ignored.
     """
     ids = {study_id for study_id in study_ids if study_id is not None}
     if not ids:
         return
-    result = await db.execute(select(Study.laboratory_id).where(Study.id.in_(ids)))
-    for laboratory_id in result.scalars():
-        if user.laboratory_id is None or laboratory_id != user.laboratory_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail=EDIT_FORBIDDEN_MESSAGE
-            )
+    result = await db.execute(
+        select(Study.laboratory_id, Laboratory.allow_admin_data_entry)
+        .outerjoin(Laboratory, Laboratory.id == Study.laboratory_id)
+        .where(Study.id.in_(ids))
+    )
+    for laboratory_id, allow_admin_data_entry in result.all():
+        if _is_member(user, laboratory_id) and user.can(Permission.ENTER_DATA):
+            continue
+        if allow_admin_data_entry and user.can(Permission.EDIT_ALL_LABORATORY_DATA):
+            continue
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail=DATA_FORBIDDEN_MESSAGE
+        )
 
 
 # --- Resolving which studies a record belongs to --------------------------

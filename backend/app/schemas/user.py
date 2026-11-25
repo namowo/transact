@@ -41,7 +41,8 @@ class UserUpdate(BaseModel):
     locale: Optional[str] = Field(
         default=None, pattern=r"^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$", max_length=35
     )
-    laboratory_id: Optional[UUID] = None
+    # No laboratory_id: users join a laboratory through a membership request
+    # (or an admin moves them), never by editing their own profile.
     table_sorts: Optional[Dict[SortableTable, List[TableSortMeta]]] = None
 
     @field_validator("table_sorts")
@@ -78,9 +79,9 @@ class UserRead(BaseModel):
     last_name: str
     is_active: bool
     is_verified: bool
-    is_superuser: bool
-    can_quality_check: bool
-    can_manage_lab_users: bool
+    groups: List["UserGroupBrief"] = []
+    # Union of the groups' permissions (see app.core.permission_catalog).
+    permissions: List[str] = []
     passkey_prompt_dismissed: bool
     completed_tours: List[str] = []
     locale: str = "en-US"
@@ -90,4 +91,11 @@ class UserRead(BaseModel):
     created_at: datetime
 
 
+    @field_validator("permissions", mode="before")
+    @classmethod
+    def sorted_permissions(cls, value):
+        return sorted(value or [])
+
+
 from app.schemas.laboratory import LaboratoryRead
+from app.schemas.user_group import UserGroupBrief

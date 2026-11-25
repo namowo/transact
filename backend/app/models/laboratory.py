@@ -42,3 +42,9 @@ class Laboratory(Base):
         nullable=False,
         server_default=text("'approved'"),
     )
+    # Whether users with "Edit data of all laboratories" (platform admins
+    # preparing data for the lab) may create and edit this laboratory's
+    # studies. The laboratory's admins can switch it off once they take over.
+    allow_admin_data_entry: Mapped[bool] = mapped_column(
+        nullable=False, server_default=text("true")
+    )

@@ -9,7 +9,7 @@ os.environ.setdefault("ENVIRONMENT", "local")
 os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key-for-ci-only-not-used-in-prod")
 
 import asyncio
-from typing import AsyncIterator
+from typing import AsyncIterator, Iterable, Optional, Union
 
 import pytest
 import pytest_asyncio
@@ -20,7 +20,10 @@ from app.core.db import Base, async_engine
 from app.core.deps import get_async_session
 from app.main import app
 from app.models.laboratory import Laboratory, LaboratoryApprovalStatus
+from app.core.permission_catalog import Permission, SystemGroup
+from app.crud.user_group import get_system_group
 from app.models.user import User
+from app.models.user_group import UserGroup
 from app.core.security import create_access_token, hash_password
 
 
@@ -80,7 +83,31 @@ async def laboratory(db_session: AsyncSession) -> Laboratory:
     return lab
 
 
-async def _make_user(db_session: AsyncSession, laboratory: Laboratory, **kwargs) -> User:
+async def make_group(
+    db_session: AsyncSession,
+    name: str,
+    permissions,
+    laboratory: Optional[Laboratory] = None,
+) -> UserGroup:
+    group = UserGroup(
+        name=name,
+        permissions=sorted(Permission(p).value for p in permissions),
+        laboratory_id=laboratory.id if laboratory else None,
+    )
+    db_session.add(group)
+    await db_session.commit()
+    await db_session.refresh(group)
+    return group
+
+
+async def _make_user(
+    db_session: AsyncSession,
+    laboratory: Optional[Laboratory],
+    groups: Iterable[Union[SystemGroup, UserGroup]] = (),
+    **kwargs,
+) -> User:
+    """A user in `laboratory`, member of `groups` (built-in group keys or
+    UserGroup rows)."""
     defaults = dict(
         email="user@example.com",
         hashed_password=hash_password("Passw0rd!"),
@@ -88,11 +115,14 @@ async def _make_user(db_session: AsyncSession, laboratory: Laboratory, **kwargs)
         last_name="User",
         is_active=True,
         is_verified=True,
-        is_superuser=False,
-        laboratory_id=laboratory.id,
+        laboratory_id=laboratory.id if laboratory else None,
     )
     defaults.update(kwargs)
     user = User(**defaults)
+    for group in groups:
+        if isinstance(group, SystemGroup):
+            group = await get_system_group(db_session, group)
+        user.groups.append(group)
     db_session.add(user)
     await db_session.commit()
     await db_session.refresh(user)
@@ -107,14 +137,32 @@ async def regular_user(db_session: AsyncSession, laboratory: Laboratory) -> User
 @pytest_asyncio.fixture
 async def superuser(db_session: AsyncSession, laboratory: Laboratory) -> User:
     return await _make_user(
-        db_session, laboratory, email="admin@example.com", is_superuser=True
+        db_session, laboratory, email="admin@example.com", groups=[SystemGroup.ADMINISTRATOR]
     )
 
 
 @pytest_asyncio.fixture
 async def lab_admin(db_session: AsyncSession, laboratory: Laboratory) -> User:
     return await _make_user(
-        db_session, laboratory, email="labadmin@example.com", can_manage_lab_users=True
+        db_session,
+        laboratory,
+        email="labadmin@example.com",
+        groups=[SystemGroup.LAB_ADMINISTRATOR],
+    )
+
+
+@pytest_asyncio.fixture
+async def data_entry_group(db_session: AsyncSession) -> UserGroup:
+    return await make_group(db_session, "Data entry", [Permission.ENTER_DATA])
+
+
+@pytest_asyncio.fixture
+async def data_entrant(
+    db_session: AsyncSession, laboratory: Laboratory, data_entry_group: UserGroup
+) -> User:
+    """A member of `laboratory` who may enter study data - and nothing else."""
+    return await _make_user(
+        db_session, laboratory, email="entrant@example.com", groups=[data_entry_group]
     )
 
 

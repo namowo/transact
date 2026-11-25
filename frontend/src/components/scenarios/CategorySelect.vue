@@ -32,7 +32,7 @@ const props = withDefaults(
 const modelValue = defineModel<string | string[] | null>({ default: null })
 
 const auth = useAuthStore()
-const canEdit = computed(() => auth.isLabAdmin && !!props.api.update)
+const canEdit = computed(() => auth.can('catalog.edit') && !!props.api.update)
 
 const options = ref<NamedCategory[]>([])
 const loading = ref(false)

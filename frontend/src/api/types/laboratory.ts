@@ -12,6 +12,9 @@ export interface Laboratory {
   director_head_of_laboratory?: string | null
   email?: string | null
   approval_status: LaboratoryApprovalStatus
+  // Whether platform admins with "Edit data of all laboratories" may work on
+  // this laboratory's studies. The laboratory's own admins decide.
+  allow_admin_data_entry: boolean
 }
 
 export interface LaboratoryCreate {

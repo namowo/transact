@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import current_superuser, get_async_session
+from app.core.deps import current_site_settings_manager, get_async_session
 from app.crud.site_settings import crud_site_settings as crud
 from app.schemas.site_settings import (
     SiteSettingsRead as ReadSchema,
@@ -19,7 +19,7 @@ async def get_site_settings(db: AsyncSession = Depends(get_async_session)):
 @router.patch(
     "",
     response_model=ReadSchema,
-    dependencies=[Depends(current_superuser)],
+    dependencies=[Depends(current_site_settings_manager)],
 )
 async def update_site_settings(
     obj_in: UpdateSchema, db: AsyncSession = Depends(get_async_session)

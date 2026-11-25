@@ -7,10 +7,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.deps import (
     assert_manages_laboratory,
     current_active_user,
-    current_lab_admin,
-    current_superuser,
+    current_member_manager,
+    current_user_manager,
     get_async_session,
 )
+from app.core.permission_catalog import Permission
+from app.crud import user_group as user_groups
 from app.core.security import verify_password
 from app.crud.base import CRUDBase
 from app.crud.user import crud_user
@@ -22,8 +24,21 @@ from app.schemas.user import (
     UserRead,
     UserUpdate,
 )
+from app.schemas.user_group import UserGroupAssignment
 
 router = APIRouter()
+
+
+def assert_manages_laboratory_or_users(actor: User, target: User) -> None:
+    """Admins manage every account; lab admins the members of their lab."""
+    if actor.can(Permission.MANAGE_USERS):
+        return
+    if target.laboratory_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only manage users in your own laboratory.",
+        )
+    assert_manages_laboratory(actor, target.laboratory_id)
 
 _crud_user_update = CRUDBase(User)
 
@@ -31,7 +46,7 @@ _crud_user_update = CRUDBase(User)
 @router.get(
     "",
     response_model=List[UserRead],
-    dependencies=[Depends(current_superuser)],
+    dependencies=[Depends(current_user_manager)],
 )
 async def list_users(db: AsyncSession = Depends(get_async_session)):
     return await crud_user.list_all(db)
@@ -106,77 +121,29 @@ async def complete_tour(
     return await crud_user.complete_tour(db, user, tour)
 
 
-@router.post(
-    "/{id}/grant-quality-check",
-    response_model=UserRead,
-    dependencies=[Depends(current_superuser)],
-)
-async def grant_quality_check(id: UUID, db: AsyncSession = Depends(get_async_session)):
-    target = await crud_user.get(db, id)
-    return await crud_user.set_can_quality_check(db, target, True)
-
-
-@router.post(
-    "/{id}/revoke-quality-check",
-    response_model=UserRead,
-    dependencies=[Depends(current_superuser)],
-)
-async def revoke_quality_check(id: UUID, db: AsyncSession = Depends(get_async_session)):
-    target = await crud_user.get(db, id)
-    return await crud_user.set_can_quality_check(db, target, False)
-
-
-@router.post(
-    "/{id}/grant-superuser",
-    response_model=UserRead,
-    dependencies=[Depends(current_superuser)],
-)
-async def grant_superuser(id: UUID, db: AsyncSession = Depends(get_async_session)):
-    target = await crud_user.get(db, id)
-    return await crud_user.set_is_superuser(db, target, True)
-
-
-@router.post(
-    "/{id}/revoke-superuser",
-    response_model=UserRead,
-    dependencies=[Depends(current_superuser)],
-)
-async def revoke_superuser(id: UUID, db: AsyncSession = Depends(get_async_session)):
-    target = await crud_user.get(db, id)
-    return await crud_user.set_is_superuser(db, target, False)
-
-
-@router.post("/{id}/grant-lab-admin", response_model=UserRead)
-async def grant_lab_admin(
+@router.put("/{id}/groups", response_model=UserRead)
+async def set_groups(
     id: UUID,
+    obj_in: UserGroupAssignment,
     db: AsyncSession = Depends(get_async_session),
-    user: User = Depends(current_lab_admin),
+    user: User = Depends(current_member_manager),
 ):
+    """Replace the user's groups. Only the groups that change are checked:
+    see app.crud.user_group for who may assign which group."""
     target = await crud_user.get(db, id)
-    assert_manages_laboratory(user, target.laboratory_id)
-    return await crud_user.set_can_manage_lab_users(db, target, True)
-
-
-@router.post("/{id}/revoke-lab-admin", response_model=UserRead)
-async def revoke_lab_admin(
-    id: UUID,
-    db: AsyncSession = Depends(get_async_session),
-    user: User = Depends(current_lab_admin),
-):
-    target = await crud_user.get(db, id)
-    assert_manages_laboratory(user, target.laboratory_id)
-    return await crud_user.set_can_manage_lab_users(db, target, False)
+    assert_manages_laboratory_or_users(user, target)
+    return await user_groups.set_user_groups(db, user, target, obj_in.group_ids)
 
 
 @router.post("/{id}/remove-from-laboratory", response_model=UserRead)
 async def remove_from_laboratory(
     id: UUID,
     db: AsyncSession = Depends(get_async_session),
-    user: User = Depends(current_lab_admin),
+    user: User = Depends(current_member_manager),
 ):
     target = await crud_user.get(db, id)
     assert_manages_laboratory(user, target.laboratory_id)
-    if target.can_manage_lab_users and not user.is_superuser:
+    if target.can(Permission.MANAGE_LAB_MEMBERS) and not user.can(Permission.MANAGE_USERS):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only an admin can remove a lab admin from a laboratory.",
@@ -187,7 +154,7 @@ async def remove_from_laboratory(
 @router.post(
     "/{id}/set-laboratory",
     response_model=UserRead,
-    dependencies=[Depends(current_superuser)],
+    dependencies=[Depends(current_user_manager)],
 )
 async def set_laboratory(
     id: UUID,
@@ -202,11 +169,12 @@ async def set_laboratory(
 async def delete_user(
     id: UUID,
     db: AsyncSession = Depends(get_async_session),
-    user: User = Depends(current_superuser),
+    user: User = Depends(current_user_manager),
 ):
     if id == user.id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="You cannot delete your own account.",
         )
+    await user_groups.assert_keeps_an_administrator(db, id)
     await crud_user.delete(db, id)

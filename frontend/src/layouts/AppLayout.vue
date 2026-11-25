@@ -62,7 +62,11 @@ const navGroups = computed<NavigationMenuItem[][]>(() =>
             icon: 'i-lucide-building-2',
             type: 'trigger',
             class: 'tour-nav-laboratory',
-            defaultOpen: route.name?.toString().startsWith('settings-methods-') || route.name === 'lab-users',
+            defaultOpen:
+              route.name?.toString().startsWith('settings-methods-') ||
+              route.name === 'lab-users' ||
+              route.name === 'lab-groups' ||
+              route.name === 'lab-settings',
             badge: labRequestCount.value > 0 ? labRequestCount.value : undefined,
             children: [
               { label: 'Methods', to: { name: 'settings-methods-extraction' } },
@@ -75,9 +79,13 @@ const navGroups = computed<NavigationMenuItem[][]>(() =>
                     },
                   ]
                 : []),
+              ...(auth.can('lab.manage_groups') ? [{ label: 'Groups', to: { name: 'lab-groups' } }] : []),
+              ...(auth.can('lab.manage_settings')
+                ? [{ label: 'Settings', to: { name: 'lab-settings' } }]
+                : []),
             ],
           },
-          ...(auth.isSuperuser
+          ...(auth.isAdmin
             ? [
                 {
                   label: 'Admin',
@@ -86,44 +94,52 @@ const navGroups = computed<NavigationMenuItem[][]>(() =>
                   class: 'tour-nav-admin',
                   defaultOpen:
                     route.name === 'admin-users' ||
+                    route.name === 'admin-groups' ||
                     route.name === 'laboratories' ||
                     route.name === 'admin-item-catalog' ||
                     route.name === 'admin-legal',
                   badge: newLabRequestCount.value > 0 ? newLabRequestCount.value : undefined,
                   children: [
-                    { label: 'User Permissions', to: { name: 'admin-users' } },
-                    {
-                      label: 'Laboratories',
-                      to: { name: 'laboratories' },
-                      badge: newLabRequestCount.value > 0 ? newLabRequestCount.value : undefined,
-                    },
-                    { label: 'Item Catalog', to: { name: 'admin-item-catalog' } },
-                    { label: 'Legal Pages', to: { name: 'admin-legal' } },
+                    ...(auth.can('users.manage') ? [{ label: 'Users', to: { name: 'admin-users' } }] : []),
+                    ...(auth.can('groups.manage')
+                      ? [{ label: 'Groups & Permissions', to: { name: 'admin-groups' } }]
+                      : []),
+                    ...(auth.can('laboratories.manage')
+                      ? [
+                          {
+                            label: 'Laboratories',
+                            to: { name: 'laboratories' },
+                            badge: newLabRequestCount.value > 0 ? newLabRequestCount.value : undefined,
+                          },
+                        ]
+                      : []),
+                    ...(auth.canAny('catalog.edit', 'catalog.delete')
+                      ? [{ label: 'Item Catalog', to: { name: 'admin-item-catalog' } }]
+                      : []),
+                    ...(auth.can('site_settings.manage')
+                      ? [{ label: 'Legal Pages', to: { name: 'admin-legal' } }]
+                      : []),
                   ],
                 },
               ]
             : []),
         ],
-        [
-          ...docPages.map((page) => ({
+        docPages.map((page) => ({
             label: page.title,
             icon: 'i-lucide-file-text',
             to: { name: 'docs', params: { slug: page.slug } },
           })),
-        ],
       ]
     : [
         [
           { label: 'Studies', icon: 'i-lucide-book-open', to: { name: 'studies-all' } },
           { label: 'Data download', icon: 'i-lucide-download', to: { name: 'data-models' } },
         ],
-        [
-          ...docPages.map((page) => ({
+        docPages.map((page) => ({
             label: page.title,
             icon: 'i-lucide-file-text',
             to: { name: 'docs', params: { slug: page.slug } },
           })),
-        ],
       ],
 )
 

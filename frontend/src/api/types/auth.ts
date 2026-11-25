@@ -1,4 +1,5 @@
 import type { Laboratory } from './laboratory'
+import type { Permission, UserGroupBrief } from './userGroup'
 
 // Data tables whose column sort is saved on the user.
 export type SortableTable = 'samples' | 'results'
@@ -15,9 +16,10 @@ export interface User {
   last_name: string
   is_active: boolean
   is_verified: boolean
-  is_superuser: boolean
-  can_quality_check: boolean
-  can_manage_lab_users: boolean
+  groups: UserGroupBrief[]
+  // Everything the user's groups grant. Laboratory permissions only apply
+  // to the user's own laboratory.
+  permissions: Permission[]
   passkey_prompt_dismissed: boolean
   // Interactive guides the user finished or skipped.
   completed_tours?: string[]

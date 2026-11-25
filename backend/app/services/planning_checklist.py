@@ -11,6 +11,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.permission_catalog import Permission
 from app.models.planning_checklist import PlanningChecklist
 from app.models.study_checklist_progress import StudyChecklistProgress
 from app.models.user import User
@@ -88,9 +89,7 @@ def item_ids(sections: list[dict]) -> set[str]:
 def can_edit_checklist(user: Optional[User], laboratory_id: Optional[UUID]) -> bool:
     if user is None or laboratory_id is None:
         return False
-    return user.is_superuser or (
-        user.can_manage_lab_users and user.laboratory_id == laboratory_id
-    )
+    return user.can_in_laboratory(Permission.MANAGE_LAB_SETTINGS, laboratory_id)
 
 
 async def get_sections(

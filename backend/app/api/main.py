@@ -4,6 +4,7 @@ from app.api.routers import utils
 from app.api.routers import auth
 from app.api.routers import api_keys
 from app.api.routers import users
+from app.api.routers import user_groups
 from app.api.routers import webauthn
 
 # TransAct routers
@@ -101,6 +102,10 @@ api_router.include_router(auth.router, prefix="/auth", tags=["Auth"])
 api_router.include_router(webauthn.router, prefix="/auth/webauthn", tags=["Auth"])
 api_router.include_router(api_keys.router, prefix="/auth/api-keys", tags=["Auth"])
 api_router.include_router(users.router, prefix="/users", tags=["Users"])
+api_router.include_router(user_groups.router, prefix="/user-groups", tags=["User groups"])
+api_router.include_router(
+    user_groups.permissions_router, prefix="/permissions", tags=["User groups"]
+)
 
 # Categories
 api_router.include_router(activity_category.router, prefix="/activity-categories", tags=["Categories"])

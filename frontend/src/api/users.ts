@@ -5,7 +5,6 @@ import type { TourId } from '@/tours/types'
 export interface UpdateProfilePayload {
   first_name?: string
   last_name?: string
-  laboratory_id?: string
   locale?: string
   table_sorts?: Partial<Record<SortableTable, TableSortMeta[]>>
 }
@@ -41,28 +40,11 @@ export function completeTour(tour: TourId) {
   return apiClient.post<User>(`/users/me/completed-tours/${tour}`).then((r) => r.data)
 }
 
-export function grantQualityCheck(id: string) {
-  return apiClient.post<User>(`/users/${id}/grant-quality-check`).then((r) => r.data)
-}
-
-export function revokeQualityCheck(id: string) {
-  return apiClient.post<User>(`/users/${id}/revoke-quality-check`).then((r) => r.data)
-}
-
-export function grantLabAdmin(id: string) {
-  return apiClient.post<User>(`/users/${id}/grant-lab-admin`).then((r) => r.data)
-}
-
-export function revokeLabAdmin(id: string) {
-  return apiClient.post<User>(`/users/${id}/revoke-lab-admin`).then((r) => r.data)
-}
-
-export function grantSuperuser(id: string) {
-  return apiClient.post<User>(`/users/${id}/grant-superuser`).then((r) => r.data)
-}
-
-export function revokeSuperuser(id: string) {
-  return apiClient.post<User>(`/users/${id}/revoke-superuser`).then((r) => r.data)
+// Replaces the user's groups; the backend checks each group that changes.
+export function setUserGroups(id: string, groupIds: string[]) {
+  return apiClient
+    .put<User>(`/users/${id}/groups`, { group_ids: groupIds })
+    .then((r) => r.data)
 }
 
 export function removeFromLaboratory(id: string) {

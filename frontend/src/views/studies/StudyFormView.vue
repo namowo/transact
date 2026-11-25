@@ -7,13 +7,14 @@ import type { StepperItem } from '@nuxt/ui'
 import { useConfirm } from '@/composables/useConfirm'
 import { doiSchema, normalizeDoi } from '@/constants/doi'
 import { createStudy, deleteStudy, getStudy, updateStudy } from '@/api/studies'
+import { listLaboratories } from '@/api/laboratories'
 import { useAuthStore } from '@/stores/auth'
 import { useTourStore } from '@/stores/tour'
-import { canEditStudy, provideStudyReadOnly } from '@/composables/useStudyAccess'
+import { canEditStudy, canEnterStudyData, provideStudyReadOnly } from '@/composables/useStudyAccess'
 import ScenariosList from '@/components/scenarios/ScenariosList.vue'
 import PlanningChecklistModal from '@/components/studies/PlanningChecklistModal.vue'
 import DataEntryView from '@/views/data/DataEntryView.vue'
-import type { Study, StudyCreate, StudyUpdate } from '@/api/types'
+import type { Laboratory, Study, StudyCreate, StudyUpdate } from '@/api/types'
 
 const props = defineProps<{ id?: string }>()
 
@@ -32,7 +33,45 @@ const loadedStudy = ref<Study | null>(null)
 const readOnly = computed(
   () => editingId.value !== null && !!loadedStudy.value && !canEditStudy(loadedStudy.value, auth.user),
 )
-provideStudyReadOnly(readOnly)
+// Admins with "Edit data of all laboratories" can create a study for
+// another laboratory (to prepare its data); everyone else creates studies
+// for their own laboratory.
+const canPickLaboratory = computed(
+  () => editingId.value === null && auth.can('laboratories.edit_all_data'),
+)
+const targetLaboratoryId = ref<string | null>(
+  typeof route.query.laboratory_id === 'string'
+    ? route.query.laboratory_id
+    : (auth.user?.laboratory_id ?? null),
+)
+const laboratoryOptions = ref<Laboratory[]>([])
+watch(
+  canPickLaboratory,
+  async (canPick) => {
+    if (!canPick || laboratoryOptions.value.length) return
+    try {
+      const all = await listLaboratories()
+      laboratoryOptions.value = all.filter(
+        (lab) =>
+          lab.id === auth.user?.laboratory_id ||
+          (lab.allow_admin_data_entry && lab.approval_status === 'approved'),
+      )
+    } catch {
+      laboratoryOptions.value = []
+    }
+  },
+  { immediate: true },
+)
+
+// Planning and data entry below also need permission to enter study data.
+provideStudyReadOnly(
+  computed(
+    () =>
+      editingId.value !== null &&
+      !!loadedStudy.value &&
+      !canEnterStudyData(loadedStudy.value, auth.user),
+  ),
+)
 
 // Which step to open, e.g. from the study list card's "Plan" / "Add data"
 // buttons deep-linking via ?step=planning or ?step=data-entry. Kept in sync
@@ -328,7 +367,8 @@ const onSubmit = handleSubmit(async (values) => {
     }
 
     if (editingId.value === null) {
-      const payload: StudyCreate = { ...shared, laboratory_id: auth.user!.laboratory_id! }
+      const laboratoryId = (canPickLaboratory.value && targetLaboratoryId.value) || auth.user!.laboratory_id!
+      const payload: StudyCreate = { ...shared, laboratory_id: laboratoryId }
       const created = await createStudy(payload)
       router.push({ name: 'studies-edit', params: { id: created.id }, query: { step: 'planning' } })
     } else {
@@ -477,6 +517,20 @@ function confirmDeleteStudy() {
         <template #1>
           <form class="flex flex-col gap-4 max-w-2xl" @submit.prevent="onSubmit">
             <fieldset :disabled="readOnly" class="contents">
+            <UFormField
+              v-if="canPickLaboratory"
+              label="Laboratory"
+              description="Prepare a study on behalf of another laboratory. Its members can take it over later."
+            >
+              <USelectMenu
+                v-model="targetLaboratoryId"
+                :items="laboratoryOptions"
+                label-key="laboratory_name"
+                value-key="id"
+                class="w-full"
+              />
+            </UFormField>
+
             <UFormField label="Title" :error="errors.title" data-tour="study-title">
               <UInput
                 id="study-title"

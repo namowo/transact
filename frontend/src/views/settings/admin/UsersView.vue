@@ -6,25 +6,19 @@ import type { DropdownMenuItem } from '@nuxt/ui'
 import { useConfirm } from '@/composables/useConfirm'
 import { FilterMatchMode } from '@openvue/core/api'
 import LaboratorySelect from '@/components/auth/LaboratorySelect.vue'
-import {
-  deleteUser,
-  grantLabAdmin,
-  grantQualityCheck,
-  grantSuperuser,
-  listAllUsers,
-  revokeLabAdmin,
-  revokeQualityCheck,
-  revokeSuperuser,
-  setLaboratory,
-} from '@/api/users'
+import UserGroupsModal from '@/components/groups/UserGroupsModal.vue'
+import UserGroupBadges from '@/components/groups/UserGroupBadges.vue'
+import { deleteUser, listAllUsers, setLaboratory } from '@/api/users'
 import { listLaboratories } from '@/api/laboratories'
-import type { Laboratory, User } from '@/api/types'
+import { listUserGroups } from '@/api/userGroups'
+import type { Laboratory, User, UserGroup } from '@/api/types'
 import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
 const confirm = useConfirm()
 const users = ref<User[]>([])
 const laboratories = ref<Laboratory[]>([])
+const groups = ref<UserGroup[]>([])
 const loading = ref(false)
 const loadError = ref('')
 const actionError = ref('')
@@ -34,8 +28,8 @@ const labDialogUser = ref<User | null>(null)
 const labDialogValue = ref<string | null>(null)
 const labDialogSaving = ref(false)
 
-const accessDialogVisible = ref(false)
-const accessDialogUser = ref<User | null>(null)
+const groupsDialogVisible = ref(false)
+const groupsDialogUser = ref<User | null>(null)
 
 function initFilters() {
   return {
@@ -57,9 +51,14 @@ async function load() {
   loading.value = true
   loadError.value = ''
   try {
-    const [loadedUsers, loadedLabs] = await Promise.all([listAllUsers(), listLaboratories()])
+    const [loadedUsers, loadedLabs, loadedGroups] = await Promise.all([
+      listAllUsers(),
+      listLaboratories(),
+      listUserGroups(),
+    ])
     users.value = loadedUsers
     laboratories.value = loadedLabs
+    groups.value = loadedGroups
   } catch {
     loadError.value = 'Could not load users.'
   } finally {
@@ -71,93 +70,20 @@ onMounted(load)
 
 function applyUpdate(updated: User) {
   users.value = users.value.map((u) => (u.id === updated.id ? updated : u))
-  if (accessDialogUser.value?.id === updated.id) accessDialogUser.value = updated
 }
 
-async function applySuperuser(user: User) {
+function openGroupsDialog(user: User) {
   actionError.value = ''
-  try {
-    const updated = user.is_superuser
-      ? await revokeSuperuser(user.id)
-      : await grantSuperuser(user.id)
-    applyUpdate(updated)
-  } catch {
-    actionError.value = 'Could not update this user. Please try again.'
-  }
-}
-
-function toggleSuperuser(user: User) {
-  const verb = user.is_superuser ? 'Revoke' : 'Grant'
-  confirm.require({
-    message: `${verb} superuser access for ${user.first_name} ${user.last_name}?`,
-    header: `${verb} superuser`,
-    rejectLabel: 'Cancel',
-    acceptLabel: verb,
-    acceptColor: user.is_superuser ? 'error' : undefined,
-    accept: () => applySuperuser(user),
-  })
-}
-
-async function applyQualityCheck(user: User) {
-  actionError.value = ''
-  try {
-    const updated = user.can_quality_check
-      ? await revokeQualityCheck(user.id)
-      : await grantQualityCheck(user.id)
-    applyUpdate(updated)
-  } catch {
-    actionError.value = 'Could not update this user. Please try again.'
-  }
-}
-
-function toggleQualityCheck(user: User) {
-  const verb = user.can_quality_check ? 'Revoke' : 'Grant'
-  confirm.require({
-    message: `${verb} quality check access for ${user.first_name} ${user.last_name}?`,
-    header: `${verb} quality check`,
-    rejectLabel: 'Cancel',
-    acceptLabel: verb,
-    acceptColor: user.can_quality_check ? 'error' : undefined,
-    accept: () => applyQualityCheck(user),
-  })
-}
-
-async function applyLabAdmin(user: User) {
-  actionError.value = ''
-  try {
-    const updated = user.can_manage_lab_users
-      ? await revokeLabAdmin(user.id)
-      : await grantLabAdmin(user.id)
-    applyUpdate(updated)
-  } catch {
-    actionError.value = 'Could not update this user. Please try again.'
-  }
-}
-
-function toggleLabAdmin(user: User) {
-  const verb = user.can_manage_lab_users ? 'Revoke' : 'Grant'
-  confirm.require({
-    message: `${verb} lab admin access for ${user.first_name} ${user.last_name}?`,
-    header: `${verb} lab admin`,
-    rejectLabel: 'Cancel',
-    acceptLabel: verb,
-    acceptColor: user.can_manage_lab_users ? 'error' : undefined,
-    accept: () => applyLabAdmin(user),
-  })
-}
-
-function openAccessDialog(user: User) {
-  actionError.value = ''
-  accessDialogUser.value = user
-  accessDialogVisible.value = true
+  groupsDialogUser.value = user
+  groupsDialogVisible.value = true
 }
 
 function rowMenuItems(user: User): DropdownMenuItem[] {
   const items: DropdownMenuItem[] = [
     {
-      label: 'Manage access',
+      label: 'Groups',
       icon: 'i-lucide-shield',
-      onSelect: () => openAccessDialog(user),
+      onSelect: () => openGroupsDialog(user),
     },
     {
       label: 'Edit lab',
@@ -248,7 +174,12 @@ async function deleteUserConfirmed(user: User) {
 
 <template>
   <div class="flex flex-col gap-6">
-    <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-0">Manage Users</h1>
+    <div>
+      <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-0">Manage Users</h1>
+      <p class="text-sm text-muted">
+        What users may do comes from their groups. Define groups under Groups &amp; Permissions.
+      </p>
+    </div>
 
     <UAlert v-if="loadError" color="error" variant="outline" :description="loadError" />
     <UAlert v-if="actionError" color="error" variant="outline" :description="actionError" />
@@ -346,13 +277,9 @@ async function deleteUserConfirmed(user: User) {
           </template>
         </Column>
 
-        <Column header="Access" style="width: 12rem">
+        <Column header="Groups" style="width: 14rem">
           <template #body="{ data }">
-            <div class="flex flex-wrap gap-1">
-              <UBadge v-if="data.is_superuser" label="Superuser" color="primary" variant="subtle" size="sm" />
-              <UBadge v-if="data.can_manage_lab_users" label="Lab admin" color="neutral" variant="subtle" size="sm" />
-              <UBadge v-if="data.can_quality_check" label="Quality check" color="neutral" variant="subtle" size="sm" />
-            </div>
+            <UserGroupBadges :user="data" />
           </template>
         </Column>
 
@@ -393,55 +320,11 @@ async function deleteUserConfirmed(user: User) {
       </template>
     </UModal>
 
-    <UModal
-      v-model:open="accessDialogVisible"
-      title="Manage access"
-      :ui="{ content: 'max-w-md', footer: 'justify-end' }"
-    >
-      <template #body>
-        <div v-if="accessDialogUser" class="flex flex-col gap-4">
-          <p class="text-sm text-surface-600 dark:text-surface-300">
-            {{ accessDialogUser.first_name }} {{ accessDialogUser.last_name }} ({{ accessDialogUser.email }})
-          </p>
-
-          <div class="flex items-center justify-between gap-3">
-            <div>
-              <p class="text-sm font-medium text-surface-900 dark:text-surface-0">Superuser</p>
-              <p class="text-xs text-surface-500 dark:text-surface-400">Full administrative access</p>
-            </div>
-            <USwitch
-              :model-value="accessDialogUser.is_superuser"
-              :disabled="accessDialogUser.id === auth.user?.id"
-              @update:model-value="toggleSuperuser(accessDialogUser)"
-            />
-          </div>
-
-          <div class="flex items-center justify-between gap-3">
-            <div>
-              <p class="text-sm font-medium text-surface-900 dark:text-surface-0">Lab admin</p>
-              <p class="text-xs text-surface-500 dark:text-surface-400">Manage users within their laboratory</p>
-            </div>
-            <USwitch
-              :model-value="accessDialogUser.can_manage_lab_users"
-              @update:model-value="toggleLabAdmin(accessDialogUser)"
-            />
-          </div>
-
-          <div class="flex items-center justify-between gap-3">
-            <div>
-              <p class="text-sm font-medium text-surface-900 dark:text-surface-0">Quality check</p>
-              <p class="text-xs text-surface-500 dark:text-surface-400">Allowed to perform quality checks</p>
-            </div>
-            <USwitch
-              :model-value="accessDialogUser.can_quality_check"
-              @update:model-value="toggleQualityCheck(accessDialogUser)"
-            />
-          </div>
-        </div>
-      </template>
-      <template #footer>
-        <UButton label="Close" icon="i-lucide-x" variant="ghost" @click="accessDialogVisible = false" />
-      </template>
-    </UModal>
+    <UserGroupsModal
+      v-model:open="groupsDialogVisible"
+      :user="groupsDialogUser"
+      :groups="groups"
+      @saved="applyUpdate"
+    />
   </div>
 </template>

@@ -2,6 +2,7 @@ from app.core.db import Base
 
 from .api_key import ApiKey
 from .user import User
+from .user_group import UserGroup, user_group_member
 from .user_token import UserToken
 from .webauthn_credential import WebAuthnCredential
 from .webauthn_challenge import WebAuthnChallenge

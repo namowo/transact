@@ -13,7 +13,7 @@ export function usePendingRequests() {
   async function load() {
     const [labResult, newLabResult] = await Promise.all([
       auth.isLabAdmin ? listPendingForMyLab().catch(() => []) : Promise.resolve([]),
-      auth.isSuperuser ? listPendingNewLabs().catch(() => []) : Promise.resolve([]),
+      auth.can('laboratories.manage') ? listPendingNewLabs().catch(() => []) : Promise.resolve([]),
     ])
     labRequests.value = labResult
     newLabRequests.value = newLabResult

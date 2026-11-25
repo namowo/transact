@@ -148,7 +148,8 @@ async def test_invalid_rows_reject_the_whole_file(superuser_client, db_session, 
 @pytest.mark.asyncio
 async def test_other_laboratories_cannot_upload(client, db_session, study):
     from app.models.laboratory import Laboratory, LaboratoryApprovalStatus
-    from tests.conftest import _make_user
+    from app.core.permission_catalog import Permission
+    from tests.conftest import _make_user, make_group
     from app.core.security import create_access_token
 
     other = Laboratory(
@@ -160,7 +161,9 @@ async def test_other_laboratories_cannot_upload(client, db_session, study):
     )
     db_session.add(other)
     await db_session.commit()
-    outsider = await _make_user(db_session, other, email="out@example.com", is_superuser=True)
+    # Allowed to enter data - but for their own laboratory only.
+    group = await make_group(db_session, "Data entry", [Permission.ENTER_DATA])
+    outsider = await _make_user(db_session, other, email="out@example.com", groups=[group])
     client.cookies.update({"access_token": create_access_token(subject=str(outsider.id))})
 
     response = await _upload(client, study, b"irrelevant")

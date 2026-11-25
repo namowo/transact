@@ -9,7 +9,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core import permissions as P
 from app.crud.study_scope import scenario_ids_of_study
-from app.core.deps import current_superuser, get_async_session
+from app.core.deps import current_data_editor, get_async_session
 from app.models.contact_template import ContactTemplate
 from app.models.scenario import Scenario
 from app.models.study import Study
@@ -94,7 +94,7 @@ async def get_by_id(id: UUID, db: AsyncSession = Depends(get_async_session)):
 async def create(
     obj_in: CreateSchema,
     db: AsyncSession = Depends(get_async_session),
-    user: User = Depends(current_superuser),
+    user: User = Depends(current_data_editor),
 ):
     await P.assert_can_edit_studies(
         db, user, {obj_in.owning_study_id, *obj_in.study_ids}
@@ -113,7 +113,7 @@ async def update(
     id: UUID,
     obj_in: UpdateSchema,
     db: AsyncSession = Depends(get_async_session),
-    user: User = Depends(current_superuser),
+    user: User = Depends(current_data_editor),
 ):
     scenario = await crud.get(db, id)
     # Other studies may link a scenario into their planning, but only the
@@ -144,7 +144,7 @@ async def update(
 async def delete(
     id: UUID,
     db: AsyncSession = Depends(get_async_session),
-    user: User = Depends(current_superuser),
+    user: User = Depends(current_data_editor),
 ):
     scenario = await crud.get(db, id)
     await P.assert_can_edit_studies(db, user, _owners(scenario))

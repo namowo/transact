@@ -49,10 +49,12 @@ async def test_change_password_succeeds_with_correct_current_password(
     assert resp.status_code == 200
 
 
-async def test_grant_lab_admin_requires_lab_admin_or_superuser(
+async def test_assigning_groups_requires_managing_members(
     auth_client: AsyncClient, regular_user: User
 ):
-    resp = await auth_client.post(f"/api/v1/users/{regular_user.id}/grant-lab-admin")
+    resp = await auth_client.put(
+        f"/api/v1/users/{regular_user.id}/groups", json={"group_ids": []}
+    )
     assert resp.status_code == 403
 
 
