@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import DataTable from 'openvue/datatable'
-import Column from 'openvue/column'
-import { FilterMatchMode } from '@openvue/core/api'
 import { getLabMethodConfig, pcrMethodLabel } from '@/data/labMethods'
 import { useAuthStore } from '@/stores/auth'
 import LabMethodFormModal from './LabMethodFormModal.vue'
+import type { TableColumn } from '@nuxt/ui'
+import { manualSorting, useTableView } from '@/composables/useTableView'
+import { sortHeader } from '@/composables/tableColumns'
+import TableFilterDrawer from '@/components/ui/TableFilterDrawer.vue'
+import TablePagination from '@/components/ui/TablePagination.vue'
 
 const props = defineProps<{ methodKey: string }>()
 
@@ -23,24 +25,50 @@ const items = ref<MethodRow[]>([])
 const loading = ref(false)
 const loadError = ref('')
 
-function initFilters() {
-  const columnFilters = Object.fromEntries(
-    (config.value?.listColumns ?? []).map((key) => [
-      key,
-      { value: null, matchMode: FilterMatchMode.CONTAINS },
-    ]),
-  )
-  return {
-    global: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    ...columnFilters,
-  }
-}
-
-const filters = ref(initFilters())
+// Per-column text filters; which columns there are depends on the method.
+const columnFilters = reactive<Record<string, string>>({})
+const activeFilterCount = computed(
+  () => Object.values(columnFilters).filter((v) => v?.trim()).length,
+)
 
 function clearFilters() {
-  filters.value = initFilters()
+  for (const key of Object.keys(columnFilters)) delete columnFilters[key]
 }
+
+const columnFilteredItems = computed(() => {
+  const active = Object.entries(columnFilters).filter(([, value]) => value?.trim())
+  if (!active.length) return items.value
+  return items.value.filter((row) =>
+    active.every(([key, value]) =>
+      String(columnValue(row, key)).toLocaleLowerCase().includes(value.trim().toLocaleLowerCase()),
+    ),
+  )
+})
+
+const view = useTableView(columnFilteredItems, {
+  searchFields: [(row) => (config.value?.listColumns ?? []).map((key) => columnValue(row, key))],
+  sortValue: (row, key) => {
+    const value = columnValue(row, key)
+    return value === '—' ? null : value
+  },
+  pageSize: 10,
+})
+
+function columnLabel(key: string) {
+  return (
+    config.value?.fields.find((f) => f.key === key || f.key === `${key}_id`)?.label ??
+    config.value?.listColumnLabels?.[key] ??
+    key
+  )
+}
+
+const columns = computed<TableColumn<MethodRow>[]>(() => [
+  ...(config.value?.listColumns ?? []).map((key) => ({
+    id: key,
+    header: sortHeader(columnLabel(key)),
+  })),
+  { id: 'actions', header: '', meta: { class: { td: 'w-36' } } },
+])
 
 // The open modal (and which row it's editing) is kept in the `entry` query
 // param, so it survives a full page reload (e.g. a dev HMR fallback)
@@ -51,7 +79,9 @@ async function load() {
   if (!config.value) return
   loading.value = true
   loadError.value = ''
-  filters.value = initFilters()
+  clearFilters()
+  view.reset()
+  view.sorting = []
   try {
     const all = (await config.value.api.list()) as MethodRow[]
     const scoped = config.value.laboratoryScoped
@@ -96,7 +126,7 @@ const editingRow = ref<MethodRow | null>(null)
 const duplicateFrom = ref<MethodRow | null>(null)
 
 watch(modalVisible, (isOpen) => {
-  const entry = isOpen ? editingRow.value?.id ?? 'new' : undefined
+  const entry = isOpen ? (editingRow.value?.id ?? 'new') : undefined
   if (entry === entryQuery.value) return
   router.replace({ query: { ...route.query, entry } })
 })
@@ -161,74 +191,69 @@ function columnValue(row: MethodRow, key: string) {
 
     <UAlert v-if="loadError" color="error" variant="outline" :description="loadError" />
 
-    <div class="overflow-x-auto">
-      <div class="mb-3 flex items-center justify-between gap-3">
-        <UButton type="button" icon="i-lucide-filter-x" variant="outline" size="sm" @click="clearFilters()">
-          Clear Filters
-        </UButton>
+    <div class="flex flex-col gap-3">
+      <div class="flex flex-wrap items-center justify-between gap-3">
         <UInput
-          v-model="filters['global'].value"
-          type="text"
+          v-model="view.search"
           icon="i-lucide-search"
           placeholder="Keyword Search"
+          class="w-full max-w-sm"
         />
+        <TableFilterDrawer :active-count="activeFilterCount" @reset="clearFilters()">
+          <UFormField
+            v-for="colKey in config.listColumns"
+            :key="colKey"
+            :label="columnLabel(colKey)"
+          >
+            <UInput v-model="columnFilters[colKey]" placeholder="Search" class="w-full" />
+          </UFormField>
+        </TableFilterDrawer>
       </div>
 
-      <DataTable
-        v-model:filters="filters"
-        :value="items"
+      <UTable
+        v-model:sorting="view.sorting"
+        :sorting-options="manualSorting"
+        :data="view.rows"
+        :columns="columns"
         :loading="loading"
-        data-key="id"
-        filterDisplay="menu"
-        removableSort
-        paginator
-        :rows="10"
-        :rowsPerPageOptions="[10, 25, 50]"
-        :globalFilterFields="config.listColumns"
+        :get-row-id="(row: MethodRow) => row.id"
+        empty="No entries found."
       >
-        <template #empty>No entries found.</template>
-
-        <Column
-          v-for="colKey in config.listColumns"
-          :key="colKey"
-          :field="colKey"
-          :header="
-            config.fields.find((f) => f.key === colKey || f.key === `${colKey}_id`)?.label ??
-            config.listColumnLabels?.[colKey] ??
-            colKey
-          "
-          sortable
-          :showFilterOperator="false"
-          :showAddButton="false"
-        >
-          <template #body="{ data }">{{ columnValue(data, colKey) }}</template>
-          <template #filter="{ filterModel }">
-            <UInput v-model="filterModel.value" type="text" placeholder="Search" />
-          </template>
-        </Column>
-        <Column header="" style="width: 9rem">
-          <template #body="{ data }">
-            <div class="flex gap-1 justify-end">
-              <UButton icon="i-lucide-pencil" variant="ghost" square aria-label="Edit" @click="openEdit(data)" />
-              <UButton
-                icon="i-lucide-copy"
-                variant="ghost"
-                square
-                aria-label="Duplicate"
-                @click="openDuplicate(data)"
-              />
-              <UButton
-                icon="i-lucide-trash-2"
-                variant="ghost"
-                square
-                color="error"
-                aria-label="Delete"
-                @click="deleteRow(data)"
-              />
-            </div>
-          </template>
-        </Column>
-      </DataTable>
+        <template v-for="colKey in config.listColumns" :key="colKey" #[`${colKey}-cell`]="{ row }">
+          {{ columnValue(row.original, colKey) }}
+        </template>
+        <template #actions-cell="{ row }">
+          <div class="flex gap-1 justify-end">
+            <UButton
+              icon="i-lucide-pencil"
+              variant="ghost"
+              square
+              aria-label="Edit"
+              @click="openEdit(row.original)"
+            />
+            <UButton
+              icon="i-lucide-copy"
+              variant="ghost"
+              square
+              aria-label="Duplicate"
+              @click="openDuplicate(row.original)"
+            />
+            <UButton
+              icon="i-lucide-trash-2"
+              variant="ghost"
+              square
+              color="error"
+              aria-label="Delete"
+              @click="deleteRow(row.original)"
+            />
+          </div>
+        </template>
+      </UTable>
+      <TablePagination
+        v-model:page="view.page"
+        v-model:page-size="view.pageSize"
+        :total="view.total"
+      />
     </div>
 
     <LabMethodFormModal

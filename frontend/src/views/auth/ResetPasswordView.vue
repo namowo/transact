@@ -43,10 +43,7 @@ const onSubmit = handleSubmit(async (values) => {
     await resetPassword(token, values.newPassword)
     done.value = true
   } catch (err) {
-    errorMessage.value = getErrorMessage(
-      err,
-      'This password reset link is invalid or has expired.',
-    )
+    errorMessage.value = getErrorMessage(err, 'This password reset link is invalid or has expired.')
   } finally {
     loading.value = false
   }
@@ -55,7 +52,7 @@ const onSubmit = handleSubmit(async (values) => {
 
 <template>
   <div v-if="done" class="flex flex-col gap-4 text-center">
-    <i class="pi pi-check-circle text-4xl text-primary" />
+    <UIcon name="i-lucide-circle-check" class="size-9 text-primary" />
     <p class="text-surface-700 dark:text-surface-200">
       Your password has been updated. You can now log in.
     </p>

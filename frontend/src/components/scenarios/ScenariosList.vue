@@ -1,10 +1,5 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import DataTable from 'openvue/datatable'
-import Column from 'openvue/column'
-import ContextMenu from 'openvue/contextmenu'
-import type { MenuItem } from 'openvue/menuitem'
-import { FilterMatchMode } from '@openvue/core/api'
 import { useConfirm } from '@/composables/useConfirm'
 import { useStudyReadOnly } from '@/composables/useStudyAccess'
 import ScenarioViewDialog from './ScenarioViewDialog.vue'
@@ -13,6 +8,10 @@ import ScenarioDetails from './ScenarioDetails.vue'
 import { listScenarios, getScenario, deleteScenario, updateScenario } from '@/api/scenarios'
 import { listStudies } from '@/api/studies'
 import type { Scenario, Study } from '@/api/types'
+import type { ContextMenuItem, TableColumn, TableRow } from '@nuxt/ui'
+import { manualSorting, searchRows, useTableView } from '@/composables/useTableView'
+import { sortHeader } from '@/composables/tableColumns'
+import TableFilterDrawer from '@/components/ui/TableFilterDrawer.vue'
 
 const props = defineProps<{ studyId: string }>()
 
@@ -26,20 +25,29 @@ const scenarios = computed(() =>
   allScenarios.value.filter((scenario) => scenario.studies.some((s) => s.id === props.studyId)),
 )
 
-function initFilters() {
-  return {
-    global: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    'scenario_category.name': { value: null, matchMode: FilterMatchMode.CONTAINS },
-    name: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    realistic: { value: null, matchMode: FilterMatchMode.EQUALS },
-  }
-}
+const view = useTableView(scenarios, {
+  searchFields: ['name', 'scenario_category.name'],
+  filters: {
+    name: { field: 'name' },
+    category: { field: 'scenario_category.name' },
+    realistic: { field: 'realistic', mode: 'equals' },
+  },
+  sortAccessors: { category: 'scenario_category.name' },
+})
 
-const filters = ref(initFilters())
+const columns = computed<TableColumn<Scenario>[]>(() => [
+  { id: 'name', accessorKey: 'name', header: sortHeader('Name') },
+  { id: 'category', header: sortHeader('Category') },
+  { id: 'realistic', accessorKey: 'realistic', header: sortHeader('Realistic') },
+  { id: 'shared', header: 'Shared' },
+  { id: 'contact_templates', accessorKey: 'contact_templates', header: 'Contact templates' },
+  { id: 'actions', header: '', meta: { class: { td: 'w-px' } } },
+])
 
-function clearFilters() {
-  filters.value = initFilters()
-}
+const realisticOptions = [
+  { label: 'Realistic', value: true },
+  { label: 'Not realistic', value: false },
+]
 
 async function load() {
   loading.value = true
@@ -172,57 +180,53 @@ function openEditDialog(scenario: Scenario) {
   formDialogVisible.value = true
 }
 
-function onRowClick(event: { data: Scenario }) {
-  if (isScenarioEditable(event.data)) {
-    openEditDialog(event.data)
+function onRowSelect(_event: Event, row: TableRow<Scenario>) {
+  if (isScenarioEditable(row.original)) {
+    openEditDialog(row.original)
   } else {
-    openViewDialog(event.data)
+    openViewDialog(row.original)
   }
 }
 
-const contextMenu = ref<InstanceType<typeof ContextMenu>>()
-const selectedScenario = ref<Scenario>()
-
-const contextMenuItems = computed<MenuItem[]>(() => {
-  const scenario = selectedScenario.value
-  if (!scenario) return []
-
-  return [
+function menuItems(scenario: Scenario): ContextMenuItem[] {
+  const items: ContextMenuItem[] = [
     {
       label: isScenarioEditable(scenario) ? 'Edit' : 'View',
       icon: isScenarioEditable(scenario) ? 'i-lucide-pencil' : 'i-lucide-eye',
-      command: () =>
+      onSelect: () =>
         isScenarioEditable(scenario) ? openEditDialog(scenario) : openViewDialog(scenario),
     },
-    {
+  ]
+  if (!readOnly.value) {
+    items.push({
       label: 'Duplicate',
       icon: 'i-lucide-copy-plus',
-      visible: !readOnly.value,
-      command: () => duplicateScenario(scenario),
-    },
-    {
+      onSelect: () => duplicateScenario(scenario),
+    })
+  }
+  if (!readOnly.value && scenario.studies.length > 1) {
+    items.push({
       label: 'Remove from this study',
       icon: 'i-lucide-x',
-      visible: !readOnly.value && scenario.studies.length > 1,
-      command: () => unlinkScenario(scenario),
-    },
-    {
+      onSelect: () => unlinkScenario(scenario),
+    })
+  }
+  if (isScenarioDeletable(scenario)) {
+    items.push({
       label: 'Delete',
       icon: 'i-lucide-trash-2',
-      visible: isScenarioDeletable(scenario),
-      command: () => confirmDelete(scenario),
-    },
-  ]
-})
-
-function onRowContextMenu(event: { originalEvent: Event; data: Scenario }) {
-  selectedScenario.value = event.data
-  contextMenu.value?.show(event.originalEvent)
+      color: 'error',
+      onSelect: () => confirmDelete(scenario),
+    })
+  }
+  return items
 }
 
-function openContextMenu(event: Event, scenario: Scenario) {
-  selectedScenario.value = scenario
-  contextMenu.value?.show(event)
+// The right-clicked row's menu.
+const contextMenuItems = ref<ContextMenuItem[]>([])
+
+function onRowContextMenu(_event: Event, row: TableRow<Scenario>) {
+  contextMenuItems.value = menuItems(row.original)
 }
 
 const viewDialogVisible = ref(false)
@@ -264,7 +268,9 @@ const browseLevel = ref<'studies' | 'scenarios'>('studies')
 const browsedStudy = ref<Study | null>(null)
 const browseFilter = ref('')
 
-const browsableStudies = computed(() => allStudies.value.filter((study) => study.id !== props.studyId))
+const browsableStudies = computed(() =>
+  allStudies.value.filter((study) => study.id !== props.studyId),
+)
 
 const browsedStudyScenarios = computed(() =>
   browsedStudy.value === null
@@ -273,6 +279,15 @@ const browsedStudyScenarios = computed(() =>
         scenario.studies.some((s) => s.id === browsedStudy.value?.id),
       ),
 )
+
+const visibleBrowsableStudies = computed(() =>
+  searchRows(browsableStudies.value, ['title', 'journal', 'year', citeStudy], browseFilter.value),
+)
+const visibleBrowsedScenarios = computed(() =>
+  searchRows(browsedStudyScenarios.value, ['name', 'scenario_category.name'], browseFilter.value),
+)
+const studyColumns: TableColumn<Study>[] = [{ id: 'study', header: 'Study' }]
+const browseScenarioColumns: TableColumn<Scenario>[] = [{ id: 'scenario', header: 'Scenario' }]
 
 const browseBreadcrumbItems = computed(() => [
   { label: 'Studies', icon: 'i-lucide-folder', onClick: goToStudiesRoot },
@@ -362,102 +377,87 @@ defineExpose({ load })
       <UProgress class="w-12" />
     </div>
 
-    <div v-else class="overflow-x-auto">
-      <ContextMenu ref="contextMenu" :model="contextMenuItems" />
-
-      <div class="mb-3 flex items-center justify-between gap-3">
-        <UButton type="button" icon="i-lucide-filter-x" variant="outline" size="sm" @click="clearFilters()">
-          Clear Filters
-        </UButton>
+    <div v-else class="flex flex-col gap-3">
+      <div class="flex flex-wrap items-center justify-between gap-3">
         <UInput
-          v-model="filters['global'].value"
-          type="text"
+          v-model="view.search"
           icon="i-lucide-search"
           placeholder="Keyword Search"
+          class="w-full max-w-sm"
         />
-      </div>
-
-      <DataTable
-        v-model:filters="filters"
-        :value="scenarios"
-        data-key="id"
-        filterDisplay="menu"
-        removableSort
-        :globalFilterFields="['name', 'scenario_category.name']"
-        :row-class="() => 'cursor-pointer hover:bg-elevated'"
-        @row-click="onRowClick"
-        @row-contextmenu="onRowContextMenu"
-      >
-        <template #empty>
-          <div class="text-center text-surface-500 dark:text-surface-400 py-8">No scenarios yet.</div>
-        </template>
-
-        <Column field="name" header="Name" sortable>
-          <template #body="{ data }">{{ data.name }}</template>
-        </Column>
-
-        <Column
-          field="scenario_category.name"
-          header="Category"
-          sortable
-          :showFilterOperator="false"
-          :showAddButton="false"
-        >
-          <template #body="{ data }">
-            <UBadge :label="data.scenario_category?.name ?? 'Uncategorized'" color="neutral" />
-          </template>
-          <template #filter="{ filterModel }">
-            <UInput v-model="filterModel.value" type="text" placeholder="Search by category" />
-          </template>
-        </Column>
-
-        <Column
-          field="realistic"
-          header="Realistic"
-          sortable
-          :showFilterOperator="false"
-          :showAddButton="false"
-          :showFilterMatchModes="false"
-        >
-          <template #body="{ data }">
-            <UBadge
-              :label="data.realistic ? 'Realistic' : 'Not realistic'"
-              :color="data.realistic ? 'success' : 'warning'"
+        <TableFilterDrawer :active-count="view.activeFilterCount" @reset="view.resetFilters()">
+          <UFormField label="Name">
+            <UInput v-model="view.filters.name" placeholder="Search by name" class="w-full" />
+          </UFormField>
+          <UFormField label="Category">
+            <UInput
+              v-model="view.filters.category"
+              placeholder="Search by category"
+              class="w-full"
             />
-          </template>
-          <template #filter="{ filterModel }">
+          </UFormField>
+          <UFormField label="Realistic">
             <USelectMenu
-              v-model="filterModel.value"
-              :items="[
-                { label: 'Realistic', value: true },
-                { label: 'Not realistic', value: false },
-              ]"
-              label-key="label"
+              v-model="view.filters.realistic"
+              :items="realisticOptions"
               value-key="value"
               placeholder="Any"
               clear
               class="w-full"
             />
-          </template>
-        </Column>
+          </UFormField>
+        </TableFilterDrawer>
+      </div>
 
-        <Column header="Shared">
-          <template #body="{ data }">
+      <UContextMenu :items="contextMenuItems">
+        <UTable
+          v-model:sorting="view.sorting"
+          :sorting-options="manualSorting"
+          :data="view.rows"
+          :columns="columns"
+          :get-row-id="(scenario: Scenario) => scenario.id"
+          :on-select="onRowSelect"
+          :on-contextmenu="onRowContextMenu"
+          :ui="{ tr: 'cursor-pointer' }"
+        >
+          <template #empty>
+            <div class="text-center text-surface-500 dark:text-surface-400 py-8">
+              No scenarios yet.
+            </div>
+          </template>
+
+          <template #category-cell="{ row }">
             <UBadge
-              v-if="data.studies.length > 1"
-              :label="`${data.studies.length} studies`"
+              :label="row.original.scenario_category?.name ?? 'Uncategorized'"
+              color="neutral"
+            />
+          </template>
+
+          <template #realistic-cell="{ row }">
+            <UBadge
+              :label="row.original.realistic ? 'Realistic' : 'Not realistic'"
+              :color="row.original.realistic ? 'success' : 'warning'"
+            />
+          </template>
+
+          <template #shared-cell="{ row }">
+            <UBadge
+              v-if="row.original.studies.length > 1"
+              :label="`${row.original.studies.length} studies`"
               color="info"
             />
             <span v-else class="text-sm text-surface-400 dark:text-surface-500">—</span>
           </template>
-        </Column>
 
-        <Column header="Contact templates">
-          <template #body="{ data }">
-            <span v-if="!data.contact_templates.length" class="text-sm text-surface-400 dark:text-surface-500">—</span>
+          <template #contact_templates-cell="{ row }">
+            <span
+              v-if="!row.original.contact_templates.length"
+              class="text-sm text-surface-400 dark:text-surface-500"
+              >—</span
+            >
             <div v-else class="flex flex-wrap gap-1">
               <UBadge
-                v-for="(contactTemplate, index) in data.contact_templates"
+                v-for="(contactTemplate, index) in row.original.contact_templates"
                 :key="contactTemplate.id"
                 :label="contactTemplate.name || `Contact template #${Number(index) + 1}`"
                 color="neutral"
@@ -465,20 +465,19 @@ defineExpose({ load })
               />
             </div>
           </template>
-        </Column>
 
-        <Column header="" style="width: 1%">
-          <template #body="{ data }">
-            <UButton
-              icon="i-lucide-more-vertical"
-              aria-label="Actions"
-              color="neutral"
-              variant="ghost"
-              @click.stop="openContextMenu($event, data)"
-            />
+          <template #actions-cell="{ row }">
+            <UDropdownMenu :items="menuItems(row.original)" :content="{ align: 'end' }">
+              <UButton
+                icon="i-lucide-more-vertical"
+                aria-label="Actions"
+                color="neutral"
+                variant="ghost"
+              />
+            </UDropdownMenu>
           </template>
-        </Column>
-      </DataTable>
+        </UTable>
+      </UContextMenu>
     </div>
 
     <ScenarioViewDialog
@@ -501,82 +500,82 @@ defineExpose({ load })
       :ui="{ content: 'max-w-5xl', footer: 'justify-end' }"
     >
       <template #body>
-      <div class="flex flex-col gap-3">
-        <UBreadcrumb :items="browseBreadcrumbItems" />
-        <UInput
-          v-model="browseFilter"
-          type="text"
-          icon="i-lucide-search"
-          :placeholder="browseLevel === 'studies' ? 'Search studies' : 'Search scenarios'"
-          class="w-full"
-        />
+        <div class="flex flex-col gap-3">
+          <UBreadcrumb :items="browseBreadcrumbItems" />
+          <UInput
+            v-model="browseFilter"
+            type="text"
+            icon="i-lucide-search"
+            :placeholder="browseLevel === 'studies' ? 'Search studies' : 'Search scenarios'"
+            class="w-full"
+          />
 
-        <div style="height: 28rem">
-          <DataTable
-            v-if="browseLevel === 'studies'"
-            :value="browsableStudies"
-            :globalFilterFields="['title', 'journal', 'year']"
-            :filters="{ global: { value: browseFilter, matchMode: 'contains' } }"
-            dataKey="id"
-            scrollable
-            scrollHeight="28rem"
-          >
-            <template #empty>No other studies found.</template>
-            <Column header="Study">
-              <template #body="{ data }">
+          <div style="height: 28rem">
+            <UTable
+              v-if="browseLevel === 'studies'"
+              :data="visibleBrowsableStudies"
+              :columns="studyColumns"
+              :get-row-id="(study: Study) => study.id"
+              empty="No other studies found."
+              sticky
+              class="h-full"
+            >
+              <template #study-cell="{ row }">
                 <button
                   type="button"
-                  class="flex items-center gap-2 text-left w-full hover:underline"
-                  @click="openStudyFolder(data)"
+                  class="flex items-center gap-2 text-left w-full whitespace-normal hover:underline"
+                  @click="openStudyFolder(row.original)"
                 >
-                  <i class="pi pi-folder text-surface-400" />
-                  <span>{{ citeStudy(data) }}</span>
+                  <UIcon name="i-lucide-folder" class="size-4 shrink-0 text-dimmed" />
+                  <span>{{ citeStudy(row.original) }}</span>
                 </button>
               </template>
-            </Column>
-          </DataTable>
+            </UTable>
 
-          <div v-else class="flex gap-4 h-full">
-            <DataTable
-              :value="browsedStudyScenarios"
-              :globalFilterFields="['name', 'scenario_category.name']"
-              :filters="{ global: { value: browseFilter, matchMode: 'contains' } }"
-              dataKey="id"
-              scrollable
-              scrollHeight="28rem"
-              class="w-64 shrink-0"
-            >
-              <template #empty>No scenarios in this study.</template>
-              <Column header="Scenario">
-                <template #body="{ data }">
+            <div v-else class="flex gap-4 h-full">
+              <UTable
+                :data="visibleBrowsedScenarios"
+                :columns="browseScenarioColumns"
+                :get-row-id="(scenario: Scenario) => scenario.id"
+                empty="No scenarios in this study."
+                sticky
+                class="w-64 shrink-0 h-full"
+              >
+                <template #scenario-cell="{ row }">
                   <button
                     type="button"
                     class="flex items-center gap-2 text-left w-full hover:underline"
-                    :class="{ 'font-medium text-primary': previewedScenarioId === data.id }"
-                    @click="previewSourceScenario(data)"
+                    :class="{ 'font-medium text-primary': previewedScenarioId === row.original.id }"
+                    @click="previewSourceScenario(row.original)"
                   >
-                    <i class="pi pi-file text-surface-400" />
-                    <span>{{ scenarioLabel(data) }}</span>
+                    <UIcon name="i-lucide-file" class="size-4 shrink-0 text-dimmed" />
+                    <span>{{ scenarioLabel(row.original) }}</span>
                   </button>
                 </template>
-              </Column>
-            </DataTable>
+              </UTable>
 
-            <div class="flex-1 min-w-0 border-l border-surface-200 dark:border-surface-700 pl-4 overflow-y-auto h-full">
               <div
-                v-if="previewedScenarioId === null"
-                class="flex items-center justify-center h-full text-sm text-surface-500 dark:text-surface-400"
+                class="flex-1 min-w-0 border-l border-surface-200 dark:border-surface-700 pl-4 overflow-y-auto h-full"
               >
-                Select a scenario to preview it.
+                <div
+                  v-if="previewedScenarioId === null"
+                  class="flex items-center justify-center h-full text-sm text-surface-500 dark:text-surface-400"
+                >
+                  Select a scenario to preview it.
+                </div>
+                <ScenarioDetails v-else :scenario="previewedScenario" :loading="previewLoading" />
               </div>
-              <ScenarioDetails v-else :scenario="previewedScenario" :loading="previewLoading" />
             </div>
           </div>
         </div>
-      </div>
       </template>
       <template #footer>
-        <UButton label="Close" icon="i-lucide-x" variant="ghost" @click="browseDialogVisible = false" />
+        <UButton
+          label="Close"
+          icon="i-lucide-x"
+          variant="ghost"
+          @click="browseDialogVisible = false"
+        />
         <UButton
           label="Continue with this scenario"
           trailing-icon="i-lucide-arrow-right"

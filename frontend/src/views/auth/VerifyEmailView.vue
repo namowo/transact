@@ -27,10 +27,7 @@ onMounted(async () => {
     status.value = 'success'
   } catch (err) {
     status.value = 'error'
-    errorMessage.value = getErrorMessage(
-      err,
-      'This verification link is invalid or has expired.',
-    )
+    errorMessage.value = getErrorMessage(err, 'This verification link is invalid or has expired.')
   }
 })
 </script>
@@ -40,7 +37,7 @@ onMounted(async () => {
     <UProgress v-if="status === 'loading'" class="w-12" />
 
     <template v-else-if="status === 'success'">
-      <i class="pi pi-check-circle text-4xl text-primary" />
+      <UIcon name="i-lucide-circle-check" class="size-9 text-primary" />
       <p class="text-surface-700 dark:text-surface-200">
         Your email address has been confirmed.
         {{ auth.isAuthenticated ? '' : 'You can now log in.' }}
@@ -54,7 +51,7 @@ onMounted(async () => {
     </template>
 
     <template v-else>
-      <i class="pi pi-times-circle text-4xl text-red-500" />
+      <UIcon name="i-lucide-circle-x" class="size-9 text-red-500" />
       <p class="text-surface-700 dark:text-surface-200">{{ errorMessage }}</p>
       <RouterLink :to="{ name: 'login' }" class="text-primary no-underline hover:underline">
         Back to login

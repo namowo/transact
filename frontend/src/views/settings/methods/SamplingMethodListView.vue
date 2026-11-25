@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import DataView from 'openvue/dataview'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { samplingMethodApi } from '@/api/methods'
 import { getLabMethodConfig, type MethodFieldConfig } from '@/data/labMethods'
 import type { SamplingMethod } from '@/api/types'
 import SamplingMethodFormModal from './SamplingMethodFormModal.vue'
+import TablePagination from '@/components/ui/TablePagination.vue'
 
 const auth = useAuthStore()
 const laboratoryId = computed(() => auth.user?.laboratory_id ?? null)
@@ -92,6 +92,13 @@ const filteredRows = computed(() => {
   )
 })
 
+const page = ref(1)
+const pageSize = ref(10)
+const pagedRows = computed(() =>
+  filteredRows.value.slice((page.value - 1) * pageSize.value, page.value * pageSize.value),
+)
+watch([searchTerm, pageSize], () => (page.value = 1))
+
 async function load() {
   loading.value = true
   loadError.value = ''
@@ -158,58 +165,67 @@ async function deleteRow(row: SamplingMethod) {
       />
     </div>
 
-    <DataView :value="filteredRows" data-key="item.id" paginator :rows="10">
-      <template #empty>No entries found.</template>
+    <p v-if="!loading && !filteredRows.length" class="text-sm text-muted">No entries found.</p>
 
-      <template #list="{ items: listItems }">
-        <div class="flex flex-col gap-3">
-          <UCard v-for="row in listItems" :key="row.item.id">
-            <div class="flex items-start justify-between gap-4">
-              <div class="flex flex-col gap-3 min-w-0">
-                <span v-if="!row.entries.length" class="text-sm text-surface-500 dark:text-surface-400">
-                  No sub-methods set
-                </span>
+    <div class="flex flex-col gap-3">
+      <UCard v-for="row in pagedRows" :key="row.item.id">
+        <div class="flex items-start justify-between gap-4">
+          <div class="flex flex-col gap-3 min-w-0">
+            <span v-if="!row.entries.length" class="text-sm text-surface-500 dark:text-surface-400">
+              No sub-methods set
+            </span>
 
-                <div v-for="entry in row.entries" :key="entry.label" class="flex flex-col gap-1">
-                  <UBadge :label="entry.label" :color="entry.color" variant="subtle" class="self-start" />
-                  <dl v-if="entry.details.length" class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 pl-1">
-                    <template v-for="detail in entry.details" :key="detail.label">
-                      <dt class="text-sm text-surface-500 dark:text-surface-400">{{ detail.label }}</dt>
-                      <dd class="text-sm text-surface-700 dark:text-surface-300">{{ detail.value }}</dd>
-                    </template>
-                  </dl>
-                </div>
-              </div>
-
-              <div class="flex gap-1 shrink-0">
-                <UButton
-                  icon="i-lucide-pencil"
-                  variant="ghost"
-                  square
-                  aria-label="Edit"
-                  @click="openEdit(row.item)"
-                />
-                <UButton
-                  icon="i-lucide-copy"
-                  variant="ghost"
-                  square
-                  aria-label="Duplicate"
-                  @click="openDuplicate(row.item)"
-                />
-                <UButton
-                  icon="i-lucide-trash-2"
-                  variant="ghost"
-                  square
-                  color="error"
-                  aria-label="Delete"
-                  @click="deleteRow(row.item)"
-                />
-              </div>
+            <div v-for="entry in row.entries" :key="entry.label" class="flex flex-col gap-1">
+              <UBadge
+                :label="entry.label"
+                :color="entry.color"
+                variant="subtle"
+                class="self-start"
+              />
+              <dl
+                v-if="entry.details.length"
+                class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 pl-1"
+              >
+                <template v-for="detail in entry.details" :key="detail.label">
+                  <dt class="text-sm text-surface-500 dark:text-surface-400">{{ detail.label }}</dt>
+                  <dd class="text-sm text-surface-700 dark:text-surface-300">{{ detail.value }}</dd>
+                </template>
+              </dl>
             </div>
-          </UCard>
+          </div>
+
+          <div class="flex gap-1 shrink-0">
+            <UButton
+              icon="i-lucide-pencil"
+              variant="ghost"
+              square
+              aria-label="Edit"
+              @click="openEdit(row.item)"
+            />
+            <UButton
+              icon="i-lucide-copy"
+              variant="ghost"
+              square
+              aria-label="Duplicate"
+              @click="openDuplicate(row.item)"
+            />
+            <UButton
+              icon="i-lucide-trash-2"
+              variant="ghost"
+              square
+              color="error"
+              aria-label="Delete"
+              @click="deleteRow(row.item)"
+            />
+          </div>
         </div>
-      </template>
-    </DataView>
+      </UCard>
+      <TablePagination
+        v-model:page="page"
+        v-model:page-size="pageSize"
+        :total="filteredRows.length"
+      />
+    </div>
 
     <SamplingMethodFormModal
       v-model:visible="modalVisible"

@@ -89,18 +89,13 @@ async function onResend() {
 
 <template>
   <div v-if="done" class="flex flex-col gap-4 text-center">
-    <i class="pi pi-check-circle text-4xl text-primary" />
+    <UIcon name="i-lucide-circle-check" class="size-9 text-primary" />
     <p class="text-surface-700 dark:text-surface-200">
-      We've sent a confirmation link to <strong>{{ registeredEmail }}</strong
-      >. Please check your inbox to activate your account.
+      We've sent a confirmation link to <strong>{{ registeredEmail }}</strong>. Please check your
+      inbox to activate your account.
     </p>
     <UAlert v-if="resendMessage" color="info" variant="outline" :description="resendMessage" />
-    <UButton
-      label="Resend email"
-      variant="ghost"
-      :loading="resending"
-      @click="onResend"
-    />
+    <UButton label="Resend email" variant="ghost" :loading="resending" @click="onResend" />
     <UButton label="Back to login" variant="outline" @click="router.push({ name: 'login' })" />
   </div>
 
@@ -163,7 +158,7 @@ async function onResend() {
 
     <div class="flex flex-col gap-2">
       <label class="font-medium text-sm">Create a password</label>
-      <PasswordField v-model="password" :invalid="!!errors.password"/>
+      <PasswordField v-model="password" :invalid="!!errors.password" />
     </div>
 
     <PrivacyPolicyConsent

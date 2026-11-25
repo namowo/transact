@@ -2,10 +2,6 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useForm } from 'vee-validate'
 import * as yup from 'yup'
-import DataTable from 'openvue/datatable'
-import Column from 'openvue/column'
-import ContextMenu from 'openvue/contextmenu'
-import { FilterMatchMode } from '@openvue/core/api'
 import DataTableSkeleton from '@/components/data/DataTableSkeleton.vue'
 import SkinDiseaseCategorySelect from '@/components/scenarios/SkinDiseaseCategorySelect.vue'
 import DeterminationOfSheddingPropensityCategorySelect from '@/components/scenarios/DeterminationOfSheddingPropensityCategorySelect.vue'
@@ -23,7 +19,10 @@ import { listContacts } from '@/api/contacts'
 import ScenarioBadges from '@/components/data/ScenarioBadges.vue'
 import ScenarioMultiSelect from '@/components/data/ScenarioMultiSelect.vue'
 import type { Individual, Scenario } from '@/api/types'
-import type { MenuItem } from 'openvue/menuitem'
+import type { ContextMenuItem, TableColumn, TableRow } from '@nuxt/ui'
+import { manualSorting, useTableView } from '@/composables/useTableView'
+import { expandColumn, sortHeader } from '@/composables/tableColumns'
+import TableFilterDrawer from '@/components/ui/TableFilterDrawer.vue'
 
 const props = defineProps<{ studyId: string; scenarios: Scenario[]; scenarioId: string | null }>()
 
@@ -61,7 +60,8 @@ async function load() {
     const used = new Set<string>()
     for (const contact of contacts) {
       if (contact.donor_surface?.individual_id) used.add(contact.donor_surface.individual_id)
-      if (contact.recipient_surface?.individual_id) used.add(contact.recipient_surface.individual_id)
+      if (contact.recipient_surface?.individual_id)
+        used.add(contact.recipient_surface.individual_id)
     }
     usedIndividualIds.value = used
   } catch {
@@ -77,10 +77,16 @@ onMounted(load)
 const visibleIndividuals = computed(() =>
   props.scenarioId === null
     ? individuals.value
-    : individuals.value.filter((individual) => individual.scenario_ids?.includes(props.scenarioId!)),
+    : individuals.value.filter((individual) =>
+        individual.scenario_ids?.includes(props.scenarioId!),
+      ),
 )
 
-watch(() => visibleIndividuals.value.length, (count) => emit('update:count', count), { immediate: true })
+watch(
+  () => visibleIndividuals.value.length,
+  (count) => emit('update:count', count),
+  { immediate: true },
+)
 
 interface IndividualGroup {
   key: string
@@ -119,7 +125,8 @@ const individualGroups = computed<IndividualGroup[]>(() => {
         age: individual.age ?? null,
         dnaSheddingPropensityCategoryId: individual.dna_shedding_propensity_category_id ?? null,
         skinDiseaseCategoryId: individual.skin_disease_category_id ?? null,
-        determinationCategoryId: individual.determination_of_shedding_propensity_category_id ?? null,
+        determinationCategoryId:
+          individual.determination_of_shedding_propensity_category_id ?? null,
         members: [individual],
         scenarioNames: '',
       })
@@ -149,21 +156,39 @@ function memberLabel(member: Individual, group: IndividualGroup): string {
   return `Individual ${position}`
 }
 
-function initIndividualFilters() {
-  return {
-    global: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    'sex.name': { value: null, matchMode: FilterMatchMode.CONTAINS },
-    age: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    scenarioNames: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    'dna_shedding_propensity_category.name': { value: null, matchMode: FilterMatchMode.CONTAINS },
-  }
-}
+const sexName = (group: IndividualGroup) => group.members[0]?.sex?.name
+const sheddingName = (group: IndividualGroup) =>
+  group.members[0]?.dna_shedding_propensity_category?.name
 
-const individualFilters = ref(initIndividualFilters())
+const view = useTableView(individualGroups, {
+  searchFields: [sexName, 'age', sheddingName, 'scenarioNames'],
+  filters: {
+    sex: { field: sexName },
+    age: { field: 'age' },
+    shedding: { field: sheddingName },
+    scenario: { field: 'scenarioNames' },
+  },
+  sortAccessors: { sex: sexName, shedding: sheddingName },
+})
 
-function clearIndividualFilters() {
-  individualFilters.value = initIndividualFilters()
-}
+const columns = computed<TableColumn<IndividualGroup>[]>(() => [
+  expandColumn(),
+  { id: 'index', header: '#', meta: { class: { td: 'w-12' } } },
+  { id: 'count', header: 'Count', meta: { class: { td: 'w-20' } } },
+  { id: 'sex', header: sortHeader('Sex') },
+  { id: 'age', accessorKey: 'age', header: sortHeader('Age') },
+  { id: 'shedding', header: sortHeader('DNA shedding propensity') },
+  { id: 'scenarioNames', accessorKey: 'scenarioNames', header: sortHeader('Scenario') },
+  ...(readOnly.value ? [] : [{ id: 'actions', header: '', meta: { class: { td: 'w-24' } } }]),
+])
+
+const memberColumns = computed<TableColumn<Individual>[]>(() => [
+  { id: 'name', accessorKey: 'name', header: 'Name' },
+  { id: 'sex', header: 'Sex' },
+  { id: 'age', accessorKey: 'age', header: 'Age' },
+  { id: 'shedding', header: 'DNA shedding propensity' },
+  ...(readOnly.value ? [] : [{ id: 'actions', header: '', meta: { class: { td: 'w-12' } } }]),
+])
 
 interface IndividualFormState {
   count: number | null
@@ -284,7 +309,8 @@ async function applyIndividualFormSave(values: IndividualFormState) {
   try {
     const members = editingGroup.value.members
     const targetCount = values.count ?? members.length
-    const toRemove = targetCount < members.length ? pickMembersToRemove(members, members.length - targetCount) : []
+    const toRemove =
+      targetCount < members.length ? pickMembersToRemove(members, members.length - targetCount) : []
     const removeIds = new Set(toRemove.map((member) => member.id))
     const remainingMembers = members.filter((member) => !removeIds.has(member.id))
     const toCreate = Math.max(targetCount - remainingMembers.length, 0)
@@ -487,35 +513,27 @@ async function deleteGroup(group: IndividualGroup) {
 
 // -- Context menu --
 
-const contextMenu = ref<InstanceType<typeof ContextMenu>>()
-const selectedGroup = ref<IndividualGroup>()
-
-const contextMenuItems = computed<MenuItem[]>(() => {
-  const group = selectedGroup.value
-  if (!group) return []
+function menuItems(group: IndividualGroup): ContextMenuItem[] {
   return [
     {
       label: 'Edit',
       icon: 'i-lucide-pencil',
-      command: () => openEditGroupDialog(group),
+      onSelect: () => openEditGroupDialog(group),
     },
     {
       label: 'Delete',
       icon: 'i-lucide-trash-2',
-      command: () => confirmDeleteGroup(group),
+      color: 'error',
+      onSelect: () => confirmDeleteGroup(group),
     },
   ]
-})
-
-function onRowContextMenu(event: { originalEvent: Event; data: IndividualGroup }) {
-  if (readOnly.value) return
-  selectedGroup.value = event.data
-  contextMenu.value?.show(event.originalEvent)
 }
 
-function openRowContextMenu(event: Event, group: IndividualGroup) {
-  selectedGroup.value = group
-  contextMenu.value?.show(event)
+// The right-clicked row's menu.
+const contextMenuItems = ref<ContextMenuItem[]>([])
+
+function onRowContextMenu(_event: Event, row: TableRow<IndividualGroup>) {
+  contextMenuItems.value = readOnly.value ? [] : menuItems(row.original)
 }
 
 // -- Expansion + inline editing of individual members --
@@ -606,124 +624,87 @@ async function saveMemberField(member: Individual, patch: Partial<Individual>) {
         @click="openBatchDialog"
       />
     </div>
-    <div class="overflow-x-auto">
-      <div class="mb-3 flex items-center justify-between gap-3">
+    <div class="flex flex-col gap-3">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <UInput
+          v-model="view.search"
+          icon="i-lucide-search"
+          placeholder="Keyword Search"
+          class="w-full max-w-sm"
+        />
         <div class="flex items-center gap-2">
-          <UButton
-            type="button"
-            icon="i-lucide-filter-x"
-            variant="outline"
-            size="sm"
-            @click="clearIndividualFilters()"
-          >
-            Clear Filters
-          </UButton>
           <UButton
             v-if="!readOnly"
             type="button"
             :label="editMode ? 'Done editing' : 'Edit table'"
             :icon="editMode ? 'i-lucide-check' : 'i-lucide-pencil-line'"
             :variant="editMode ? 'solid' : 'outline'"
-            size="sm"
             @click="toggleEditMode()"
           />
+          <TableFilterDrawer :active-count="view.activeFilterCount" @reset="view.resetFilters()">
+            <UFormField label="Sex">
+              <UInput v-model="view.filters.sex" placeholder="Search by sex" class="w-full" />
+            </UFormField>
+            <UFormField label="Age">
+              <UInput v-model="view.filters.age" placeholder="Search by age" class="w-full" />
+            </UFormField>
+            <UFormField label="DNA shedding propensity">
+              <UInput
+                v-model="view.filters.shedding"
+                placeholder="Search by shedding propensity"
+                class="w-full"
+              />
+            </UFormField>
+            <UFormField label="Scenario">
+              <UInput
+                v-model="view.filters.scenario"
+                placeholder="Search by scenario"
+                class="w-full"
+              />
+            </UFormField>
+          </TableFilterDrawer>
         </div>
-        <UInput
-          v-model="individualFilters['global'].value"
-          type="text"
-          icon="i-lucide-search"
-          placeholder="Keyword Search"
-        />
       </div>
 
-      <ContextMenu ref="contextMenu" :model="contextMenuItems" />
-
       <DataTableSkeleton v-if="loading" :columns="4" />
-      <DataTable
-        v-else
-        v-model:filters="individualFilters"
-        v-model:context-menu-selection="selectedGroup"
-        v-model:expanded-rows="expandedGroupRows"
-        :value="individualGroups"
-        :loading="deletingGroup"
-        data-key="key"
-        filterDisplay="menu"
-        context-menu
-        :globalFilterFields="['sex.name', 'age', 'dna_shedding_propensity_category.name', 'scenarioNames']"
-        :row-class="() => 'hover:bg-elevated'"
-        @row-contextmenu="onRowContextMenu"
-      >
-        <Column expander style="width: 2.5rem" />
-        <Column header="#" style="width: 3rem">
-          <template #body="{ index }">{{ index + 1 }}</template>
-        </Column>
-        <Column header="Count" style="width: 5rem">
-          <template #body="{ data }">
+      <UContextMenu v-else :items="contextMenuItems" :disabled="readOnly">
+        <UTable
+          v-model:expanded="expandedGroupRows"
+          v-model:sorting="view.sorting"
+          :sorting-options="manualSorting"
+          :data="view.rows"
+          :columns="columns"
+          :loading="deletingGroup"
+          :get-row-id="(group: IndividualGroup) => group.key"
+          :on-contextmenu="onRowContextMenu"
+        >
+          <template #index-cell="{ row }">{{ row.index + 1 }}</template>
+          <template #count-cell="{ row: { original: data } }">
             <UBadge v-if="data.members.length > 1" color="neutral" variant="subtle">
               {{ data.members.length }}x
             </UBadge>
           </template>
-        </Column>
-        <Column
-          field="sex.name"
-          header="Sex"
-          sortable
-          :showFilterOperator="false"
-          :showAddButton="false"
-        >
-          <template #body="{ data }">
+          <template #sex-cell="{ row: { original: data } }">
             <UBadge v-if="data.members[0].sex?.name" color="neutral" variant="outline">
               {{ data.members[0].sex.name }}
             </UBadge>
             <span v-else>—</span>
           </template>
-          <template #filter="{ filterModel }">
-            <UInput v-model="filterModel.value" type="text" placeholder="Search by sex" />
-          </template>
-        </Column>
-        <Column
-          field="age"
-          header="Age"
-          sortable
-          :showFilterOperator="false"
-          :showAddButton="false"
-        >
-          <template #body="{ data }">{{ data.age ?? '—' }}</template>
-          <template #filter="{ filterModel }">
-            <UInput v-model="filterModel.value" type="text" placeholder="Search by age" />
-          </template>
-        </Column>
-        <Column
-          field="dna_shedding_propensity_category.name"
-          header="DNA shedding propensity"
-          sortable
-          :showFilterOperator="false"
-          :showAddButton="false"
-        >
-          <template #body="{ data }">
-            <UBadge v-if="data.members[0].dna_shedding_propensity_category?.name" color="neutral" variant="outline">
+          <template #age-cell="{ row }">{{ row.original.age ?? '—' }}</template>
+          <template #shedding-cell="{ row: { original: data } }">
+            <UBadge
+              v-if="data.members[0].dna_shedding_propensity_category?.name"
+              color="neutral"
+              variant="outline"
+            >
               {{ data.members[0].dna_shedding_propensity_category.name }}
             </UBadge>
             <span v-else>—</span>
           </template>
-          <template #filter="{ filterModel }">
-            <UInput v-model="filterModel.value" type="text" placeholder="Search by shedding propensity" />
-          </template>
-        </Column>
-        <Column
-          field="scenarioNames"
-          header="Scenario"
-          sortable
-          :showFilterOperator="false"
-          :showAddButton="false"
-        >
-          <template #body="{ data }"><ScenarioBadges :names="groupScenarioNames(data)" /></template>
-          <template #filter="{ filterModel }">
-            <UInput v-model="filterModel.value" type="text" placeholder="Search by scenario" />
-          </template>
-        </Column>
-        <Column v-if="!readOnly" header="" style="width: 6rem">
-          <template #body="{ data }">
+          <template #scenarioNames-cell="{ row }"
+            ><ScenarioBadges :names="groupScenarioNames(row.original)"
+          /></template>
+          <template #actions-cell="{ row: { original: data } }">
             <span class="flex items-center justify-end gap-1">
               <UButton
                 icon="i-lucide-pencil"
@@ -731,46 +712,56 @@ async function saveMemberField(member: Individual, patch: Partial<Individual>) {
                 variant="ghost"
                 square
                 aria-label="Edit group"
-                @click.stop="openEditGroupDialog(data)"
+                @click="openEditGroupDialog(data)"
               />
-              <UButton
-                icon="i-lucide-more-vertical"
-                color="neutral"
-                variant="ghost"
-                square
-                aria-label="Individual options"
-                @click.stop="openRowContextMenu($event, data)"
-              />
+              <UDropdownMenu :items="menuItems(data)" :content="{ align: 'end' }">
+                <UButton
+                  icon="i-lucide-more-vertical"
+                  color="neutral"
+                  variant="ghost"
+                  square
+                  aria-label="Individual options"
+                />
+              </UDropdownMenu>
             </span>
           </template>
-        </Column>
 
-        <template #expansion="{ data: group }">
-          <div class="flex flex-col gap-2 py-2">
-            <div class="px-2">
-              <p class="text-sm text-surface-500 dark:text-surface-400">
-                {{ group.members.length > 1 ? `${group.members.length} individuals in this group` : '1 individual' }}
-              </p>
-            </div>
-            <DataTable :value="group.members" data-key="id">
-              <Column header="Name">
-                <template #body="{ data: member }">
+          <template #expanded="{ row: { original: group } }">
+            <div class="flex flex-col gap-2 py-2">
+              <div class="px-2">
+                <p class="text-sm text-surface-500 dark:text-surface-400">
+                  {{
+                    group.members.length > 1
+                      ? `${group.members.length} individuals in this group`
+                      : '1 individual'
+                  }}
+                </p>
+              </div>
+              <UTable
+                :data="group.members"
+                :columns="memberColumns"
+                :get-row-id="(m: Individual) => m.id"
+              >
+                <template #name-cell="{ row: { original: member } }">
                   <UInput
                     v-if="editMode"
                     :model-value="member.name ?? ''"
                     placeholder="Unnamed"
                     size="sm"
                     :loading="savingMemberIds.has(member.id)"
-                    @change="(e: Event) => saveMemberField(member, { name: (e.target as HTMLInputElement).value || null })"
+                    @change="
+                      (e: Event) =>
+                        saveMemberField(member, {
+                          name: (e.target as HTMLInputElement).value || null,
+                        })
+                    "
                   />
                   <span v-else class="flex items-center gap-1.5">
                     <UIcon name="i-lucide-user" class="shrink-0" />
                     {{ memberLabel(member, group) }}
                   </span>
                 </template>
-              </Column>
-              <Column header="Sex">
-                <template #body="{ data: member }">
+                <template #sex-cell="{ row: { original: member } }">
                   <USelectMenu
                     v-if="editMode"
                     :model-value="member.sex_id ?? undefined"
@@ -781,7 +772,9 @@ async function saveMemberField(member: Individual, patch: Partial<Individual>) {
                     placeholder="—"
                     size="sm"
                     :loading="savingMemberIds.has(member.id)"
-                    @update:model-value="(value: string) => saveMemberField(member, { sex_id: value ?? null })"
+                    @update:model-value="
+                      (value: string) => saveMemberField(member, { sex_id: value ?? null })
+                    "
                   />
                   <template v-else>
                     <UBadge v-if="member.sex?.name" color="neutral" variant="outline">
@@ -790,9 +783,7 @@ async function saveMemberField(member: Individual, patch: Partial<Individual>) {
                     <span v-else>—</span>
                   </template>
                 </template>
-              </Column>
-              <Column header="Age">
-                <template #body="{ data: member }">
+                <template #age-cell="{ row: { original: member } }">
                   <UInputNumber
                     v-if="editMode"
                     :model-value="member.age ?? undefined"
@@ -800,13 +791,13 @@ async function saveMemberField(member: Individual, patch: Partial<Individual>) {
                     size="sm"
                     class="w-24"
                     :loading="savingMemberIds.has(member.id)"
-                    @update:model-value="(value: number) => saveMemberField(member, { age: value ?? null })"
+                    @update:model-value="
+                      (value: number) => saveMemberField(member, { age: value ?? null })
+                    "
                   />
                   <span v-else>{{ member.age ?? '—' }}</span>
                 </template>
-              </Column>
-              <Column header="DNA shedding propensity">
-                <template #body="{ data: member }">
+                <template #shedding-cell="{ row: { original: member } }">
                   <USelectMenu
                     v-if="editMode"
                     :model-value="member.dna_shedding_propensity_category_id ?? undefined"
@@ -817,46 +808,78 @@ async function saveMemberField(member: Individual, patch: Partial<Individual>) {
                     placeholder="—"
                     size="sm"
                     :loading="savingMemberIds.has(member.id)"
-                    @update:model-value="(value: string) => saveMemberField(member, { dna_shedding_propensity_category_id: value ?? null })"
+                    @update:model-value="
+                      (value: string) =>
+                        saveMemberField(member, {
+                          dna_shedding_propensity_category_id: value ?? null,
+                        })
+                    "
                   />
                   <template v-else>
-                    <UBadge v-if="member.dna_shedding_propensity_category?.name" color="neutral" variant="outline">
+                    <UBadge
+                      v-if="member.dna_shedding_propensity_category?.name"
+                      color="neutral"
+                      variant="outline"
+                    >
                       {{ member.dna_shedding_propensity_category.name }}
                     </UBadge>
                     <span v-else>—</span>
                   </template>
                 </template>
-              </Column>
-              <Column v-if="!readOnly" header="" style="width: 3rem">
-                <template #body="{ data: member }">
+                <template #actions-cell="{ row: { original: member } }">
                   <UButton
                     icon="i-lucide-trash-2"
                     color="neutral"
                     variant="ghost"
                     square
                     aria-label="Delete individual"
-                    @click.stop="confirmDeleteGroup({ key: member.id, sexId: member.sex_id ?? null, age: member.age ?? null, dnaSheddingPropensityCategoryId: member.dna_shedding_propensity_category_id ?? null, skinDiseaseCategoryId: member.skin_disease_category_id ?? null, determinationCategoryId: member.determination_of_shedding_propensity_category_id ?? null, members: [member], scenarioNames: '' })"
+                    @click="
+                      confirmDeleteGroup({
+                        key: member.id,
+                        sexId: member.sex_id ?? null,
+                        age: member.age ?? null,
+                        dnaSheddingPropensityCategoryId:
+                          member.dna_shedding_propensity_category_id ?? null,
+                        skinDiseaseCategoryId: member.skin_disease_category_id ?? null,
+                        determinationCategoryId:
+                          member.determination_of_shedding_propensity_category_id ?? null,
+                        members: [member],
+                        scenarioNames: '',
+                      })
+                    "
                   />
                 </template>
-              </Column>
-            </DataTable>
-          </div>
-        </template>
-      </DataTable>
+              </UTable>
+            </div>
+          </template>
+        </UTable>
+      </UContextMenu>
     </div>
 
     <UModal
       v-model:open="individualDialogVisible"
-      :title="editingGroup && editingGroup.members.length > 1 ? `Edit ${editingGroup.members.length} individuals` : 'Edit individual'"
+      :title="
+        editingGroup && editingGroup.members.length > 1
+          ? `Edit ${editingGroup.members.length} individuals`
+          : 'Edit individual'
+      "
       :ui="{ content: 'max-w-md', footer: 'justify-end' }"
     >
       <template #body>
         <div class="flex flex-col gap-4">
-          <p v-if="editingGroup && editingGroup.members.length > 1" class="text-sm text-surface-500 dark:text-surface-400">
+          <p
+            v-if="editingGroup && editingGroup.members.length > 1"
+            class="text-sm text-surface-500 dark:text-surface-400"
+          >
             These individuals currently share the same details. Changes here apply to all
             {{ editingGroup.members.length }} of them.
           </p>
-          <ScenarioMultiSelect v-model="editScenarioIds" :scenarios="scenarios" required :error="editScenarioError" />
+          <ScenarioMultiSelect
+            v-model="editScenarioIds"
+            :scenarios="scenarios"
+            required
+            :error="editScenarioError"
+          />
           <UFormField label="Count" :error="individualErrors.count">
             <UInputNumber v-model="individualCount" :min="1" :max="500" class="w-full" />
           </UFormField>
@@ -904,8 +927,18 @@ async function saveMemberField(member: Individual, patch: Partial<Individual>) {
         </div>
       </template>
       <template #footer>
-        <UButton label="Cancel" icon="i-lucide-x" variant="ghost" @click="individualDialogVisible = false" />
-        <UButton label="Save" icon="i-lucide-save" :loading="savingIndividual" @click="saveIndividualForm" />
+        <UButton
+          label="Cancel"
+          icon="i-lucide-x"
+          variant="ghost"
+          @click="individualDialogVisible = false"
+        />
+        <UButton
+          label="Save"
+          icon="i-lucide-save"
+          :loading="savingIndividual"
+          @click="saveIndividualForm"
+        />
       </template>
     </UModal>
 
@@ -918,10 +951,15 @@ async function saveMemberField(member: Individual, patch: Partial<Individual>) {
         <div class="flex flex-col gap-4" data-tour="individuals-dialog">
           <p class="text-sm text-surface-500 dark:text-surface-400">
             Leave the count at 1 to add a single individual, or raise it to add several at once
-            sharing the same details below. They'll show up as a single grouped row until you
-            change one of them.
+            sharing the same details below. They'll show up as a single grouped row until you change
+            one of them.
           </p>
-          <ScenarioMultiSelect v-model="batchScenarioIds" :scenarios="scenarios" required :error="batchScenarioError" />
+          <ScenarioMultiSelect
+            v-model="batchScenarioIds"
+            :scenarios="scenarios"
+            required
+            :error="batchScenarioError"
+          />
           <UFormField label="Number of individuals" :error="batchErrors.count">
             <UInputNumber v-model="batchCount" :min="1" :max="500" class="w-full" />
           </UFormField>
@@ -950,12 +988,27 @@ async function saveMemberField(member: Individual, patch: Partial<Individual>) {
             :model-value="batchProgress.done"
             :max="batchProgress.total"
           />
-          <UAlert v-if="batchSaveError" color="error" variant="outline" :description="batchSaveError" />
+          <UAlert
+            v-if="batchSaveError"
+            color="error"
+            variant="outline"
+            :description="batchSaveError"
+          />
         </div>
       </template>
       <template #footer>
-        <UButton label="Cancel" icon="i-lucide-x" variant="ghost" @click="batchDialogVisible = false" />
-        <UButton label="Add individuals" icon="i-lucide-plus" :loading="savingBatch" @click="saveBatchForm" />
+        <UButton
+          label="Cancel"
+          icon="i-lucide-x"
+          variant="ghost"
+          @click="batchDialogVisible = false"
+        />
+        <UButton
+          label="Add individuals"
+          icon="i-lucide-plus"
+          :loading="savingBatch"
+          @click="saveBatchForm"
+        />
       </template>
     </UModal>
   </div>

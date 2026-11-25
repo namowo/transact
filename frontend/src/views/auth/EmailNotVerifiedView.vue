@@ -49,12 +49,11 @@ async function onCheckAgain() {
 
 <template>
   <div class="flex flex-col gap-4 text-center">
-    <i class="pi pi-envelope text-4xl text-primary" />
+    <UIcon name="i-lucide-mail" class="size-9 text-primary" />
     <h1 class="text-2xl font-medium text-surface-900 dark:text-surface-0">Confirm your email</h1>
     <p class="text-surface-700 dark:text-surface-200">
       Please confirm your email address to continue. We sent a confirmation link to
-      <strong>{{ auth.user?.email }}</strong
-      >.
+      <strong>{{ auth.user?.email }}</strong>.
     </p>
 
     <UAlert v-if="resendMessage" color="info" variant="outline" :description="resendMessage" />

@@ -74,6 +74,5 @@ The result is placed in `frontend/dist` and can either be served by the backend 
 | Variable | File | Description |
 |----------|------|--------------|
 | `VITE_API_BASE_URL` | `.env.development` / `.env.production` | Base URL of the backend API |
-| `VITE_PRIMEVUE_LICENSE_KEY` | `.env.local` (not versioned) | License key for PrimeVue components, if required |
 
-> Secrets (`JWT_SECRET_KEY`, `RESET_PASSWORD_TOKEN_SECRET`, `VERIFICATION_TOKEN_SECRET`, `DB_PASSWORD`, `SMTP_PASSWORD`, `VITE_PRIMEVUE_LICENSE_KEY`) must not be committed to the repository. `.env` files containing real values must be excluded via `.gitignore`.
+> Secrets (`JWT_SECRET_KEY`, `RESET_PASSWORD_TOKEN_SECRET`, `VERIFICATION_TOKEN_SECRET`, `DB_PASSWORD`, `SMTP_PASSWORD`) must not be committed to the repository. `.env` files containing real values must be excluded via `.gitignore`.

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import Panel from 'openvue/panel'
+import CollapsibleCard from '@/components/ui/CollapsibleCard.vue'
 import { useConfirm } from '@/composables/useConfirm'
 import SurfaceTemplateForm from './SurfaceTemplateForm.vue'
 import CategorySelect from './CategorySelect.vue'
@@ -27,10 +27,12 @@ const emit = defineEmits<{ remove: []; duplicate: [] }>()
 const draft = defineModel<ContactTemplateDraft>({ required: true })
 const collapsed = defineModel<boolean>('collapsed', { default: false })
 
-const humidityPercent = usePercentModel(computed({
-  get: () => draft.value.humidity,
-  set: (value) => (draft.value.humidity = value),
-}))
+const humidityPercent = usePercentModel(
+  computed({
+    get: () => draft.value.humidity,
+    set: (value) => (draft.value.humidity = value),
+  }),
+)
 
 const confirm = useConfirm()
 
@@ -51,7 +53,8 @@ function confirmDeleteSurfaceTemplate(which: 'donor' | 'recipient') {
 }
 
 async function deleteSurfaceTemplateSlot(which: 'donor' | 'recipient') {
-  const id = which === 'donor' ? draft.value.donorSurfaceTemplateId : draft.value.recipientSurfaceTemplateId
+  const id =
+    which === 'donor' ? draft.value.donorSurfaceTemplateId : draft.value.recipientSurfaceTemplateId
   if (id) await deleteSurfaceTemplate(id)
 
   if (which === 'donor') {
@@ -65,7 +68,7 @@ async function deleteSurfaceTemplateSlot(which: 'donor' | 'recipient') {
 </script>
 
 <template>
-  <Panel v-model:collapsed="collapsed" toggleable>
+  <CollapsibleCard v-model:collapsed="collapsed">
     <template #header>
       <span class="font-semibold">{{ draft.name || `Contact template #${props.index + 1}` }}</span>
     </template>
@@ -85,7 +88,9 @@ async function deleteSurfaceTemplateSlot(which: 'donor' | 'recipient') {
         <SurfaceTemplateForm
           v-model="draft.recipientSurfaceTemplate"
           label="Recipient surface"
-          :locked="!!draft.recipientSurfaceTemplateId && draft.recipientSurfaceTemplate.kind !== null"
+          :locked="
+            !!draft.recipientSurfaceTemplateId && draft.recipientSurfaceTemplate.kind !== null
+          "
           @delete="confirmDeleteSurfaceTemplate('recipient')"
         />
       </div>
@@ -115,7 +120,12 @@ async function deleteSurfaceTemplateSlot(which: 'donor' | 'recipient') {
 
       <UFormField label="Contact area" :error="errorFor('contactArea')">
         <UFieldGroup>
-          <UInputNumber v-model="draft.contactArea" :step="0.01" orientation="vertical" class="w-full" />
+          <UInputNumber
+            v-model="draft.contactArea"
+            :step="0.01"
+            orientation="vertical"
+            class="w-full"
+          />
           <UBadge color="neutral" variant="outline" size="lg" label="cm²" />
         </UFieldGroup>
       </UFormField>
@@ -142,7 +152,13 @@ async function deleteSurfaceTemplateSlot(which: 'donor' | 'recipient') {
         </UFormField>
         <UFormField label="Humidity" :error="errorFor('humidity')">
           <UFieldGroup>
-            <UInputNumber v-model="humidityPercent" orientation="vertical" :min="0" :max="100" class="w-full" />
+            <UInputNumber
+              v-model="humidityPercent"
+              orientation="vertical"
+              :min="0"
+              :max="100"
+              class="w-full"
+            />
             <UBadge color="neutral" variant="outline" size="lg" label="%" />
           </UFieldGroup>
         </UFormField>
@@ -188,5 +204,5 @@ async function deleteSurfaceTemplateSlot(which: 'donor' | 'recipient') {
         />
       </div>
     </div>
-  </Panel>
+  </CollapsibleCard>
 </template>

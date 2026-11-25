@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import DataTable from 'openvue/datatable'
-import Column from 'openvue/column'
+import type { TableColumn } from '@nuxt/ui'
+import { searchRows } from '@/composables/useTableView'
 import PersistenceDetails from './PersistenceDetails.vue'
 import { persistenceLabel } from './persistenceDraft'
 import type { Persistence, Scenario } from '@/api/types'
@@ -59,6 +59,22 @@ function previewedPersistence(): Persistence | null {
   return browsedScenarioPersistencies.value.find((p) => p.id === previewedId.value) ?? null
 }
 
+const visibleScenarios = computed(() =>
+  searchRows(props.scenarios, ['scenario_category.name', scenarioLabel], filter.value),
+)
+const visiblePersistencies = computed(() =>
+  searchRows(
+    browsedScenarioPersistencies.value,
+    ['name', 'geographic_location_category.name', persistenceLabel],
+    filter.value,
+  ),
+)
+
+const scenarioColumns: TableColumn<Scenario>[] = [{ id: 'scenario', header: 'Scenario' }]
+const persistenceColumns: TableColumn<Persistence>[] = [
+  { id: 'persistence', header: 'Persistence' },
+]
+
 function confirmSelection() {
   const persistence = previewedPersistence()
   if (!persistence) return
@@ -86,57 +102,52 @@ function confirmSelection() {
         />
 
         <div style="height: 28rem">
-          <DataTable
+          <UTable
             v-if="level === 'scenarios'"
-            :value="scenarios"
-            :globalFilterFields="['scenario_category.name']"
-            :filters="{ global: { value: filter, matchMode: 'contains' } }"
-            dataKey="id"
-            scrollable
-            scrollHeight="28rem"
+            :data="visibleScenarios"
+            :columns="scenarioColumns"
+            :get-row-id="(scenario: Scenario) => scenario.id"
+            empty="No scenarios in this study yet."
+            sticky
+            class="h-full"
           >
-            <template #empty>No scenarios in this study yet.</template>
-            <Column header="Scenario">
-              <template #body="{ data }">
+            <template #scenario-cell="{ row }">
+              <button
+                type="button"
+                class="flex items-center gap-2 text-left w-full hover:underline"
+                @click="openScenarioFolder(row.original)"
+              >
+                <UIcon name="i-lucide-folder" class="size-4 shrink-0 text-dimmed" />
+                <span>{{ scenarioLabel(row.original) }}</span>
+              </button>
+            </template>
+          </UTable>
+
+          <div v-else class="flex gap-4 h-full">
+            <UTable
+              :data="visiblePersistencies"
+              :columns="persistenceColumns"
+              :get-row-id="(persistence: Persistence) => persistence.id"
+              empty="No persistencies on this scenario."
+              sticky
+              class="w-72 shrink-0 h-full"
+            >
+              <template #persistence-cell="{ row }">
                 <button
                   type="button"
                   class="flex items-center gap-2 text-left w-full hover:underline"
-                  @click="openScenarioFolder(data)"
+                  :class="{ 'font-medium text-primary': previewedId === row.original.id }"
+                  @click="previewedId = row.original.id"
                 >
-                  <i class="pi pi-folder text-surface-400" />
-                  <span>{{ scenarioLabel(data) }}</span>
+                  <UIcon name="i-lucide-file" class="size-4 shrink-0 text-dimmed" />
+                  <span>{{ persistenceLabel(row.original) }}</span>
                 </button>
               </template>
-            </Column>
-          </DataTable>
+            </UTable>
 
-          <div v-else class="flex gap-4 h-full">
-            <DataTable
-              :value="browsedScenarioPersistencies"
-              :globalFilterFields="['name', 'geographic_location_category.name']"
-              :filters="{ global: { value: filter, matchMode: 'contains' } }"
-              dataKey="id"
-              scrollable
-              scrollHeight="28rem"
-              class="w-72 shrink-0"
+            <div
+              class="flex-1 min-w-0 border-l border-surface-200 dark:border-surface-700 pl-4 overflow-y-auto h-full"
             >
-              <template #empty>No persistencies on this scenario.</template>
-              <Column header="Persistence">
-                <template #body="{ data }">
-                  <button
-                    type="button"
-                    class="flex items-center gap-2 text-left w-full hover:underline"
-                    :class="{ 'font-medium text-primary': previewedId === data.id }"
-                    @click="previewedId = data.id"
-                  >
-                    <i class="pi pi-file text-surface-400" />
-                    <span>{{ persistenceLabel(data) }}</span>
-                  </button>
-                </template>
-              </Column>
-            </DataTable>
-
-            <div class="flex-1 min-w-0 border-l border-surface-200 dark:border-surface-700 pl-4 overflow-y-auto h-full">
               <div
                 v-if="previewedId === null"
                 class="flex items-center justify-center h-full text-sm text-surface-500 dark:text-surface-400"

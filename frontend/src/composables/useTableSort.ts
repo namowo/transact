@@ -4,10 +4,11 @@ import { updateMe } from '@/api/users'
 import { useAuthStore } from '@/stores/auth'
 import type { SortableTable, TableSortMeta } from '@/api/types'
 import { sortRows } from './sortRows'
+import { toSortMeta, toSortState, type SortState } from './useTableView'
 
 export { sortRows }
 
-// A data table's column sort (v-model:multiSortMeta), saved on the user's
+// A table's column sort, saved on the user's
 // profile so it is kept across studies and sessions. Until the user sorts,
 // `defaults` applies.
 export function useTableSort(table: SortableTable, defaults: TableSortMeta[] = []) {
@@ -21,6 +22,12 @@ export function useTableSort(table: SortableTable, defaults: TableSortMeta[] = [
     set: (value) => save(value.map(({ field, order }) => ({ field, order }))),
   })
 
+  // The same sort in UTable's shape, for useTableView.
+  const sorting = computed<SortState[]>({
+    get: () => toSortState(multiSortMeta.value),
+    set: (value) => (multiSortMeta.value = toSortMeta(value)),
+  })
+
   async function save(value: TableSortMeta[] | null) {
     const user = auth.user
     if (!user) return
@@ -32,7 +39,11 @@ export function useTableSort(table: SortableTable, defaults: TableSortMeta[] = [
     try {
       await updateMe({ table_sorts: tableSorts })
     } catch {
-      toast.add({ color: 'error', title: 'Could not save the sort order', description: 'It applies until you reload the page.' })
+      toast.add({
+        color: 'error',
+        title: 'Could not save the sort order',
+        description: 'It applies until you reload the page.',
+      })
     }
   }
 
@@ -40,5 +51,5 @@ export function useTableSort(table: SortableTable, defaults: TableSortMeta[] = [
     return save(null)
   }
 
-  return { multiSortMeta, isCustom, resetSort }
+  return { multiSortMeta, sorting, isCustom, resetSort }
 }

@@ -2,7 +2,6 @@
 import { onMounted, ref } from 'vue'
 import { useForm } from 'vee-validate'
 import * as yup from 'yup'
-import SelectButton from 'openvue/selectbutton'
 import LaboratorySelect from '@/components/auth/LaboratorySelect.vue'
 import {
   fetchMyMembershipRequest,
@@ -48,10 +47,7 @@ async function submitJoin() {
 
 const newLabSchema = yup.object({
   laboratory_name: yup.string().trim().required('Laboratory name is required.'),
-  institutional_affiliation: yup
-    .string()
-    .trim()
-    .required('Institutional affiliation is required.'),
+  institutional_affiliation: yup.string().trim().required('Institutional affiliation is required.'),
   director_head_of_laboratory: yup.string().trim().defined(),
   street_address: yup.string().trim().defined(),
   city: yup.string().trim().required('City is required.'),
@@ -148,12 +144,12 @@ onMounted(async () => {
           Select your laboratory
         </h1>
         <p class="text-sm text-surface-500 dark:text-surface-400">
-          Join an existing laboratory or request a new one. Your request will need to be
-          approved before you can continue.
+          Join an existing laboratory or request a new one. Your request will need to be approved
+          before you can continue.
         </p>
       </div>
 
-      <SelectButton v-model="mode" :options="modeOptions" option-label="label" option-value="value" />
+      <UTabs v-model="mode" :items="modeOptions" :content="false" class="w-full" />
 
       <form v-if="mode === 'join'" class="flex flex-col gap-6" @submit.prevent="submitJoin">
         <div class="flex flex-col gap-2">

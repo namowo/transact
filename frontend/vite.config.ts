@@ -251,6 +251,13 @@ export default defineConfig(({ mode }) => {
               size: 'lg',
             },
           },
+          table: {
+            slots: {
+              // Highlight the data row under the pointer in every table
+              // (not the expanded detail row or the empty-state row).
+              tbody: '[&>tr[data-expanded]]:transition-colors [&>tr[data-expanded]]:hover:bg-elevated/50',
+            },
+          },
         },
       }),
     ],
