@@ -265,6 +265,16 @@ async def test_downloadable_studies_follow_visibility(client, studies, regular_u
     assert member == {"public_a": True, "public_b": True, "own_draft": False}
 
 
+@pytest.mark.asyncio
+async def test_downloadable_studies_include_overview(client, studies):
+    by_title = {s["title"]: s for s in (await client.get(f"{API}/studies")).json()}
+    study = by_title["public_a"]
+    assert study["scenario_count"] == 1
+    assert study["sample_count"] == 1
+    assert study["laboratory_name"]
+    assert isinstance(study["authors"], list)
+
+
 # --- Filtering across studies -----------------------------------------------------
 
 
@@ -599,6 +609,34 @@ async def test_saved_model_download_is_live(auth_client, db_session, studies, ca
         category=categories["handling"], item_category=categories["knife"], concentration=9,
     )
     assert await count() == before + 1
+
+
+@pytest.mark.asyncio
+async def test_model_download_narrowed_to_selected_studies(client, studies):
+    async def titles(query: str) -> list[str]:
+        r = await client.get(f"{API}/preset-transfer-results/download?format=csv{query}")
+        assert r.status_code == 200
+        rows = list(csv.reader(io.StringIO(r.content.decode("utf-8-sig"))))
+        return sorted(row[0] for row in rows[1:])
+
+    a, b = studies["public_a"].id, studies["public_b"].id
+    assert await titles("") == ["public_a", "public_b"]
+    assert await titles(f"&study_ids={a}") == ["public_a"]
+    assert await titles(f"&study_ids={a}&study_ids={b}") == ["public_a", "public_b"]
+    # Selecting a study the viewer can't see doesn't widen access.
+    assert await titles(f"&study_ids={studies['foreign'].id}") == []
+
+
+@pytest.mark.asyncio
+async def test_model_download_selection_never_widens_saved_scope(auth_client, studies):
+    a, b = studies["public_a"].id, studies["public_b"].id
+    response = await auth_client.post(
+        API, json={"name": "Only A", "definition": _definition(study_ids=[str(a)])}
+    )
+    model_id = response.json()["id"]
+    r = await auth_client.get(f"{API}/{model_id}/download?format=csv&study_ids={b}")
+    assert r.status_code == 200
+    assert len(r.content.decode("utf-8-sig").strip().splitlines()) == 1
 
 
 @pytest.mark.asyncio

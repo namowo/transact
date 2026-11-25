@@ -122,6 +122,11 @@ class DownloadableStudy(BaseModel):
     title: str
     year: Optional[str] = None
     laboratory_name: Optional[str] = None
+    authors: list[str] = Field(default_factory=list)
+    journal: Optional[str] = None
+    doi: Optional[str] = None
+    scenario_count: int = 0
+    sample_count: int = 0
     # False for the viewer's own laboratory's unpublished or unchecked
     # studies, which only they can download.
     published: bool

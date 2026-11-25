@@ -80,10 +80,22 @@ export async function downloadDefinition(
   )
 }
 
-/** Download a saved or predefined model with the latest data. */
-export async function downloadDataModel(id: string, format: ExportFormat) {
+/**
+ * Download a saved or predefined model with the latest data. `studyIds`
+ * narrows the download to those studies (never beyond the model's own).
+ */
+export async function downloadDataModel(
+  id: string,
+  format: ExportFormat,
+  studyIds?: string[] | null,
+) {
   const response = await apiClient
-    .get<Blob>(`/data-models/${id}/download`, { params: { format }, responseType: 'blob' })
+    .get<Blob>(`/data-models/${id}/download`, {
+      params: { format, study_ids: studyIds?.length ? studyIds : undefined },
+      // FastAPI reads lists as repeated keys: study_ids=a&study_ids=b.
+      paramsSerializer: { indexes: null },
+      responseType: 'blob',
+    })
     .catch(unwrapBlobError)
   saveBlob(
     response.data,
