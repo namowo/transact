@@ -80,7 +80,7 @@ export interface PCR {
   epg_interpretation_method_id?: string | null
   epg_interpretation_method?: EPGInterpretationMethod | null
   no_of_contributors?: number | null
-  total_rfu?: number | null
+  average_rfu?: number | null
   total_no_of_alleles?: number | null
   contributors: PCRContributor[]
 }
@@ -94,7 +94,7 @@ export interface PCRInput {
   epg_analysis_method_id: string | null
   epg_interpretation_method_id: string | null
   no_of_contributors: number | null
-  total_rfu: number | null
+  average_rfu: number | null
   total_no_of_alleles: number | null
   contributors: PCRContributorInput[]
 }
@@ -108,8 +108,7 @@ export interface Result {
   dna_concentration?: number | null
   // Derived server-side as dna_concentration × sample.elution_volume.
   dna_quantity?: number | null
-  degradation_category_id?: string | null
-  degradation_category?: NamedCategory | null
+  degradation_index?: number | null
   inhibition_category_id?: string | null
   inhibition_category?: NamedCategory | null
   pcrs: PCR[]
@@ -119,7 +118,7 @@ export interface ResultInput {
   sample_id: string | null
   quantification_method_id: string | null
   dna_concentration: number | null
-  degradation_category_id: string | null
+  degradation_index: number | null
   inhibition_category_id: string | null
   // Full-replace on save: omit to leave the backend's existing PCRs
   // untouched, or pass the complete list to replace them.

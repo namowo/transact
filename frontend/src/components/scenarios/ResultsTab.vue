@@ -9,7 +9,6 @@ import { FilterMatchMode } from '@openvue/core/api'
 import type { MenuItem } from 'openvue/menuitem'
 import type { StepperItem } from '@nuxt/ui'
 import EntitySelect from '@/components/scenarios/EntitySelect.vue'
-import NamedCategoryRadioGroup from '@/components/scenarios/NamedCategoryRadioGroup.vue'
 import SamplePicker from '@/components/scenarios/SamplePicker.vue'
 import { surfaceLabel } from '@/components/data/sampleLabel'
 import ScenarioBadges from '@/components/data/ScenarioBadges.vue'
@@ -30,7 +29,6 @@ import {
   epgAnalysisMethodApi,
   epgInterpretationMethodApi,
 } from '@/api/methods'
-import { degradationCategoryApi } from '@/api/categories'
 import type {
   Contact,
   Sample,
@@ -107,12 +105,6 @@ function contributorKey(contributor: PCRContributorInput): string | null {
   return null
 }
 
-function setContributorKey(contributor: PCRContributorInput, key: string | null) {
-  const option = contributorOptions.value.find((candidate) => candidate.id === key)
-  contributor.individual_id = option && !option.unknownLabel ? option.id : null
-  contributor.unknown_label = option?.unknownLabel ?? null
-}
-
 function emptyContributor(): PCRContributorInput {
   return { individual_id: null, unknown_label: null, mixture_proportion: null }
 }
@@ -153,7 +145,6 @@ const resultRows = computed(() =>
       scenarioNames: (props.surfaceScenarios[result.sample?.surface_id ?? ''] ?? []).join(', '),
       sampleLabel: sampleLabel(result.sample),
       sampleName: result.sample?.name ?? null,
-      degradationLabel: result.degradation_category?.name ?? null,
       pcrCount: result.pcrs.length,
     })),
     multiSortMeta.value,
@@ -181,7 +172,7 @@ async function addResultsForAllSamples() {
           sample_id: sample.id,
           quantification_method_id: null,
           dna_concentration: null,
-          degradation_category_id: null,
+          degradation_index: null,
           inhibition_category_id: null,
         }),
       ),
@@ -208,7 +199,7 @@ function resultInputFrom(result: Result, dnaConcentration: number | null): Resul
     sample_id: result.sample_id ?? null,
     quantification_method_id: result.quantification_method_id ?? null,
     dna_concentration: dnaConcentration,
-    degradation_category_id: result.degradation_category_id ?? null,
+    degradation_index: result.degradation_index ?? null,
     inhibition_category_id: result.inhibition_category_id ?? null,
   }
 }
@@ -239,7 +230,7 @@ const CSV_PCR_COLUMNS = {
   sample_input_volume_in_pcr: 'sample_input_volume_in_pcr_ul',
   dna_input_amount_in_pcr: 'dna_input_amount_in_pcr_pg',
   no_of_contributors: 'no_of_contributors',
-  total_rfu: 'total_rfu',
+  average_rfu: 'average_rfu',
   total_no_of_alleles: 'total_no_of_alleles',
 } as const
 type PcrNumericField = keyof typeof CSV_PCR_COLUMNS
@@ -497,14 +488,6 @@ onMounted(async () => {
   ])
 })
 
-const degradationIcons: Record<string, string> = {
-  severe: 'i-lucide-signal-high',
-  moderate: 'i-lucide-signal-medium',
-  mild: 'i-lucide-signal-low',
-  none: 'i-lucide-circle-x',
-  'not applied': 'i-lucide-circle-help',
-}
-
 function sampleLabel(sample?: Sample | null): string {
   return surfaceLabel(sample?.surface)
 }
@@ -559,7 +542,7 @@ function emptyPcrForm(): PCRInput {
     epg_analysis_method_id: null,
     epg_interpretation_method_id: null,
     no_of_contributors: null,
-    total_rfu: null,
+    average_rfu: null,
     total_no_of_alleles: null,
     contributors: [],
   }
@@ -584,7 +567,7 @@ const pcrSchema = yup.object({
     .nullable()
     .integer('No. of contributors must be a whole number.')
     .min(0, 'No. of contributors must be zero or greater.'),
-  total_rfu: yup.number().nullable().min(0, 'Total RFU must be zero or greater.'),
+  average_rfu: yup.number().nullable().min(0, 'Average RFU must be zero or greater.'),
   total_no_of_alleles: yup
     .number()
     .nullable()
@@ -626,7 +609,7 @@ const [epgInterpretationMethodId] = definePcrField('epg_interpretation_method_id
 const [sampleInputVolumeInPcr] = definePcrField('sample_input_volume_in_pcr')
 const [dnaInputAmountInPcr] = definePcrField('dna_input_amount_in_pcr')
 const [noOfContributors] = definePcrField('no_of_contributors')
-const [totalRfu] = definePcrField('total_rfu')
+const [averageRfu] = definePcrField('average_rfu')
 const [totalNoOfAlleles] = definePcrField('total_no_of_alleles')
 
 // CE methods available for the currently-selected PCR method, falling back
@@ -640,6 +623,24 @@ const ceMethodOptions = computed(() => {
 watch(noOfContributors, (count) => {
   setPcrFieldValue('contributors', syncContributors(pcrFormValues.contributors ?? [], count))
 })
+
+// The form's values are read-only, so contributor rows are changed through
+// setPcrFieldValue rather than by assigning to them in the template.
+function updateContributor(index: number, patch: Partial<PCRContributorInput>) {
+  const contributors = (pcrFormValues.contributors ?? []).map((contributor, i) =>
+    i === index ? { ...contributor, ...patch } : { ...contributor },
+  )
+  setPcrFieldValue('contributors', contributors)
+}
+
+function setContributorKey(index: number, key: string | null) {
+  const option = contributorOptions.value.find((candidate) => candidate.id === key)
+  updateContributor(index, {
+    individual_id: option && !option.unknownLabel ? option.id : null,
+    unknown_label: option?.unknownLabel ?? null,
+  })
+}
+
 
 function isBlankContributor(contributor: PCRContributorInput): boolean {
   return Object.values(contributor).every((value) => value === null)
@@ -659,7 +660,7 @@ function emptyForm(): ResultInput {
     sample_id: null,
     quantification_method_id: null,
     dna_concentration: null,
-    degradation_category_id: null,
+    degradation_index: null,
     inhibition_category_id: null,
   }
 }
@@ -668,7 +669,7 @@ const schema = yup.object({
   sample_id: yup.string().nullable().required('Please select a sample.'),
   quantification_method_id: yup.string().nullable().defined(),
   dna_concentration: yup.number().nullable().min(0, 'DNA concentration must be zero or greater.'),
-  degradation_category_id: yup.string().nullable().defined(),
+  degradation_index: yup.number().nullable(),
   inhibition_category_id: yup.string().nullable().defined(),
 })
 
@@ -680,7 +681,7 @@ const { defineField, errors, handleSubmit, resetForm } = useForm<ResultInput>({
 const [sampleId] = defineField('sample_id')
 const [quantificationMethodId] = defineField('quantification_method_id')
 const [dnaConcentration] = defineField('dna_concentration')
-const [degradationCategoryId] = defineField('degradation_category_id')
+const [degradationIndex] = defineField('degradation_index')
 const [inhibitionCategoryId] = defineField('inhibition_category_id')
 
 const dialogVisible = ref(false)
@@ -712,7 +713,7 @@ function openEditDialog(row: Result) {
       sample_id: row.sample_id ?? null,
       quantification_method_id: row.quantification_method_id ?? null,
       dna_concentration: row.dna_concentration ?? null,
-      degradation_category_id: row.degradation_category_id ?? null,
+      degradation_index: row.degradation_index ?? null,
       inhibition_category_id: row.inhibition_category_id ?? null,
     },
   })
@@ -783,6 +784,26 @@ const editingPcrId = ref<string | null>(null)
 const submittingPcr = ref(false)
 const submitPcrError = ref('')
 
+// DNA input amount (pg) = DNA concentration (ng/µL) × sample input volume
+// (µL) × 1000. The backend recalculates it on save; here it is filled in
+// live and locked whenever both values are known.
+const pcrConcentration = computed(() =>
+  pcrDialogVisible.value ? (pcrDialogResult.value?.dna_concentration ?? null) : (dnaConcentration.value ?? null),
+)
+const derivedDnaInputAmount = computed(() => {
+  const concentration = pcrConcentration.value
+  const volume = sampleInputVolumeInPcr.value
+  return concentration == null || volume == null ? null : concentration * volume * 1000
+})
+const dnaInputAmountHelp = computed(() =>
+  derivedDnaInputAmount.value !== null
+    ? 'Calculated from DNA concentration × sample input volume.'
+    : 'Calculated automatically once the DNA concentration and sample input volume are entered.',
+)
+watch(derivedDnaInputAmount, (amount) => {
+  if (amount !== null) setPcrFieldValue('dna_input_amount_in_pcr', amount)
+})
+
 function pcrInputOf(pcr: PCR): PCRInput {
   return {
     pcr_method_id: pcr.pcr_method_id ?? null,
@@ -793,7 +814,7 @@ function pcrInputOf(pcr: PCR): PCRInput {
     epg_analysis_method_id: pcr.epg_analysis_method_id ?? null,
     epg_interpretation_method_id: pcr.epg_interpretation_method_id ?? null,
     no_of_contributors: pcr.no_of_contributors ?? null,
-    total_rfu: pcr.total_rfu ?? null,
+    average_rfu: pcr.average_rfu ?? null,
     total_no_of_alleles: pcr.total_no_of_alleles ?? null,
     contributors: (pcr.contributors ?? []).map((contributor) => ({
       individual_id: contributor.individual_id ?? null,
@@ -844,7 +865,7 @@ function resultInputOf(result: Result): ResultInput {
     sample_id: result.sample_id ?? null,
     quantification_method_id: result.quantification_method_id ?? null,
     dna_concentration: result.dna_concentration ?? null,
-    degradation_category_id: result.degradation_category_id ?? null,
+    degradation_index: result.degradation_index ?? null,
     inhibition_category_id: result.inhibition_category_id ?? null,
   }
 }
@@ -1029,8 +1050,8 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
               {{ data.dna_quantity != null ? `${auth.formatNumber(data.dna_quantity, FIXED4)} ng` : '—' }}
             </template>
           </Column>
-          <Column field="degradationLabel" header="Degradation Index" sortable>
-            <template #body="{ data }">{{ data.degradationLabel ?? '—' }}</template>
+          <Column field="degradation_index" header="Degradation index" sortable>
+            <template #body="{ data }">{{ data.degradation_index != null ? auth.formatNumber(data.degradation_index) : '—' }}</template>
           </Column>
           <Column field="pcrCount" header="Genotyping results" sortable style="width: 8rem">
             <template #body="{ data }">{{ data.pcrCount }}</template>
@@ -1074,9 +1095,9 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
                 <Column header="No. of contributors">
                   <template #body="{ data }">{{ data.no_of_contributors ?? '—' }}</template>
                 </Column>
-                <Column header="Total RFU">
+                <Column header="Average RFU">
                   <template #body="{ data }">
-                    {{ data.total_rfu != null ? `${data.total_rfu} RFU` : '—' }}
+                    {{ data.average_rfu != null ? `${auth.formatNumber(data.average_rfu)} RFU` : '—' }}
                   </template>
                 </Column>
                 <Column v-if="!readOnly" header="" style="width: 3rem">
@@ -1126,14 +1147,9 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
               <UBadge color="neutral" variant="outline" size="lg" label="ng/µL" />
             </UFieldGroup>
           </UFormField>
-          <NamedCategoryRadioGroup
-            v-model="degradationCategoryId"
-            label="Degradation Index"
-            :api="degradationCategoryApi"
-            :icons="degradationIcons"
-            variant="table"
-            orientation="horizontal"
-          />
+          <UFormField label="Degradation index" :error="errors.degradation_index">
+            <UInputNumber v-model="degradationIndex" :step="0.01" :step-snapping="false" :format-options="{ maximumFractionDigits: 6 }" orientation="vertical" class="w-full" />
+          </UFormField>
 
           <UAlert v-if="submitError" color="error" variant="outline" :description="submitError" />
         </div>
@@ -1169,14 +1185,9 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
                   <UBadge color="neutral" variant="outline" size="lg" label="ng/µL" />
                 </UFieldGroup>
               </UFormField>
-              <NamedCategoryRadioGroup
-                v-model="degradationCategoryId"
-                label="Degradation Index"
-                :api="degradationCategoryApi"
-                :icons="degradationIcons"
-                variant="table"
-                orientation="horizontal"
-              />
+              <UFormField label="Degradation index" :error="errors.degradation_index">
+                <UInputNumber v-model="degradationIndex" :step="0.01" :step-snapping="false" :format-options="{ maximumFractionDigits: 6 }" orientation="vertical" class="w-full" />
+              </UFormField>
               <div class="flex justify-end mt-2">
                 <UButton
                   label="Continue"
@@ -1274,18 +1285,18 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
                     <UBadge color="neutral" variant="outline" size="lg" label="µL" />
                   </UFieldGroup>
                 </UFormField>
-                <UFormField label="DNA input amount in PCR" :error="pcrErrors.dna_input_amount_in_pcr">
+                <UFormField label="DNA input amount in PCR" :error="pcrErrors.dna_input_amount_in_pcr" :help="dnaInputAmountHelp">
                   <UFieldGroup>
-                    <UInputNumber v-model="dnaInputAmountInPcr" :step="0.001" :step-snapping="false" :format-options="{ maximumFractionDigits: 6 }" orientation="vertical" class="w-full" />
+                    <UInputNumber v-model="dnaInputAmountInPcr" :disabled="derivedDnaInputAmount !== null" :step="0.001" :step-snapping="false" :format-options="{ maximumFractionDigits: 6 }" orientation="vertical" class="w-full" />
                     <UBadge color="neutral" variant="outline" size="lg" label="pg" />
                   </UFieldGroup>
                 </UFormField>
                 <UFormField label="No. of contributors" :error="pcrErrors.no_of_contributors">
                   <UInputNumber v-model="noOfContributors" :min="0" orientation="vertical" class="w-full" />
                 </UFormField>
-                <UFormField label="Total RFU" :error="pcrErrors.total_rfu">
+                <UFormField label="Average RFU" :error="pcrErrors.average_rfu">
                   <UFieldGroup>
-                    <UInputNumber v-model="totalRfu" :min="0" :step="0.1" :step-snapping="false" :format-options="{ maximumFractionDigits: 6 }" orientation="vertical" class="w-full" />
+                    <UInputNumber v-model="averageRfu" :min="0" :step="0.1" :step-snapping="false" :format-options="{ maximumFractionDigits: 6 }" orientation="vertical" class="w-full" />
                     <UBadge color="neutral" variant="outline" size="lg" label="RFU" />
                   </UFieldGroup>
                 </UFormField>
@@ -1309,12 +1320,13 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
                       placeholder="Select an individual or unknown person"
                       clear
                       class="w-full"
-                      @update:model-value="setContributorKey(contributor, $event)"
+                      @update:model-value="setContributorKey(index, $event)"
                     />
                   </UFormField>
                   <UFormField label="Mx" class="w-28">
                     <UInputNumber
-                      v-model="contributor.mixture_proportion"
+                      :model-value="contributor.mixture_proportion"
+                      @update:model-value="updateContributor(index, { mixture_proportion: $event ?? null })"
                       :min="0"
                       :max="1"
                       :step="0.01"
@@ -1434,18 +1446,18 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
                 <UBadge color="neutral" variant="outline" size="lg" label="µL" />
               </UFieldGroup>
             </UFormField>
-            <UFormField label="DNA input amount in PCR" :error="pcrErrors.dna_input_amount_in_pcr">
+            <UFormField label="DNA input amount in PCR" :error="pcrErrors.dna_input_amount_in_pcr" :help="dnaInputAmountHelp">
               <UFieldGroup>
-                <UInputNumber v-model="dnaInputAmountInPcr" :step="0.001" :step-snapping="false" :format-options="{ maximumFractionDigits: 6 }" orientation="vertical" class="w-full" />
+                <UInputNumber v-model="dnaInputAmountInPcr" :disabled="derivedDnaInputAmount !== null" :step="0.001" :step-snapping="false" :format-options="{ maximumFractionDigits: 6 }" orientation="vertical" class="w-full" />
                 <UBadge color="neutral" variant="outline" size="lg" label="pg" />
               </UFieldGroup>
             </UFormField>
             <UFormField label="No. of contributors" :error="pcrErrors.no_of_contributors">
               <UInputNumber v-model="noOfContributors" :min="0" orientation="vertical" class="w-full" />
             </UFormField>
-            <UFormField label="Total RFU" :error="pcrErrors.total_rfu">
+            <UFormField label="Average RFU" :error="pcrErrors.average_rfu">
               <UFieldGroup>
-                <UInputNumber v-model="totalRfu" :min="0" :step="0.1" :step-snapping="false" :format-options="{ maximumFractionDigits: 6 }" orientation="vertical" class="w-full" />
+                <UInputNumber v-model="averageRfu" :min="0" :step="0.1" :step-snapping="false" :format-options="{ maximumFractionDigits: 6 }" orientation="vertical" class="w-full" />
                 <UBadge color="neutral" variant="outline" size="lg" label="RFU" />
               </UFieldGroup>
             </UFormField>
@@ -1469,12 +1481,13 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
                   placeholder="Select an individual or unknown person"
                   clear
                   class="w-full"
-                  @update:model-value="setContributorKey(contributor, $event)"
+                  @update:model-value="setContributorKey(index, $event)"
                 />
               </UFormField>
               <UFormField label="Mx" class="w-28">
                 <UInputNumber
-                  v-model="contributor.mixture_proportion"
+                  :model-value="contributor.mixture_proportion"
+                  @update:model-value="updateContributor(index, { mixture_proportion: $event ?? null })"
                   :min="0"
                   :max="1"
                   :step="0.01"

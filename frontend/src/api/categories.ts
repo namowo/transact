@@ -33,7 +33,6 @@ export const bodyPartConditionCategoryApi = namedCategoryApi('/body-part-conditi
 export const conditionOfItemPartCategoryApi = namedCategoryApi('/condition-of-item-part-categories')
 export const disturbanceCategoryApi = namedCategoryApi('/disturbance-categories')
 export const geographicLocationCategoryApi = namedCategoryApi('/geographic-location-categories')
-export const degradationCategoryApi = namedCategoryApi('/degradation-categories')
 export const inhibitionCategoryApi = namedCategoryApi('/inhibition-categories')
 
 // Not a plain namedCategoryApi: the admin item catalog screen needs to

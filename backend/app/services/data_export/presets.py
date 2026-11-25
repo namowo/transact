@@ -79,7 +79,7 @@ PRESETS: list[Preset] = [
                 "ce_method.injection_time",
                 "epg_analysis.analytical_threshold",
                 "pcr.no_of_contributors",
-                "pcr.total_rfu",
+                "pcr.average_rfu",
                 "pcr.total_no_of_alleles",
             ],
         ),

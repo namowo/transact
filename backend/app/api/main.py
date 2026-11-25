@@ -20,7 +20,6 @@ from app.api.routers import contact
 from app.api.routers import contact_template
 from app.api.routers import cutting_method
 from app.api.routers import data_model
-from app.api.routers import degradation_category
 from app.api.routers import determination_of_shedding_propensity_category
 from app.api.routers import disturbance_category
 from app.api.routers import dye_channel
@@ -110,7 +109,6 @@ api_router.include_router(body_part_condition_category.router, prefix="/body-par
 api_router.include_router(classification_criteria.router, prefix="/classification-criteria", tags=["Categories"])
 api_router.include_router(classification_scheme.router, prefix="/classification-schemes", tags=["Categories"])
 api_router.include_router(condition_of_item_part_category.router, prefix="/condition-of-item-part-categories", tags=["Categories"])
-api_router.include_router(degradation_category.router, prefix="/degradation-categories", tags=["Categories"])
 api_router.include_router(determination_of_shedding_propensity_category.router, prefix="/determination-of-shedding-propensity-categories", tags=["Categories"])
 api_router.include_router(inhibition_category.router, prefix="/inhibition-categories", tags=["Categories"])
 api_router.include_router(item_surface_material_category.router, prefix="/item-surface-material-categories", tags=["Categories"])

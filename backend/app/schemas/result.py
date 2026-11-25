@@ -8,7 +8,7 @@ class ResultBase(BaseModel):
     quantification_method_id: Optional[UUID] = None
     sample_id: Optional[UUID] = None
     dna_concentration: Optional[float] = None
-    degradation_category_id: Optional[UUID] = None
+    degradation_index: Optional[float] = None
     inhibition_category_id: Optional[UUID] = None
 
 
@@ -26,7 +26,6 @@ class ResultRead(ResultBase):
     id: UUID
     quantification_method: Optional["QuantificationMethodRead"] = None
     sample: Optional["SampleRead"] = None
-    degradation_category: Optional["DegradationCategoryRead"] = None
     inhibition_category: Optional["InhibitionCategoryRead"] = None
     pcrs: List["PCRRead"] = []
 
@@ -39,7 +38,6 @@ class ResultRead(ResultBase):
         return self.dna_concentration * elution_volume
 
 
-from app.schemas.degradation_category import DegradationCategoryRead
 from app.schemas.inhibition_category import InhibitionCategoryRead
 from app.schemas.quantification_method import QuantificationMethodRead
 from app.schemas.sample import SampleRead
