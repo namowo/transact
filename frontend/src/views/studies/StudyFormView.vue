@@ -5,6 +5,7 @@ import { useFieldArray, useForm } from 'vee-validate'
 import * as yup from 'yup'
 import type { StepperItem } from '@nuxt/ui'
 import { useConfirm } from '@/composables/useConfirm'
+import { doiSchema, normalizeDoi } from '@/constants/doi'
 import { createStudy, deleteStudy, getStudy, updateStudy } from '@/api/studies'
 import { useAuthStore } from '@/stores/auth'
 import { useTourStore } from '@/stores/tour'
@@ -97,22 +98,9 @@ const authorSchema = yup.object({
 const MIN_YEAR = 1900
 const MAX_YEAR = new Date().getFullYear() + 1
 
-const DOI_PREFIX = /^(?:https?:\/\/(?:dx\.)?doi\.org\/|doi:\s*)/i
-const normalizeDoi = (value: string) => value.trim().replace(DOI_PREFIX, '')
-const DOI_PATTERN = /^10\.\d{4,9}\/\S+$/
-
 const schema = yup.object({
   title: yup.string().trim().required('Title is required.'),
-  doi: yup
-    .string()
-    .trim()
-    .transform((value) => (typeof value === 'string' ? normalizeDoi(value) : value))
-    .defined()
-    .test(
-      'doi-format',
-      'Invalid DOI. Expected format: 10.1234/abc (a https://doi.org/ prefix is removed automatically).',
-      (value) => !value || DOI_PATTERN.test(value),
-    ),
+  doi: doiSchema(),
   journal: yup.string().trim().defined(),
   year: yup
     .number()

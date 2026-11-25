@@ -23,6 +23,7 @@ const modelValue = defineModel<string[]>({ default: () => [] })
       label-key="name"
       multiple
       placeholder="Select scenarios"
+      clear
       class="w-full"
     />
   </UFormField>

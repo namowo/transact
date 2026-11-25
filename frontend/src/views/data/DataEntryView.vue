@@ -836,6 +836,7 @@ const activeTab = computed<string>({
                 value-key="value"
                 multiple
                 placeholder="Choose scenarios"
+                clear
                 class="w-full"
               />
             </UFormField>

@@ -771,10 +771,13 @@ async function saveMemberField(member: Individual, patch: Partial<Individual>) {
               </Column>
               <Column header="Sex">
                 <template #body="{ data: member }">
-                  <USelect
+                  <USelectMenu
                     v-if="editMode"
                     :model-value="member.sex_id ?? undefined"
                     :items="sexOptions.map((s) => ({ label: s.name, value: s.id }))"
+                    value-key="value"
+                    :search-input="false"
+                    clear
                     placeholder="—"
                     size="sm"
                     :loading="savingMemberIds.has(member.id)"
@@ -804,10 +807,13 @@ async function saveMemberField(member: Individual, patch: Partial<Individual>) {
               </Column>
               <Column header="DNA shedding propensity">
                 <template #body="{ data: member }">
-                  <USelect
+                  <USelectMenu
                     v-if="editMode"
                     :model-value="member.dna_shedding_propensity_category_id ?? undefined"
                     :items="sheddingPropensityOptions.map((c) => ({ label: c.name, value: c.id }))"
+                    value-key="value"
+                    :search-input="false"
+                    clear
                     placeholder="—"
                     size="sm"
                     :loading="savingMemberIds.has(member.id)"
@@ -878,6 +884,7 @@ async function saveMemberField(member: Individual, patch: Partial<Individual>) {
             hint="Optional"
             :api="dnaSheddingPropensityCategoryApi"
             :icons="sheddingPropensityIcons"
+            none-label="Not determined"
           />
           <SkinDiseaseCategorySelect v-model="individualSkinDiseaseCategoryId" />
           <DeterminationOfSheddingPropensityCategorySelect
@@ -934,6 +941,7 @@ async function saveMemberField(member: Individual, patch: Partial<Individual>) {
             hint="Optional"
             :api="dnaSheddingPropensityCategoryApi"
             :icons="sheddingPropensityIcons"
+            none-label="Not determined"
           />
           <SkinDiseaseCategorySelect v-model="batchSkinDiseaseCategoryId" />
           <DeterminationOfSheddingPropensityCategorySelect v-model="batchDeterminationCategoryId" />

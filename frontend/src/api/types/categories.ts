@@ -82,31 +82,54 @@ export interface SupplierInput {
 // A literature reference describing how shedding propensity was determined
 // in a study, not a simple named category - it carries its own bibliography
 // and methodology fields.
+export interface DeterminationOfSheddingPropensityCategoryAuthor {
+  id?: string
+  title?: string | null
+  first_name: string
+  last_name: string
+}
+
+// A restriction prior to sampling or a shedder test, each with an optional
+// duration in seconds.
+export interface DeterminationOfSheddingPropensityCategoryRestriction {
+  restriction_prior_to_sampling_id: string
+  duration?: number | null
+  restriction_prior_to_sampling?: NamedCategory | null
+}
+
+export interface DeterminationOfSheddingPropensityCategoryShedderTest {
+  shedder_test_id: string
+  duration?: number | null
+  shedder_test?: NamedCategory | null
+}
+
 export interface DeterminationOfSheddingPropensityCategory {
   id: string
-  authors?: string | null
   title?: string | null
   doi?: string | null
-  restrictions_prior_to_sampling?: string | null
-  monitored_transfer_factors?: string | null
-  number_of_participants?: string | null
-  replicates?: string | null
-  shedder_test?: string | null
-  classification_criteria?: string | null
-  classification_scheme?: string | null
+  authors?: DeterminationOfSheddingPropensityCategoryAuthor[]
+  restrictions?: DeterminationOfSheddingPropensityCategoryRestriction[]
+  monitored_transfer_factors?: NamedCategory[]
+  number_of_participants?: number | null
+  replicates?: number | null
+  shedder_tests?: DeterminationOfSheddingPropensityCategoryShedderTest[]
+  classification_criteria_id?: string | null
+  classification_criteria?: NamedCategory | null
+  classification_scheme_id?: string | null
+  classification_scheme?: NamedCategory | null
   classification_outcome?: string | null
 }
 
 export interface DeterminationOfSheddingPropensityCategoryInput {
-  authors?: string | null
   title?: string | null
   doi?: string | null
-  restrictions_prior_to_sampling?: string | null
-  monitored_transfer_factors?: string | null
-  number_of_participants?: string | null
-  replicates?: string | null
-  shedder_test?: string | null
-  classification_criteria?: string | null
-  classification_scheme?: string | null
+  authors?: Omit<DeterminationOfSheddingPropensityCategoryAuthor, 'id'>[]
+  restrictions?: { restriction_prior_to_sampling_id: string; duration?: number | null }[]
+  monitored_transfer_factor_ids?: string[]
+  number_of_participants?: number | null
+  replicates?: number | null
+  shedder_tests?: { shedder_test_id: string; duration?: number | null }[]
+  classification_criteria_id?: string | null
+  classification_scheme_id?: string | null
   classification_outcome?: string | null
 }
