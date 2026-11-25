@@ -75,6 +75,13 @@ export const itemPartsCategoryApi = {
 export const locationOfBodyCategoryApi = namedCategoryApi('/location-of-body-categories')
 export const scenarioCategoryApi = namedCategoryApi('/scenario-categories')
 export const sexApi = namedCategoryApi('/sexes')
+// Lookup lists used by a determination of shedding propensity reference.
+// Only superusers may add entries, so the UI offers them as fixed choices.
+export const restrictionPriorToSamplingApi = namedCategoryApi('/restrictions-prior-to-sampling')
+export const shedderTestApi = namedCategoryApi('/shedder-tests')
+export const monitoredTransferFactorApi = namedCategoryApi('/monitored-transfer-factors')
+export const classificationCriteriaApi = namedCategoryApi('/classification-criteria')
+export const classificationSchemeApi = namedCategoryApi('/classification-schemes')
 export const dnaSheddingPropensityCategoryApi = namedCategoryApi(
   '/dna-shedding-propensity-categories',
 )
