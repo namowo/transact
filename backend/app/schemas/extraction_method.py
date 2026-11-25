@@ -18,7 +18,7 @@ class ExtractionMethodBase(BaseModel):
     lysis_incubation_time: Optional[SecondsTimedelta] = None
     lysis_incubation_temperature: Optional[int] = None
     thermoshaker_id: Optional[UUID] = None
-    rcf: Optional[int] = None
+    rpm: Optional[int] = None
     volume_of_lysate_used_for_extraction: Optional[int] = None
     application_of_further_purification_step: Optional[bool] = None
     description_of_further_purification_step: Optional[str] = None

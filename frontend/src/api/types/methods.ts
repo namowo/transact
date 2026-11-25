@@ -30,7 +30,7 @@ export interface ExtractionMethod {
   lysis_incubation_temperature?: number | null
   thermoshaker_id?: string | null
   thermoshaker?: NamedCategory | null
-  rcf?: number | null
+  rpm?: number | null
   volume_of_lysate_used_for_extraction?: number | null
   application_of_further_purification_step?: boolean | null
   description_of_further_purification_step?: string | null

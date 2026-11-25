@@ -385,6 +385,13 @@ function applyToAllRows() {
   bulkOpen.value = false
 }
 
+// Drops a sample from the batch and deselects its surface, so going back to
+// step 1 shows the same selection.
+function removeDetailRow(key: string) {
+  detailRows.value = detailRows.value.filter((row) => row.key !== key)
+  surfaceIds.value = surfaceIds.value.filter((id) => id !== key)
+}
+
 // Builds one row per selected surface. Rows for surfaces that stay selected
 // keep what was already entered, so going back and forth loses nothing; names
 // still following the template are regenerated if the order changed.
@@ -1142,6 +1149,19 @@ function onSampleSetCreated(created: { id: string; name?: string | null }) {
               <Column header="Area (cm²)" style="min-width: 10rem">
                 <template #body="{ data }">
                   <UInputNumber :min="0" :step="0.1" :step-snapping="false" :format-options="{ maximumFractionDigits: 6 }" v-model="data.area" orientation="vertical" class="w-full" />
+                </template>
+              </Column>
+              <Column style="width: 3rem">
+                <template #body="{ data }">
+                  <UButton
+                    icon="i-lucide-trash-2"
+                    color="error"
+                    variant="ghost"
+                    size="sm"
+                    aria-label="Remove this sample"
+                    title="Remove this sample"
+                    @click="removeDetailRow(data.key)"
+                  />
                 </template>
               </Column>
             </DataTable>

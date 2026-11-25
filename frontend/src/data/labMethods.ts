@@ -205,11 +205,10 @@ export const labMethods: MethodConfig[] = [
         categoryApi: thermoshakerApi,
       },
       {
-        key: 'rcf',
-        label: 'RCF',
+        key: 'rpm',
+        label: 'Shaking speed',
         type: 'number',
-        unit: 'x g',
-        hint: 'As RPM is device-specific, please convert to RCF using the formula RCF = 1.118 × 10⁻⁵ × r × RPM².',
+        unit: 'rpm',
       },
       {
         key: 'volume_of_lysate_used_for_extraction',

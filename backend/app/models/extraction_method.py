@@ -55,7 +55,7 @@ class ExtractionMethod(Base):
     thermoshaker: Mapped[Optional["Thermoshaker"]] = relationship(
         lazy="selectin", foreign_keys=[thermoshaker_id]
     )
-    rcf: Mapped[Optional[float]]
+    rpm: Mapped[Optional[float]]
     volume_of_lysate_used_for_extraction: Mapped[Optional[float]]
     application_of_further_purification_step: Mapped[Optional[bool]]
     description_of_further_purification_step: Mapped[Optional[str]]
