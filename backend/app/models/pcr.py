@@ -59,7 +59,7 @@ class PCR(Base):
         relationship(lazy="selectin", foreign_keys=[epg_interpretation_method_id])
     )
     no_of_contributors: Mapped[Optional[int]]
-    total_rfu: Mapped[Optional[int]]
+    average_rfu: Mapped[Optional[float]]
     total_no_of_alleles: Mapped[Optional[int]]
     contributors: Mapped[list["PCRContributor"]] = relationship(
         lazy="selectin",

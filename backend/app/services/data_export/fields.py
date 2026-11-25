@@ -51,7 +51,6 @@ from app.models.condition_during_contact import ConditionDuringContact
 from app.models.condition_of_item_part_category import ConditionOfItemPartCategory
 from app.models.contact import Contact
 from app.models.contact_template import ContactTemplate, scenario_contact_template
-from app.models.degradation_category import DegradationCategory
 from app.models.determination_of_shedding_propensity_category import (
     DeterminationOfSheddingPropensityCategory,
 )
@@ -839,7 +838,7 @@ def _result_fields(res, qm) -> list[Field]:
     return [
         Field("result.id", "Result ID", g, "string", cast(res.id, String)),
         Field("result.dna_concentration", "DNA concentration", g, "number", res.dna_concentration, unit="ng/µl"),
-        Field("result.degradation", "Degradation", g, "category", lookup(DegradationCategory, res.degradation_category_id)),
+        Field("result.degradation", "Degradation index", g, "number", res.degradation_index),
         Field("result.inhibition", "Inhibition", g, "category", lookup(InhibitionCategory, res.inhibition_category_id)),
         Field("quantification_method.id", "Quantification method ID", qg, "string", cast(qm.id, String)),
         Field(
@@ -894,9 +893,9 @@ def _pcr_fields(pcr, pm, ce, epa, epi, post) -> list[Field]:
     return [
         Field("pcr.id", "PCR ID", g, "string", cast(pcr.id, String)),
         Field("pcr.sample_input_volume", "Sample input volume", g, "number", pcr.sample_input_volume_in_pcr, unit="µl"),
-        Field("pcr.dna_input_amount", "DNA input amount", g, "number", pcr.dna_input_amount_in_pcr, unit="ng"),
+        Field("pcr.dna_input_amount", "DNA input amount", g, "number", pcr.dna_input_amount_in_pcr, unit="pg"),
         Field("pcr.no_of_contributors", "Number of contributors", g, "number", pcr.no_of_contributors),
-        Field("pcr.total_rfu", "Total RFU", g, "number", pcr.total_rfu),
+        Field("pcr.average_rfu", "Average RFU", g, "number", pcr.average_rfu),
         Field("pcr.total_no_of_alleles", "Total number of alleles", g, "number", pcr.total_no_of_alleles),
         Field("pcr_method.id", "PCR method ID", pg, "string", cast(pm.id, String)),
         Field("pcr_method.kit", "PCR kit", pg, "category", lookup(PCRKit, pm.pcr_kit_id)),

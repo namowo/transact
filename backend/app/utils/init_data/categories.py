@@ -27,7 +27,6 @@ from app.crud.condition_of_item_part_category import (
     crud_condition_of_item_part_category,
 )
 from app.crud.cutting_device import crud_cutting_device
-from app.crud.degradation_category import crud_degradation_category
 from app.crud.determination_of_shedding_propensity_category import (
     crud_determination_of_shedding_propensity_category,
 )
@@ -73,7 +72,6 @@ from app.schemas.condition_of_item_part_category import (
     ConditionOfItemPartCategoryCreate,
 )
 from app.schemas.cutting_device import CuttingDeviceCreate
-from app.schemas.degradation_category import DegradationCategoryCreate
 from app.schemas.determination_of_shedding_propensity_category import (
     DeterminationOfSheddingPropensityCategoryCreate,
 )
@@ -288,7 +286,6 @@ async def main() -> None:
         await seed(db, crud_dna_shedding_propensity_category, DNASheddingPropensityCategoryCreate, "dna_shedding_propensity_category")
         await seed(db, crud_condition_of_item_part_category, ConditionOfItemPartCategoryCreate, "condition_of_item_part_category")
         await seed(db, crud_cutting_device, CuttingDeviceCreate, "cutting_device")
-        await seed(db, crud_degradation_category, DegradationCategoryCreate, "degradation_category")
         await seed(db, crud_inhibition_category, InhibitionCategoryCreate, "inhibition_category")
         await seed(db, crud_application_analytical_threshold, ApplicationAnalyticalThresholdCreate, "application_analytical_threshold")
         await seed(db, crud_stutter_filter, StutterFilterCreate, "stutter_filter")

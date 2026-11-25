@@ -155,7 +155,7 @@ async def _seed_study(
     result = Result(sample_id=sample.id, dna_concentration=concentration)
     db.add(result)
     await db.flush()
-    pcr = PCR(result_id=result.id, no_of_contributors=2, total_rfu=1000)
+    pcr = PCR(result_id=result.id, no_of_contributors=2, average_rfu=500.5)
     db.add(pcr)
     await db.flush()
     db.add_all(

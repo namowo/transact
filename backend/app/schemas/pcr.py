@@ -13,7 +13,7 @@ class PCRBase(BaseModel):
     epg_analysis_method_id: Optional[UUID] = None
     epg_interpretation_method_id: Optional[UUID] = None
     no_of_contributors: Optional[int] = None
-    total_rfu: Optional[int] = None
+    average_rfu: Optional[float] = None
     total_no_of_alleles: Optional[int] = None
 
 

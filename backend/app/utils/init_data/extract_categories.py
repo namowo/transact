@@ -24,10 +24,10 @@ belongs to, since several Excel names differ from their model:
   a duration attached to the row as a whole (it's ambiguous which
   comma-separated phrase it belongs to when there's more than one -
   those rows are printed as warnings for manual review after import)
-- Cut-OutMethods/CuttingDevice, Results/Degradation, Results/Inhibition,
+- Cut-OutMethods/CuttingDevice, Results/Inhibition,
   EPGInterpretationMethods/ApplicationAnalyticalThreshold and
   EPGInterpretationMethods/StutterFilter enum rows (Definitionen file)
-  -> cutting_device, degradation_category, inhibition_category,
+  -> cutting_device, inhibition_category,
   application_analytical_threshold, stutter_filter lookup tables
 """
 
@@ -335,10 +335,6 @@ def extract():
     dump(
         "cutting_device",
         [{"name": v} for v in enum_group("Cut-OutMethods", "CuttingDevice")],
-    )
-    dump(
-        "degradation_category",
-        [{"name": v} for v in enum_group("Results", "Degradation")],
     )
     dump(
         "inhibition_category",

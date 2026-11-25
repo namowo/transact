@@ -24,6 +24,19 @@ def _pcrs_from(pcrs) -> list[PCR]:
     return result
 
 
+def _derive_dna_input_amounts(result: Result) -> None:
+    """DNA input amount in PCR (pg) = DNA concentration (ng/µl) x sample
+    input volume (µl) x 1000. Recalculated on every save so it follows later
+    edits of the concentration; left as entered when either value is missing."""
+    if result.dna_concentration is None:
+        return
+    for pcr in result.pcrs:
+        if pcr.sample_input_volume_in_pcr is not None:
+            pcr.dna_input_amount_in_pcr = (
+                result.dna_concentration * pcr.sample_input_volume_in_pcr * 1000
+            )
+
+
 class CRUDResult(CRUDBase[Result, ResultCreate, ResultUpdate]):
     def __init__(self):
         super().__init__(Result)
@@ -34,6 +47,7 @@ class CRUDResult(CRUDBase[Result, ResultCreate, ResultUpdate]):
         )
         new_result = Result(**obj_data)
         new_result.pcrs = _pcrs_from(obj_in.pcrs)
+        _derive_dna_input_amounts(new_result)
         db.add(new_result)
 
         try:
@@ -55,6 +69,7 @@ class CRUDResult(CRUDBase[Result, ResultCreate, ResultUpdate]):
 
         if obj_in.pcrs is not None:
             result.pcrs = _pcrs_from(obj_in.pcrs)
+        _derive_dna_input_amounts(result)
 
         try:
             await db.commit()
