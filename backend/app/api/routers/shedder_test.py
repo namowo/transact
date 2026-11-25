@@ -5,7 +5,11 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import current_superuser, get_async_session
+from app.core.deps import (
+    current_catalog_deleter,
+    current_catalog_editor,
+    get_async_session,
+)
 from app.crud.shedder_test import crud_shedder_test as crud
 from app.schemas.shedder_test import (
     ShedderTestRead as ReadSchema,
@@ -29,7 +33,7 @@ async def get_by_id(id: UUID, db: AsyncSession = Depends(get_async_session)):
 @router.post(
     "",
     response_model=ReadSchema,
-    dependencies=[Depends(current_superuser)],
+    dependencies=[Depends(current_catalog_editor)],
     status_code=status.HTTP_201_CREATED,
 )
 async def create(obj_in: CreateSchema, db: AsyncSession = Depends(get_async_session)):
@@ -39,7 +43,7 @@ async def create(obj_in: CreateSchema, db: AsyncSession = Depends(get_async_sess
 @router.patch(
     "/{id}",
     response_model=ReadSchema,
-    dependencies=[Depends(current_superuser)],
+    dependencies=[Depends(current_catalog_editor)],
 )
 async def update(
     id: UUID, obj_in: UpdateSchema, db: AsyncSession = Depends(get_async_session)
@@ -50,7 +54,7 @@ async def update(
 @router.delete(
     "/{id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[Depends(current_superuser)],
+    dependencies=[Depends(current_catalog_deleter)],
 )
 async def delete(id: UUID, db: AsyncSession = Depends(get_async_session)):
     await crud.delete(db, id)

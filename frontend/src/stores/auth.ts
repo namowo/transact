@@ -10,19 +10,35 @@ import {
   type ChangePasswordPayload,
   type UpdateProfilePayload,
 } from '@/api/users'
-import type { RegisterPayload, SuperuserSetupPayload, User } from '@/api/types'
+import type { Permission, RegisterPayload, SuperuserSetupPayload, User } from '@/api/types'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
   const needsSetup = ref(false)
 
   const isAuthenticated = computed(() => !!user.value)
-  const isSuperuser = computed(() => !!user.value?.is_superuser)
-  const canQualityCheck = computed(
-    () => !!user.value?.is_superuser || !!user.value?.can_quality_check,
-  )
-  const isLabAdmin = computed(
-    () => !!user.value?.is_superuser || !!user.value?.can_manage_lab_users,
+
+  // Whether the user's groups grant `permission`. Laboratory permissions
+  // (lab.*, data.enter) only apply to the user's own laboratory.
+  function can(permission: Permission) {
+    return !!user.value?.permissions?.includes(permission)
+  }
+  function canAny(...permissions: Permission[]) {
+    return permissions.some(can)
+  }
+
+  const canQualityCheck = computed(() => can('studies.quality_check'))
+  // Manages the members of their own laboratory.
+  const isLabAdmin = computed(() => can('lab.manage_members'))
+  // Sees the admin area: anything platform-wide to manage.
+  const isAdmin = computed(() =>
+    canAny(
+      'users.manage',
+      'groups.manage',
+      'laboratories.manage',
+      'site_settings.manage',
+      'catalog.delete',
+    ),
   )
 
   // How numbers are typed and shown (BCP 47 tag from the user's profile).
@@ -131,7 +147,9 @@ export const useAuthStore = defineStore('auth', () => {
     user,
     needsSetup,
     isAuthenticated,
-    isSuperuser,
+    can,
+    canAny,
+    isAdmin,
     canQualityCheck,
     isLabAdmin,
     locale,

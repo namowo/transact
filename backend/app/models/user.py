@@ -24,15 +24,6 @@ class User(Base):
     is_verified: Mapped[bool] = mapped_column(
         nullable=False, server_default=text("false")
     )
-    is_superuser: Mapped[bool] = mapped_column(
-        nullable=False, server_default=text("false")
-    )
-    can_quality_check: Mapped[bool] = mapped_column(
-        nullable=False, server_default=text("false")
-    )
-    can_manage_lab_users: Mapped[bool] = mapped_column(
-        nullable=False, server_default=text("false")
-    )
     passkey_prompt_dismissed: Mapped[bool] = mapped_column(
         nullable=False, server_default=text("false")
     )
@@ -61,9 +52,39 @@ class User(Base):
         lazy="selectin", foreign_keys=[laboratory_id]
     )
 
+    groups: Mapped[list["UserGroup"]] = relationship(
+        secondary="user_group_member", lazy="selectin", order_by="UserGroup.name"
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         nullable=False, server_default=text("now()")
     )
 
+    # --- Permissions --------------------------------------------------------
 
-from app.models.laboratory import Laboratory
+    @property
+    def permissions(self) -> frozenset[str]:
+        """Everything the user's groups grant (see app.core.permission_catalog).
+
+        Laboratory-scoped permissions only apply to the user's own
+        laboratory; use `can_in_laboratory` for those."""
+        return frozenset(
+            permission for group in self.groups for permission in group.permissions
+        )
+
+    def can(self, permission: "Permission") -> bool:
+        return permission.value in self.permissions
+
+    def can_in_laboratory(
+        self, permission: "Permission", laboratory_id: Optional[uuid.UUID]
+    ) -> bool:
+        return (
+            laboratory_id is not None
+            and self.laboratory_id == laboratory_id
+            and self.can(permission)
+        )
+
+
+from app.core.permission_catalog import Permission  # noqa: E402
+from app.models.laboratory import Laboratory  # noqa: E402
+from app.models.user_group import UserGroup  # noqa: E402

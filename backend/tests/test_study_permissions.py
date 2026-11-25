@@ -1,5 +1,6 @@
 """Studies and their data can be viewed by anyone but edited only by
-members of the owning laboratory - superusers included."""
+members of the owning laboratory - or by admins acting for a laboratory
+(see test_admin_data_entry.py)."""
 
 import pytest
 import pytest_asyncio
@@ -50,18 +51,18 @@ def _login(client, user: User):
 
 
 @pytest.mark.asyncio
-async def test_superuser_can_view_but_not_edit_foreign_study(
-    superuser_client, foreign_study
+async def test_lab_admin_can_view_but_not_edit_foreign_study(
+    lab_admin_client, foreign_study
 ):
-    response = await superuser_client.get(f"/api/v1/studies/{foreign_study.id}")
+    response = await lab_admin_client.get(f"/api/v1/studies/{foreign_study.id}")
     assert response.status_code == 200
 
-    response = await superuser_client.patch(
+    response = await lab_admin_client.patch(
         f"/api/v1/studies/{foreign_study.id}", json={"title": "Hijacked"}
     )
     assert response.status_code == 403
 
-    response = await superuser_client.delete(f"/api/v1/studies/{foreign_study.id}")
+    response = await lab_admin_client.delete(f"/api/v1/studies/{foreign_study.id}")
     assert response.status_code == 403
 
 
@@ -94,26 +95,37 @@ async def test_regular_user_cannot_move_study_to_other_lab(
 
 
 @pytest.mark.asyncio
-async def test_superuser_cannot_add_samples_to_foreign_study(
-    superuser_client, foreign_study, own_study
+async def test_data_entrant_cannot_add_samples_to_foreign_study(
+    client, data_entrant, foreign_study, own_study
 ):
-    response = await superuser_client.post(
+    _login(client, data_entrant)
+    response = await client.post(
         "/api/v1/samples", json={"study_id": str(foreign_study.id)}
     )
     assert response.status_code == 403
 
-    response = await superuser_client.post(
+    response = await client.post(
         "/api/v1/samples", json={"study_id": str(own_study.id)}
     )
     assert response.status_code == 201
 
 
 @pytest.mark.asyncio
-async def test_superuser_cannot_edit_results_of_foreign_study(
-    client, db_session, other_lab, foreign_study, superuser
+async def test_member_without_data_entry_permission_cannot_add_samples(
+    auth_client, own_study
+):
+    response = await auth_client.post(
+        "/api/v1/samples", json={"study_id": str(own_study.id)}
+    )
+    assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_data_entrant_cannot_edit_results_of_foreign_study(
+    client, db_session, other_lab, foreign_study, data_entrant, data_entry_group
 ):
     other_admin = await _make_user(
-        db_session, other_lab, email="other@example.com", is_superuser=True
+        db_session, other_lab, email="other@example.com", groups=[data_entry_group]
     )
     _login(client, other_admin)
     sample = (
@@ -123,7 +135,7 @@ async def test_superuser_cannot_edit_results_of_foreign_study(
         await client.post("/api/v1/results", json={"sample_id": sample["id"]})
     ).json()
 
-    _login(client, superuser)
+    _login(client, data_entrant)
     response = await client.patch(
         f"/api/v1/results/{result['id']}", json={"dna_concentration": 1.0}
     )
@@ -134,10 +146,10 @@ async def test_superuser_cannot_edit_results_of_foreign_study(
 
 @pytest.mark.asyncio
 async def test_foreign_scenario_can_be_linked_but_not_edited(
-    client, db_session, other_lab, foreign_study, own_study, superuser
+    client, db_session, other_lab, foreign_study, own_study, data_entrant, data_entry_group
 ):
     other_admin = await _make_user(
-        db_session, other_lab, email="other@example.com", is_superuser=True
+        db_session, other_lab, email="other@example.com", groups=[data_entry_group]
     )
     _login(client, other_admin)
     category = (
@@ -156,7 +168,7 @@ async def test_foreign_scenario_can_be_linked_but_not_edited(
         )
     ).json()
 
-    _login(client, superuser)
+    _login(client, data_entrant)
     # Linking it into our own study is fine...
     response = await client.patch(
         f"/api/v1/scenarios/{scenario['id']}",
@@ -178,13 +190,13 @@ async def test_foreign_scenario_can_be_linked_but_not_edited(
 
 @pytest.mark.asyncio
 async def test_foreign_studys_item_can_be_used_in_own_surface_templates(
-    client, db_session, other_lab, foreign_study, own_study, superuser
+    client, db_session, other_lab, foreign_study, own_study, data_entrant, data_entry_group
 ):
     """Items are a shared catalog: referencing another lab's item in our own
     contact templates must not be blocked, but their surface templates stay
     theirs."""
     other_admin = await _make_user(
-        db_session, other_lab, email="other@example.com", is_superuser=True
+        db_session, other_lab, email="other@example.com", groups=[data_entry_group]
     )
     _login(client, other_admin)
     item = (
@@ -220,7 +232,7 @@ async def test_foreign_studys_item_can_be_used_in_own_surface_templates(
     )
     assert response.status_code == 201
 
-    _login(client, superuser)
+    _login(client, data_entrant)
     # Building our own scenario around their item works...
     response = await client.post(
         "/api/v1/surface-templates", json={"item_id": item["id"]}

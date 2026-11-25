@@ -5,13 +5,16 @@ import Column from 'openvue/column'
 import type { DropdownMenuItem } from '@nuxt/ui'
 import { useConfirm } from '@/composables/useConfirm'
 import { FilterMatchMode } from '@openvue/core/api'
-import { grantLabAdmin, listLabUsers, removeFromLaboratory, revokeLabAdmin } from '@/api/users'
+import { listLabUsers, removeFromLaboratory } from '@/api/users'
+import { listUserGroups } from '@/api/userGroups'
+import UserGroupsModal from '@/components/groups/UserGroupsModal.vue'
+import UserGroupBadges from '@/components/groups/UserGroupBadges.vue'
 import {
   approveMembershipRequest,
   denyMembershipRequest,
   listPendingForMyLab,
 } from '@/api/labMembershipRequests'
-import type { LabMembershipRequest, User } from '@/api/types'
+import type { LabMembershipRequest, User, UserGroup } from '@/api/types'
 import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
@@ -21,12 +24,14 @@ const loading = ref(false)
 const loadError = ref('')
 const actionError = ref('')
 
-const accessDialogVisible = ref(false)
-const accessDialogUser = ref<User | null>(null)
+const groups = ref<UserGroup[]>([])
+const groupsDialogVisible = ref(false)
+const groupsDialogUser = ref<User | null>(null)
 
+// Only user managers may remove a fellow lab admin (backend enforces it too).
 function canRemove(target: User) {
   if (target.id === auth.user?.id) return false
-  if (target.can_manage_lab_users && !auth.isSuperuser) return false
+  if (target.permissions.includes('lab.manage_members') && !auth.can('users.manage')) return false
   return true
 }
 
@@ -56,7 +61,12 @@ async function load() {
   loading.value = true
   loadError.value = ''
   try {
-    users.value = await listLabUsers(auth.user.laboratory_id)
+    const [loadedUsers, loadedGroups] = await Promise.all([
+      listLabUsers(auth.user.laboratory_id),
+      listUserGroups(auth.user.laboratory_id),
+    ])
+    users.value = loadedUsers
+    groups.value = loadedGroups
   } catch {
     loadError.value = 'Could not load laboratory users.'
   } finally {
@@ -81,43 +91,22 @@ onMounted(() => {
   loadRequests()
 })
 
-async function applyLabAdmin(user: User) {
-  actionError.value = ''
-  try {
-    const updated = user.can_manage_lab_users
-      ? await revokeLabAdmin(user.id)
-      : await grantLabAdmin(user.id)
-    users.value = users.value.map((u) => (u.id === updated.id ? updated : u))
-    if (accessDialogUser.value?.id === updated.id) accessDialogUser.value = updated
-  } catch {
-    actionError.value = 'Could not update this user. Please try again.'
-  }
+function applyUpdate(updated: User) {
+  users.value = users.value.map((u) => (u.id === updated.id ? updated : u))
 }
 
-function toggleLabAdmin(user: User) {
-  const verb = user.can_manage_lab_users ? 'Revoke' : 'Grant'
-  confirm.require({
-    message: `${verb} lab admin access for ${user.first_name} ${user.last_name}?`,
-    header: `${verb} lab admin`,
-    rejectLabel: 'Cancel',
-    acceptLabel: verb,
-    acceptColor: user.can_manage_lab_users ? 'error' : 'primary',
-    accept: () => applyLabAdmin(user),
-  })
-}
-
-function openAccessDialog(user: User) {
+function openGroupsDialog(user: User) {
   actionError.value = ''
-  accessDialogUser.value = user
-  accessDialogVisible.value = true
+  groupsDialogUser.value = user
+  groupsDialogVisible.value = true
 }
 
 function rowMenuItems(user: User): DropdownMenuItem[] {
   const items: DropdownMenuItem[] = [
     {
-      label: 'Manage access',
+      label: 'Groups',
       icon: 'i-lucide-shield',
-      onSelect: () => openAccessDialog(user),
+      onSelect: () => openGroupsDialog(user),
     },
   ]
   if (canRemove(user)) {
@@ -312,13 +301,9 @@ async function deny(request: LabMembershipRequest) {
             </template>
           </Column>
 
-          <Column header="Access" style="width: 12rem">
+          <Column header="Groups" style="width: 14rem">
             <template #body="{ data }">
-              <div class="flex flex-wrap gap-1">
-                <UBadge v-if="data.is_superuser" label="Superuser" color="primary" variant="subtle" size="sm" />
-                <UBadge v-if="data.can_manage_lab_users" label="Lab admin" color="neutral" variant="subtle" size="sm" />
-                <UBadge v-if="data.can_quality_check" label="Quality check" color="neutral" variant="subtle" size="sm" />
-              </div>
+              <UserGroupBadges :user="data" />
             </template>
           </Column>
 
@@ -341,48 +326,11 @@ async function deny(request: LabMembershipRequest) {
       </div>
     </div>
 
-    <UModal
-      v-model:open="accessDialogVisible"
-      title="Manage access"
-      :ui="{ content: 'max-w-md', footer: 'justify-end' }"
-    >
-      <template #body>
-        <div v-if="accessDialogUser" class="flex flex-col gap-4">
-          <p class="text-sm text-surface-600 dark:text-surface-300">
-            {{ accessDialogUser.first_name }} {{ accessDialogUser.last_name }} ({{ accessDialogUser.email }})
-          </p>
-
-          <div class="flex items-center justify-between gap-3">
-            <div>
-              <p class="text-sm font-medium text-surface-900 dark:text-surface-0">Lab admin</p>
-              <p class="text-xs text-surface-500 dark:text-surface-400">Manage users within this laboratory</p>
-            </div>
-            <USwitch
-              :model-value="accessDialogUser.can_manage_lab_users"
-              @update:model-value="toggleLabAdmin(accessDialogUser)"
-            />
-          </div>
-
-          <div class="flex items-center justify-between gap-3">
-            <div>
-              <p class="text-sm font-medium text-surface-900 dark:text-surface-0">Quality check</p>
-              <p class="text-xs text-surface-500 dark:text-surface-400">Managed by a system administrator</p>
-            </div>
-            <USwitch :model-value="accessDialogUser.can_quality_check" disabled />
-          </div>
-
-          <div class="flex items-center justify-between gap-3">
-            <div>
-              <p class="text-sm font-medium text-surface-900 dark:text-surface-0">Superuser</p>
-              <p class="text-xs text-surface-500 dark:text-surface-400">Managed by a system administrator</p>
-            </div>
-            <USwitch :model-value="accessDialogUser.is_superuser" disabled />
-          </div>
-        </div>
-      </template>
-      <template #footer>
-        <UButton label="Close" icon="i-lucide-x" variant="ghost" @click="accessDialogVisible = false" />
-      </template>
-    </UModal>
+    <UserGroupsModal
+      v-model:open="groupsDialogVisible"
+      :user="groupsDialogUser"
+      :groups="groups"
+      @saved="applyUpdate"
+    />
   </div>
 </template>

@@ -34,3 +34,8 @@ class LaboratoryRead(LaboratoryBase):
 
     id: UUID
     approval_status: LaboratoryApprovalStatus
+    allow_admin_data_entry: bool = True
+
+
+class LaboratoryDataAccessUpdate(BaseModel):
+    allow_admin_data_entry: bool

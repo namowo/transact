@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import permissions as P
-from app.core.deps import current_superuser, get_async_session
+from app.core.deps import current_data_editor, get_async_session
 from app.models.user import User
 from app.crud.surface_template import crud_surface_template as crud
 from app.schemas.surface_template import (
@@ -36,7 +36,7 @@ async def get_by_id(id: UUID, db: AsyncSession = Depends(get_async_session)):
 async def create(
     obj_in: CreateSchema,
     db: AsyncSession = Depends(get_async_session),
-    user: User = Depends(current_superuser),
+    user: User = Depends(current_data_editor),
 ):
     # A new surface template isn't used by any contact template yet, and the
     # item it references is a shared catalog entry, so there's nothing to own.
@@ -51,7 +51,7 @@ async def update(
     id: UUID,
     obj_in: UpdateSchema,
     db: AsyncSession = Depends(get_async_session),
-    user: User = Depends(current_superuser),
+    user: User = Depends(current_data_editor),
 ):
     await P.assert_can_edit_studies(
         db, user, await P.study_ids_of_surface_template(db, id)
@@ -66,7 +66,7 @@ async def update(
 async def delete(
     id: UUID,
     db: AsyncSession = Depends(get_async_session),
-    user: User = Depends(current_superuser),
+    user: User = Depends(current_data_editor),
 ):
     await P.assert_can_edit_studies(db, user, await P.study_ids_of_surface_template(db, id))
     await crud.delete(db, id)

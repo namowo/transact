@@ -20,9 +20,8 @@ function makeUser(overrides: Partial<User> = {}): User {
     last_name: 'User',
     is_active: true,
     is_verified: true,
-    is_superuser: false,
-    can_quality_check: false,
-    can_manage_lab_users: false,
+    groups: [],
+    permissions: [],
     passkey_prompt_dismissed: false,
     laboratory_id: null,
     created_at: '2026-01-01T00:00:00Z',
@@ -52,15 +51,31 @@ describe('auth store', () => {
     expect(store.user?.email).toBe('user@example.com')
   })
 
-  it('derives isSuperuser from the current user', async () => {
-    vi.mocked(authApi.login).mockResolvedValue(makeUser({ is_superuser: true }))
+  it('derives abilities from the permissions of the current user', async () => {
+    vi.mocked(authApi.login).mockResolvedValue(
+      makeUser({ permissions: ['users.manage', 'studies.quality_check'] }),
+    )
     const store = useAuthStore()
 
     await store.login('admin@example.com', 'Passw0rd!')
 
-    expect(store.isSuperuser).toBe(true)
+    expect(store.can('users.manage')).toBe(true)
+    expect(store.can('lab.manage_members')).toBe(false)
+    expect(store.canAny('lab.manage_members', 'users.manage')).toBe(true)
+    expect(store.isAdmin).toBe(true)
     expect(store.canQualityCheck).toBe(true)
-    expect(store.isLabAdmin).toBe(true)
+    expect(store.isLabAdmin).toBe(false)
+  })
+
+  it('grants nothing without permissions', async () => {
+    vi.mocked(authApi.login).mockResolvedValue(makeUser())
+    const store = useAuthStore()
+
+    await store.login('user@example.com', 'Passw0rd!')
+
+    expect(store.isAdmin).toBe(false)
+    expect(store.canQualityCheck).toBe(false)
+    expect(store.isLabAdmin).toBe(false)
   })
 
   it('clears the user when fetchCurrentUser fails', async () => {

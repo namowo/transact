@@ -60,8 +60,8 @@ const onboarding: TourDefinition = {
       target: '.tour-nav-admin',
       side: 'right',
       title: 'Administration',
-      description: 'Manage user permissions, laboratories, the item catalog and the legal pages.',
-      when: ({ auth }) => auth.isSuperuser,
+      description: 'Manage users, groups and permissions, laboratories, the item catalog and the legal pages.',
+      when: ({ auth }) => auth.isAdmin,
     },
     {
       id: 'docs',

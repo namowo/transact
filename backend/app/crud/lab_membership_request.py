@@ -6,6 +6,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
+from app.core.permission_catalog import SystemGroup
+from app.crud import user_group as user_groups
 from app.crud.base import CRUDBase
 from app.crud.exceptions import ConflictError, DatabaseCommitError
 from app.models.laboratory import Laboratory, LaboratoryApprovalStatus
@@ -127,7 +129,10 @@ class CRUDLabMembershipRequest(
 
         if is_new_lab:
             request.laboratory.approval_status = LaboratoryApprovalStatus.approved
-            request.user.can_manage_lab_users = True
+            # Whoever founded the laboratory administers it.
+            await user_groups.add_to_system_group(
+                db, request.user, SystemGroup.LAB_ADMINISTRATOR
+            )
 
         try:
             await db.commit()

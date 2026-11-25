@@ -195,7 +195,7 @@ const submitNewLaboratory = handleSubmit(async (values) => {
     <div class="flex items-center justify-between">
       <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-0">Laboratories</h1>
       <UButton
-        v-if="auth.isSuperuser"
+        v-if="auth.can('laboratories.manage')"
         label="Add laboratory"
         icon="i-lucide-plus"
         @click="openDialog"
@@ -345,7 +345,7 @@ const submitNewLaboratory = handleSubmit(async (values) => {
         </Column>
 
         <Column
-          v-if="auth.isSuperuser"
+          v-if="auth.can('laboratories.manage')"
           field="approval_status"
           header="Status"
           sortable

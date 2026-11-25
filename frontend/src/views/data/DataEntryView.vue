@@ -19,7 +19,7 @@ import type { ContactChainInfo } from '@/components/data/ContactChainNode.vue'
 import { templateName, surfaceInstanceIcon, surfaceInstanceDetail } from '@/components/data/contactTemplateLabel'
 import { useIndividualOptions } from '@/components/scenarios/individualOptions'
 import { useConfirm } from '@/composables/useConfirm'
-import { canEditStudy, provideStudyReadOnly, useStudyReadOnly } from '@/composables/useStudyAccess'
+import { canEnterStudyData, provideStudyReadOnly, useStudyReadOnly } from '@/composables/useStudyAccess'
 import { useAuthStore } from '@/stores/auth'
 import { useTourStore } from '@/stores/tour'
 import { listScenarios } from '@/api/scenarios'
@@ -76,7 +76,7 @@ async function load() {
     getStudy(studyId.value)
       .then((study) => {
         studyTitle.value = study.title ?? null
-        ownStudy.value = canEditStudy(study, auth.user)
+        ownStudy.value = canEnterStudyData(study, auth.user)
       })
       .catch(() => {})
     const [scenariosOfStudy, studyContacts] = await Promise.all([

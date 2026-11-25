@@ -8,3 +8,10 @@ export function listLaboratories() {
 export function createLaboratory(payload: LaboratoryCreate) {
   return apiClient.post<Laboratory>('/laboratories', payload).then((r) => r.data)
 }
+
+// Lets platform admins edit the laboratory's data - or stops them.
+export function setAdminDataEntry(id: string, allow: boolean) {
+  return apiClient
+    .put<Laboratory>(`/laboratories/${id}/data-access`, { allow_admin_data_entry: allow })
+    .then((r) => r.data)
+}

@@ -52,7 +52,7 @@ GENERIC_ACCEPTED_MESSAGE = {
 
 @router.get("/setup-status", response_model=SetupStatus)
 async def setup_status(db: AsyncSession = Depends(get_async_session)):
-    return SetupStatus(needs_setup=not await crud_user.superuser_exists(db))
+    return SetupStatus(needs_setup=not await crud_user.administrator_exists(db))
 
 
 @router.post("/setup", response_model=UserRead, status_code=status.HTTP_201_CREATED)
@@ -61,7 +61,7 @@ async def setup(
     obj_in: SuperuserSetup,
     db: AsyncSession = Depends(get_async_session),
 ):
-    if await crud_user.superuser_exists(db):
+    if await crud_user.administrator_exists(db):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Setup has already been completed.",
@@ -88,7 +88,7 @@ async def setup(
             laboratory_id=laboratory.id,
         ),
         is_verified=True,
-        is_superuser=True,
+        administrator=True,
     )
 
     set_session_cookie(response, user)
@@ -105,7 +105,9 @@ async def register(
             detail="A user with this email already exists.",
         )
 
-    user = await crud_user.create(db, obj_in)
+    # New users join a laboratory through a membership request, which the
+    # laboratory's admins approve - never directly on sign-up.
+    user = await crud_user.create(db, obj_in.model_copy(update={"laboratory_id": None}))
 
     await send_welcome_mail(user)
     token = await crud_user_token.create(

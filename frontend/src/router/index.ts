@@ -1,13 +1,16 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import type { Permission } from '@/api/types'
 
 declare module 'vue-router' {
   interface RouteMeta {
     requiresAuth?: boolean
     guestOnly?: boolean
     breadcrumb?: string
-    requiresSuperuser?: boolean
-    requiresLabAdmin?: boolean
+    // Any of these permissions (see stores/auth `can`).
+    requiresPermission?: Permission | Permission[]
+    // The admin area: anything platform-wide to manage.
+    requiresAdmin?: boolean
     requiresQualityChecker?: boolean
   }
 }
@@ -207,23 +210,60 @@ const router = createRouter({
                   path: 'users',
                   name: 'lab-users',
                   component: () => import('@/views/settings/laboratory/UsersView.vue'),
-                  meta: { requiresAuth: true, requiresLabAdmin: true, breadcrumb: 'Users' },
+                  meta: { requiresAuth: true, requiresPermission: 'lab.manage_members', breadcrumb: 'Users' },
+                },
+                {
+                  path: 'groups',
+                  name: 'lab-groups',
+                  component: () => import('@/views/settings/laboratory/GroupsView.vue'),
+                  meta: { requiresAuth: true, requiresPermission: 'lab.manage_groups', breadcrumb: 'Groups' },
+                },
+                {
+                  path: 'settings',
+                  name: 'lab-settings',
+                  component: () => import('@/views/settings/laboratory/LabSettingsView.vue'),
+                  meta: {
+                    requiresAuth: true,
+                    requiresPermission: 'lab.manage_settings',
+                    breadcrumb: 'Settings',
+                  },
                 },
               ],
             },
             {
               path: 'admin',
-              meta: { requiresAuth: true, requiresSuperuser: true, breadcrumb: 'Admin' },
+              meta: { requiresAuth: true, requiresAdmin: true, breadcrumb: 'Admin' },
               children: [
-                { path: '', redirect: { name: 'admin-users' } },
+                {
+                  path: '',
+                  // The first admin page the user may open.
+                  redirect: () => {
+                    const auth = useAuthStore()
+                    if (auth.can('users.manage')) return { name: 'admin-users' }
+                    if (auth.can('groups.manage')) return { name: 'admin-groups' }
+                    if (auth.can('laboratories.manage')) return { name: 'laboratories' }
+                    if (auth.canAny('catalog.edit', 'catalog.delete')) return { name: 'admin-item-catalog' }
+                    return { name: 'admin-legal' }
+                  },
+                },
                 {
                   path: 'users',
                   name: 'admin-users',
                   component: () => import('@/views/settings/admin/UsersView.vue'),
                   meta: {
                     requiresAuth: true,
-                    requiresSuperuser: true,
-                    breadcrumb: 'User Permissions',
+                    requiresPermission: 'users.manage',
+                    breadcrumb: 'Users',
+                  },
+                },
+                {
+                  path: 'groups',
+                  name: 'admin-groups',
+                  component: () => import('@/views/settings/admin/GroupsView.vue'),
+                  meta: {
+                    requiresAuth: true,
+                    requiresPermission: 'groups.manage',
+                    breadcrumb: 'Groups & Permissions',
                   },
                 },
                 {
@@ -232,7 +272,7 @@ const router = createRouter({
                   component: () => import('@/views/settings/admin/LaboratoriesView.vue'),
                   meta: {
                     requiresAuth: true,
-                    requiresSuperuser: true,
+                    requiresPermission: 'laboratories.manage',
                     breadcrumb: 'Laboratories',
                   },
                 },
@@ -242,7 +282,7 @@ const router = createRouter({
                   component: () => import('@/views/settings/admin/ItemCatalogView.vue'),
                   meta: {
                     requiresAuth: true,
-                    requiresSuperuser: true,
+                    requiresPermission: ['catalog.edit', 'catalog.delete'],
                     breadcrumb: 'Item Catalog',
                   },
                 },
@@ -252,7 +292,7 @@ const router = createRouter({
                   component: () => import('@/views/settings/admin/LegalSettingsView.vue'),
                   meta: {
                     requiresAuth: true,
-                    requiresSuperuser: true,
+                    requiresPermission: 'site_settings.manage',
                     breadcrumb: 'Legal Pages',
                   },
                 },
@@ -396,11 +436,12 @@ router.beforeEach(async (to) => {
     return { name: 'select-laboratory' }
   }
 
-  if (to.meta.requiresSuperuser && !auth.isSuperuser) {
+  if (to.meta.requiresAdmin && !auth.isAdmin) {
     return { name: 'dashboard' }
   }
 
-  if (to.meta.requiresLabAdmin && !auth.isLabAdmin) {
+  const required = to.meta.requiresPermission
+  if (required && !auth.canAny(...(Array.isArray(required) ? required : [required]))) {
     return { name: 'dashboard' }
   }
 

@@ -48,7 +48,7 @@ const items = computed<DropdownMenuItem[][]>(() => {
 
 <template>
   <UDropdownMenu
-    v-if="auth.isLabAdmin || auth.isSuperuser"
+    v-if="auth.isLabAdmin || auth.can('laboratories.manage')"
     :items="items"
     :content="{ align: 'end' }"
     :ui="{ content: 'w-80' }"

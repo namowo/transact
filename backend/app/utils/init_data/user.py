@@ -41,7 +41,7 @@ async def main() -> None:
                 laboratory_id=laboratory.id,
             ),
             is_verified=True,
-            is_superuser=True,
+            administrator=True,
         )
         print(f"Superuser created: {user.email}")
 

@@ -9,14 +9,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.deps import (
     current_active_user,
     current_optional_user,
+    current_data_editor,
     current_quality_checker,
-    current_superuser,
     get_async_session,
 )
-from app.core.permissions import assert_can_edit_study, can_edit_study
+from app.core.permission_catalog import Permission
+from app.core.permissions import (
+    assert_can_edit_studies,
+    assert_can_edit_study,
+    can_create_study_for,
+    can_edit_study,
+    can_view_study,
+)
+from app.crud.laboratory import crud_laboratory
 from app.crud.exceptions import NotFoundError
 from app.crud.study import crud_study as crud
-from app.models.study import Study
 from app.models.user import User
 from app.services.data_export.writers import attachment_headers, iter_file
 from app.schemas.planning_checklist import PlanningChecklistProgress, PlanningChecklistRead
@@ -42,12 +49,23 @@ from app.schemas.study import (
 router = APIRouter()
 
 
-def _can_view(study: Study, user: Optional[User]) -> bool:
-    if study.published:
-        return True
-    if user is None:
-        return False
-    return user.is_superuser or study.laboratory_id == user.laboratory_id
+_can_view = can_view_study
+
+
+async def _assert_can_create_for(
+    db: AsyncSession, user: User, laboratory_id: Optional[UUID]
+) -> None:
+    laboratory = None
+    if laboratory_id is not None:
+        try:
+            laboratory = await crud_laboratory.get(db, laboratory_id)
+        except NotFoundError:
+            laboratory = None
+    if not can_create_study_for(user, laboratory):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can't add studies to this laboratory.",
+        )
 
 
 @router.get("", response_model=List[ReadSchema])
@@ -81,10 +99,11 @@ async def create(
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
 ):
-    # Non-superusers can only create studies for their own laboratory,
-    # regardless of what laboratory_id was submitted.
-    if not user.is_superuser:
+    # Studies go to the user's own laboratory unless they may act for the
+    # requested one (see app.core.permissions).
+    if obj_in.laboratory_id is None or obj_in.laboratory_id == user.laboratory_id:
         obj_in = obj_in.model_copy(update={"laboratory_id": user.laboratory_id})
+    await _assert_can_create_for(db, user, obj_in.laboratory_id)
     return await crud.create(db, obj_in)
 
 
@@ -100,9 +119,13 @@ async def update(
 ):
     study = await crud.get(db, id)
     assert_can_edit_study(study, user)
-    # Only superusers may move a study to another laboratory.
-    if not user.is_superuser:
-        obj_in = obj_in.model_copy(update={"laboratory_id": None})
+    # Moving a study to another laboratory is up to laboratory managers, and
+    # only into a laboratory they could create the study in.
+    if obj_in.laboratory_id is not None and obj_in.laboratory_id != study.laboratory_id:
+        if not user.can(Permission.MANAGE_LABORATORIES):
+            obj_in = obj_in.model_copy(update={"laboratory_id": None})
+        else:
+            await _assert_can_create_for(db, user, obj_in.laboratory_id)
     return await crud.update(db, id, obj_in)
 
 
@@ -160,7 +183,7 @@ async def upload_planning_sheet(
     create_categories: bool = False,
     scenario_ids: List[UUID] = Query(default=[]),
     db: AsyncSession = Depends(get_async_session),
-    user: User = Depends(current_superuser),
+    user: User = Depends(current_data_editor),
 ):
     """Create/update the study's individuals and items from a filled-in
     planning sheet (sent as the raw .xlsx request body). All or nothing:
@@ -170,7 +193,7 @@ async def upload_planning_sheet(
     catalog doesn't have yet (upload again with `create_categories=true`), or
     rows without a scenario (upload again with the `scenario_ids` to assign)."""
     study = await crud.get(db, id)
-    assert_can_edit_study(study, user)
+    await assert_can_edit_studies(db, user, {study.id})
     content = await request.body()
     if len(content) > MAX_PLANNING_SHEET_BYTES:
         raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="This file is too large.")

@@ -7,10 +7,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.deps import (
     assert_manages_laboratory,
     current_active_user,
-    current_lab_admin,
-    current_superuser,
+    current_laboratory_manager,
     get_async_session,
+    require,
 )
+from app.core.permission_catalog import Permission
 from app.crud.exceptions import NotFoundError
 from app.crud.lab_membership_request import crud_lab_membership_request as crud
 from app.crud.laboratory import crud_laboratory
@@ -37,10 +38,10 @@ router = APIRouter()
 
 def _assert_can_review(request: LabMembershipRequest, user: User) -> None:
     if request.laboratory.approval_status == LaboratoryApprovalStatus.pending:
-        if not user.is_superuser:
+        if not user.can(Permission.MANAGE_LABORATORIES):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Only a superuser can approve a new laboratory request.",
+                detail="Only an admin can approve a new laboratory request.",
             )
     else:
         assert_manages_laboratory(user, request.laboratory_id)
@@ -66,7 +67,7 @@ async def join_existing(
     lab_admins = [
         u
         for u in await crud_user.list_by_laboratory(db, obj_in.laboratory_id)
-        if u.can_manage_lab_users
+        if u.can(Permission.MANAGE_LAB_MEMBERS)
     ]
     for lab_admin in lab_admins:
         await send_new_membership_request_mail(lab_admin, user, laboratory)
@@ -84,8 +85,8 @@ async def new_laboratory(
 ):
     request = await crud.create_new_lab_request(db, user, obj_in)
 
-    for superuser in await crud_user.list_superusers(db):
-        await send_new_lab_requested_mail(superuser, request.laboratory, user)
+    for manager in await crud_user.list_laboratory_managers(db):
+        await send_new_lab_requested_mail(manager, request.laboratory, user)
 
     return request
 
@@ -101,15 +102,17 @@ async def get_my_request(
 @router.get("/pending-for-my-lab", response_model=List[ReadSchema])
 async def get_pending_for_my_lab(
     db: AsyncSession = Depends(get_async_session),
-    user: User = Depends(current_lab_admin),
+    user: User = Depends(require(Permission.MANAGE_LAB_MEMBERS)),
 ):
+    if user.laboratory_id is None:
+        return []
     return await crud.list_pending_for_laboratory(db, user.laboratory_id)
 
 
 @router.get(
     "/pending-new-labs",
     response_model=List[ReadSchema],
-    dependencies=[Depends(current_superuser)],
+    dependencies=[Depends(current_laboratory_manager)],
 )
 async def get_pending_new_labs(db: AsyncSession = Depends(get_async_session)):
     return await crud.list_pending_new_labs(db)
