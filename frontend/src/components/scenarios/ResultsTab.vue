@@ -29,6 +29,7 @@ import {
   epgAnalysisMethodApi,
   epgInterpretationMethodApi,
 } from '@/api/methods'
+import { ceMethodLabels } from '@/data/labMethods'
 import type {
   Contact,
   Sample,
@@ -619,6 +620,7 @@ const ceMethodOptions = computed(() => {
   const matching = ceMethods.value.filter((method) => method.pcr_method_id === pcrMethodId.value)
   return matching.length ? matching : ceMethods.value
 })
+const ceMethodOptionLabels = computed(() => ceMethodLabels(ceMethodOptions.value))
 
 watch(noOfContributors, (count) => {
   setPcrFieldValue('contributors', syncContributors(pcrFormValues.contributors ?? [], count))
@@ -1239,7 +1241,7 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
                     v-model="ceMethodId"
                     label="CE method"
                     :options="ceMethodOptions"
-                    :option-label="methodLabel"
+                    :option-label="(method) => ceMethodOptionLabels[method.id] ?? methodLabel(method)"
                   />
                   <p v-if="!ceMethods.length" class="text-sm text-surface-500 dark:text-surface-400">
                     No CE methods yet. Add one under
@@ -1400,7 +1402,7 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
                 v-model="ceMethodId"
                 label="CE method"
                 :options="ceMethodOptions"
-                :option-label="methodLabel"
+                :option-label="(method) => ceMethodOptionLabels[method.id] ?? methodLabel(method)"
               />
               <p v-if="!ceMethods.length" class="text-sm text-surface-500 dark:text-surface-400">
                 No CE methods yet. Add one under
