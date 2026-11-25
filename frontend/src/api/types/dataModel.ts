@@ -114,6 +114,11 @@ export interface DownloadableStudy {
   title: string
   year?: string | null
   laboratory_name?: string | null
+  authors: string[]
+  journal?: string | null
+  doi?: string | null
+  scenario_count: number
+  sample_count: number
   // false for the viewer's own lab's unpublished or unchecked studies.
   published: boolean
 }

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { StorageSerializers, useLocalStorage } from '@vueuse/core'
 import { useToast } from '@nuxt/ui/composables'
 import type { DropdownMenuItem } from '@nuxt/ui'
 import {
@@ -12,6 +13,7 @@ import {
 import { getErrorMessage } from '@/api/errors'
 import type { Catalog, DataModel, ExportFormat } from '@/api/types'
 import { requestDefinition } from '@/components/data-models/definition'
+import StudyScopePicker from '@/components/data-models/StudyScopePicker.vue'
 import { useConfirm } from '@/composables/useConfirm'
 import { useLocalDataModels } from '@/composables/useLocalDataModels'
 import { useAuthStore } from '@/stores/auth'
@@ -53,15 +55,35 @@ const datasetLabels = computed(
   () => new Map((catalog.value?.datasets ?? []).map((d) => [d.key, d.label])),
 )
 
+// Studies every download on this page is limited to. null: all available.
+// Remembered in this browser so the choice survives a reload.
+const studySelection = useLocalStorage<string[] | null>('transact-download-studies', null, {
+  serializer: StorageSerializers.object,
+})
+const nothingSelected = computed(() => studySelection.value?.length === 0)
+
+// Narrows a model's own study scope to the page selection - a model that
+// is already limited to some studies keeps only the overlap.
+function narrowed(model: DataModel) {
+  const selected = studySelection.value
+  if (!selected?.length) return model.definition
+  const own = model.definition.study_ids
+  return {
+    ...model.definition,
+    study_ids: own ? selected.filter((id) => own.includes(id)) : selected,
+  }
+}
+
 const downloading = ref<string | null>(null)
 
 async function download(model: DataModel, format: ExportFormat) {
+  if (nothingSelected.value) return
   downloading.value = model.id
   try {
     if (model.source === 'local') {
-      await downloadDefinition(requestDefinition(model.definition), format, model.name)
+      await downloadDefinition(requestDefinition(narrowed(model)), format, model.name)
     } else {
-      await downloadDataModel(model.id, format)
+      await downloadDataModel(model.id, format, studySelection.value)
     }
   } catch (err) {
     toast.add({
@@ -103,10 +125,16 @@ function remove(model: DataModel) {
 function menuItems(model: DataModel) {
   const items: DropdownMenuItem[][] = [
     [
-      { label: 'Download CSV', icon: 'i-lucide-file-text', onSelect: () => download(model, 'csv') },
+      {
+        label: 'Download CSV',
+        icon: 'i-lucide-file-text',
+        disabled: nothingSelected.value,
+        onSelect: () => download(model, 'csv'),
+      },
       {
         label: 'Download Excel',
         icon: 'i-lucide-file-spreadsheet',
+        disabled: nothingSelected.value,
         onSelect: () => download(model, 'xlsx'),
       },
     ],
@@ -178,6 +206,30 @@ const sections = computed(() => [
     />
 
     <UAlert v-if="error" color="error" variant="subtle" :description="error" />
+
+    <UCard>
+      <div class="flex flex-col gap-3">
+        <div>
+          <h2 class="text-lg font-semibold">Studies to download</h2>
+          <p class="text-sm text-muted">
+            Limit every download on this page to the studies you need instead of downloading
+            everything. Data models that are already limited to certain studies keep only the
+            overlap.
+          </p>
+        </div>
+        <StudyScopePicker
+          v-model="studySelection"
+          all-description="Downloads include every study available to you."
+        />
+        <UAlert
+          v-if="nothingSelected"
+          color="warning"
+          variant="subtle"
+          icon="i-lucide-triangle-alert"
+          description="Choose at least one study to download data."
+        />
+      </div>
+    </UCard>
 
     <div v-if="loading" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       <USkeleton v-for="n in 6" :key="n" class="h-40" />
@@ -263,6 +315,7 @@ const sections = computed(() => [
                 color="neutral"
                 icon="i-lucide-download"
                 :loading="downloading === model.id"
+                :disabled="nothingSelected"
                 @click="download(model, 'csv')"
               />
               <UDropdownMenu :items="menuItems(model)" :content="{ align: 'end' }">

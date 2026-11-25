@@ -10,12 +10,15 @@ from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import noload
 
 from app.core.deps import current_active_user, current_optional_user, get_async_session
 from app.crud.data_model import crud_data_model as crud
 from app.models.data_model import DataModel
+from app.models.sample import Sample
+from app.models.scenario import study_scenario
 from app.models.study import Study
 from app.models.user import User
 from app.schemas.data_model import (
@@ -130,6 +133,20 @@ async def _own_model(db: AsyncSession, id: UUID, user: User) -> DataModel:
     return model
 
 
+def _narrow(
+    definition: DataModelDefinition, study_ids: Optional[list[UUID]]
+) -> DataModelDefinition:
+    """Restrict a model to `study_ids` for one download. Narrows only: a
+    model already scoped to some studies keeps just the overlap."""
+    if not study_ids:
+        return definition
+    wanted = list(dict.fromkeys(study_ids))
+    if definition.study_ids is not None:
+        scoped = set(definition.study_ids)
+        wanted = [study_id for study_id in wanted if study_id in scoped]
+    return definition.model_copy(update={"study_ids": wanted})
+
+
 def _check(definition: DataModelDefinition) -> None:
     try:
         validate_definition(definition)
@@ -235,9 +252,21 @@ async def get_downloadable_studies(
     db: AsyncSession = Depends(get_async_session),
     user: Optional[User] = Depends(current_optional_user),
 ):
-    """The studies the viewer may download data from."""
+    """The studies the viewer may download data from, with what's needed to
+    pick them: citation details and how much data each holds."""
+    scenario_count = (
+        select(func.count())
+        .select_from(study_scenario)
+        .where(study_scenario.c.study_id == Study.id)
+        .scalar_subquery()
+    )
+    sample_count = (
+        select(func.count(Sample.id)).where(Sample.study_id == Study.id).scalar_subquery()
+    )
     result = await db.execute(
-        select(Study)
+        select(Study, scenario_count, sample_count)
+        # Only counts are needed; skip loading every scenario, sample and item.
+        .options(noload(Study.scenarios), noload(Study.samples), noload(Study.items))
         .where(Study.id.in_(visible_study_ids(user)))
         .order_by(Study.year.desc().nulls_last(), Study.title)
     )
@@ -247,9 +276,16 @@ async def get_downloadable_studies(
             title=study.title,
             year=study.year,
             laboratory_name=study.laboratory.laboratory_name if study.laboratory else None,
+            authors=[
+                " ".join(p for p in (a.first_name, a.last_name) if p) for a in study.authors
+            ],
+            journal=study.journal,
+            doi=study.doi,
+            scenario_count=scenarios or 0,
+            sample_count=samples or 0,
             published=bool(study.published and study.quality_check_passed),
         )
-        for study in result.scalars()
+        for study, scenarios, samples in result.all()
     ]
 
 
@@ -350,6 +386,11 @@ async def download_model(
     request: Request,
     format: ExportFormat = Query("csv"),
     header: HeaderStyle = Query("label"),
+    study_ids: Optional[List[UUID]] = Query(
+        None,
+        description="Only include these studies (repeat the parameter for several). "
+        "Narrows the model's own study selection, never widens it.",
+    ),
     db: AsyncSession = Depends(get_async_session),
     user: Optional[User] = Depends(current_optional_user),
 ):
@@ -359,7 +400,7 @@ async def download_model(
     return await _download(
         db,
         user,
-        model.definition,
+        _narrow(model.definition, study_ids),
         name=model.name,
         format=format,
         header=header,

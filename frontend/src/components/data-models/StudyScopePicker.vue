@@ -2,13 +2,19 @@
 import { computed, onMounted, ref } from 'vue'
 import { listDownloadableStudies } from '@/api/dataModels'
 import type { DownloadableStudy } from '@/api/types'
+import StudyPickerModal from '@/components/data-models/StudyPickerModal.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const studyIds = defineModel<string[] | null>({ required: true })
 
+const props = withDefaults(defineProps<{ allDescription?: string }>(), {
+  allDescription: 'New studies are included automatically on every download.',
+})
+
 const auth = useAuthStore()
 const studies = ref<DownloadableStudy[]>([])
 const loading = ref(false)
+const pickerOpen = ref(false)
 
 onMounted(async () => {
   loading.value = true
@@ -22,19 +28,33 @@ onMounted(async () => {
 const mode = computed({
   get: () => (studyIds.value === null ? 'all' : 'some'),
   set: (value: string) => {
-    studyIds.value = value === 'all' ? null : (studyIds.value ?? [])
+    if (value === 'all') {
+      studyIds.value = null
+    } else {
+      studyIds.value = studyIds.value ?? []
+      // Nothing chosen yet: go straight to choosing.
+      if (!studyIds.value.length) pickerOpen.value = true
+    }
   },
 })
 
-const items = computed(() =>
-  studies.value.map((study) => ({
-    label: study.year ? `${study.title} (${study.year})` : study.title,
-    value: study.id,
-    description: [study.laboratory_name, study.published ? null : 'unpublished, your laboratory']
-      .filter(Boolean)
-      .join(' · '),
-  })),
+const byId = computed(() => new Map(studies.value.map((s) => [s.id, s])))
+
+const selectedStudies = computed(() =>
+  (studyIds.value ?? []).map((id) => byId.value.get(id)).filter((s): s is DownloadableStudy => !!s),
 )
+
+const SHOWN = 6
+const shownStudies = computed(() => selectedStudies.value.slice(0, SHOWN))
+const moreCount = computed(() => selectedStudies.value.length - shownStudies.value.length)
+
+function studyLabel(study: DownloadableStudy) {
+  return study.year ? `${study.title} (${study.year})` : study.title
+}
+
+function removeStudy(id: string) {
+  studyIds.value = (studyIds.value ?? []).filter((s) => s !== id)
+}
 
 const unpublishedCount = computed(() => studies.value.filter((s) => !s.published).length)
 
@@ -50,27 +70,71 @@ const missing = computed(() => {
   <div class="flex flex-col gap-3">
     <URadioGroup
       v-model="mode"
+      variant="table"
       :items="[
-        {
-          label: 'All available studies',
-          value: 'all',
-          description: 'New studies are included automatically on every download.',
-        },
+        { label: 'All available studies', value: 'all', description: props.allDescription },
         { label: 'Selected studies only', value: 'some' },
       ]"
     />
 
-    <USelectMenu
-      v-if="mode === 'some'"
-      v-model="studyIds as string[]"
-      :items="items"
-      value-key="value"
-      multiple
+    <div v-if="mode === 'some'" class="flex flex-col gap-2">
+      <div class="flex flex-wrap items-center gap-2">
+        <UButton
+          :label="selectedStudies.length ? 'Change selection' : 'Choose studies'"
+          icon="i-lucide-list-checks"
+          color="neutral"
+          variant="outline"
+          :loading="loading"
+          @click="pickerOpen = true"
+        />
+        <span class="text-sm text-muted">
+          {{ selectedStudies.length }} of {{ studies.length }}
+          {{ studies.length === 1 ? 'study' : 'studies' }} selected
+        </span>
+        <UButton
+          v-if="selectedStudies.length"
+          label="Clear"
+          variant="link"
+          color="neutral"
+          @click="studyIds = []"
+        />
+      </div>
+      <div v-if="shownStudies.length" class="flex flex-wrap gap-1.5">
+        <UBadge
+          v-for="study in shownStudies"
+          :key="study.id"
+          color="neutral"
+          variant="subtle"
+          class="max-w-full"
+        >
+          <span class="truncate">{{ studyLabel(study) }}</span>
+          <UButton
+            icon="i-lucide-x"
+            size="xs"
+            variant="link"
+            color="neutral"
+            class="-me-1 p-0"
+            :aria-label="`Remove ${study.title}`"
+            @click="removeStudy(study.id)"
+          />
+        </UBadge>
+        <UButton
+          v-if="moreCount > 0"
+          :label="`+${moreCount} more`"
+          size="xs"
+          variant="ghost"
+          color="neutral"
+          @click="pickerOpen = true"
+        />
+      </div>
+    </div>
+
+    <StudyPickerModal
+      v-model:open="pickerOpen"
+      :studies="studies"
       :loading="loading"
-      clear
-      placeholder="Choose studies"
-      :search-input="{ placeholder: 'Search studies…' }"
-      class="w-full"
+      :selected="studyIds ?? []"
+      @apply="studyIds = $event"
     />
 
     <p class="text-xs text-muted">
