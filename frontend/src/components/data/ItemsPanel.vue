@@ -2,10 +2,6 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useForm } from 'vee-validate'
 import * as yup from 'yup'
-import DataTable from 'openvue/datatable'
-import Column from 'openvue/column'
-import ContextMenu from 'openvue/contextmenu'
-import { FilterMatchMode } from '@openvue/core/api'
 import DataTableSkeleton from '@/components/data/DataTableSkeleton.vue'
 import ItemCategoryFields from '@/components/scenarios/ItemCategoryFields.vue'
 import { useConfirm } from '@/composables/useConfirm'
@@ -14,7 +10,10 @@ import { createItem, deleteItem, listItems, updateItem } from '@/api/items'
 import ScenarioBadges from '@/components/data/ScenarioBadges.vue'
 import ScenarioMultiSelect from '@/components/data/ScenarioMultiSelect.vue'
 import type { ContactTemplate, Item, Scenario } from '@/api/types'
-import type { MenuItem } from 'openvue/menuitem'
+import type { ContextMenuItem, TableColumn, TableRow } from '@nuxt/ui'
+import { manualSorting, searchRows, useTableView } from '@/composables/useTableView'
+import { sortHeader } from '@/composables/tableColumns'
+import TableFilterDrawer from '@/components/ui/TableFilterDrawer.vue'
 
 const props = defineProps<{
   studyId: string
@@ -52,7 +51,11 @@ function otherScenarioIdsOf(item: Item): string[] {
 }
 
 const scenarioRequiredMessage = 'Select at least one scenario.'
-watch(() => items.value.length, (count) => emit('update:count', count), { immediate: true })
+watch(
+  () => items.value.length,
+  (count) => emit('update:count', count),
+  { immediate: true },
+)
 
 const loading = ref(false)
 const loadError = ref('')
@@ -72,23 +75,9 @@ async function load() {
 onMounted(load)
 
 function replaceItem(updated: Item) {
-  allItems.value = allItems.value.map((candidate) => (candidate.id === updated.id ? updated : candidate))
-}
-
-function initItemFilters() {
-  return {
-    global: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    'item_category.name': { value: null, matchMode: FilterMatchMode.CONTAINS },
-    'item_subcategory.name': { value: null, matchMode: FilterMatchMode.CONTAINS },
-    description: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    scenarioNames: { value: null, matchMode: FilterMatchMode.CONTAINS },
-  }
-}
-
-const itemFilters = ref(initItemFilters())
-
-function clearItemFilters() {
-  itemFilters.value = initItemFilters()
+  allItems.value = allItems.value.map((candidate) =>
+    candidate.id === updated.id ? updated : candidate,
+  )
 }
 
 interface ItemFormState {
@@ -143,7 +132,11 @@ watch(itemScenarioIds, (ids) => {
 
 function openCreateItemDialog(scenarioIds?: string[]) {
   editingItemId.value = null
-  itemScenarioIds.value = scenarioIds?.length ? [...scenarioIds] : props.scenarioId ? [props.scenarioId] : []
+  itemScenarioIds.value = scenarioIds?.length
+    ? [...scenarioIds]
+    : props.scenarioId
+      ? [props.scenarioId]
+      : []
   itemScenarioError.value = ''
   resetItemForm({ values: emptyItemForm(null) })
   itemSaveError.value = ''
@@ -174,7 +167,10 @@ const submitItemForm = handleItemSubmit(async (values) => {
       item_category_id: values.itemCategoryId,
       item_subcategory_id: values.itemSubcategoryId,
       description: values.description?.trim() ?? null,
-      scenario_ids: [...(editedItem ? otherScenarioIdsOf(editedItem) : []), ...itemScenarioIds.value],
+      scenario_ids: [
+        ...(editedItem ? otherScenarioIdsOf(editedItem) : []),
+        ...itemScenarioIds.value,
+      ],
     }
     if (editingItemId.value === null) {
       const created = await Promise.all(
@@ -237,49 +233,63 @@ async function removeItem(item: Item) {
 
 // -- Context menu --
 
-const contextMenu = ref<InstanceType<typeof ContextMenu>>()
-const selectedItem = ref<Item>()
-
-const contextMenuItems = computed<MenuItem[]>(() => {
-  const item = selectedItem.value
-  if (!item) return []
+function menuItems(item: Item): ContextMenuItem[] {
   return [
     {
       label: 'Edit',
       icon: 'i-lucide-pencil',
-      command: () => openEditItemDialog(item),
+      onSelect: () => openEditItemDialog(item),
     },
     {
       label: itemUsedByOtherStudies(item) ? 'Remove from study' : 'Delete',
       icon: 'i-lucide-trash-2',
-      command: () => confirmDeleteItem(item),
+      color: 'error',
+      onSelect: () => confirmDeleteItem(item),
     },
   ]
-})
-
-function onRowContextMenu(event: { originalEvent: Event; data: Item }) {
-  if (readOnly.value) return
-  selectedItem.value = event.data
-  contextMenu.value?.show(event.originalEvent)
 }
 
-function openRowContextMenu(event: Event, item: Item) {
-  selectedItem.value = item
-  contextMenu.value?.show(event)
+// The right-clicked row's menu.
+const contextMenuItems = ref<ContextMenuItem[]>([])
+
+function onRowContextMenu(_event: Event, row: TableRow<ItemRow>) {
+  contextMenuItems.value = readOnly.value ? [] : menuItems(row.original)
 }
 
-function onRowClick(event: { data: Item }) {
+function onRowSelect(_event: Event, row: TableRow<ItemRow>) {
   if (readOnly.value) return
-  openEditItemDialog(event.data)
+  openEditItemDialog(row.original)
 }
 
 function itemScenarioNames(item: Item): string[] {
   return props.scenarios.filter((s) => item.scenario_ids?.includes(s.id)).map((s) => s.name)
 }
 
-const itemRows = computed(() =>
+type ItemRow = Item & { scenarioNames: string }
+
+const itemRows = computed<ItemRow[]>(() =>
   items.value.map((item) => ({ ...item, scenarioNames: itemScenarioNames(item).join(', ') })),
 )
+
+const view = useTableView(itemRows, {
+  searchFields: ['item_category.name', 'item_subcategory.name', 'description', 'scenarioNames'],
+  filters: {
+    category: { field: 'item_category.name' },
+    subcategory: { field: 'item_subcategory.name' },
+    description: { field: 'description' },
+    scenario: { field: 'scenarioNames' },
+  },
+  sortAccessors: { category: 'item_category.name', subcategory: 'item_subcategory.name' },
+})
+
+const columns = computed<TableColumn<ItemRow>[]>(() => [
+  { id: 'index', header: '#', meta: { class: { td: 'w-12' } } },
+  { id: 'category', header: sortHeader('Category') },
+  { id: 'subcategory', header: sortHeader('Subcategory') },
+  { id: 'description', accessorKey: 'description', header: sortHeader('Description') },
+  { id: 'scenarioNames', accessorKey: 'scenarioNames', header: sortHeader('Scenario') },
+  ...(readOnly.value ? [] : [{ id: 'actions', header: '', meta: { class: { td: 'w-16' } } }]),
+])
 
 // -- Add existing item (from the shared catalog) --
 
@@ -311,13 +321,19 @@ function describeCatalogItem(item: Item): string {
   )
 }
 
-function initPickerFilters() {
-  return {
-    global: { value: null, matchMode: FilterMatchMode.CONTAINS },
-  }
-}
+const pickerSearch = ref('')
+const visibleCatalogItems = computed(() =>
+  searchRows(
+    catalogItemsNotInStudy.value,
+    ['item_category.name', 'item_subcategory.name', 'description'],
+    pickerSearch.value,
+  ),
+)
+const pickerColumns: TableColumn<Item>[] = [
+  { id: 'item', header: 'Item' },
+  { id: 'description', accessorKey: 'description', header: 'Description' },
+]
 
-const pickerFilters = ref(initPickerFilters())
 const pickerScenarioIds = ref<string[]>([])
 const pickerScenarioError = ref('')
 
@@ -341,7 +357,7 @@ async function addExistingItem(item: Item) {
 }
 
 function openPicker() {
-  pickerFilters.value = initPickerFilters()
+  pickerSearch.value = ''
   pickerScenarioIds.value = props.scenarioId ? [props.scenarioId] : []
   pickerScenarioError.value = ''
   pickerVisible.value = true
@@ -420,7 +436,6 @@ async function loadItemsFromTemplates() {
           icon="i-lucide-download"
           variant="outline"
           :loading="loadingTemplateItems"
-         
           @click="loadItemsFromTemplates"
         />
         <UButton label="Add item" icon="i-lucide-search" variant="outline" @click="openPicker" />
@@ -431,7 +446,9 @@ async function loadItemsFromTemplates() {
 
     <div v-else-if="!items.length" class="flex flex-col items-center gap-3 py-16">
       <h4 class="font-medium">Items</h4>
-      <p class="text-sm text-surface-500 dark:text-surface-400">No items added to this study yet.</p>
+      <p class="text-sm text-surface-500 dark:text-surface-400">
+        No items added to this study yet.
+      </p>
       <div v-if="!readOnly" class="flex gap-2" data-tour="items-actions">
         <UButton
           v-if="itemsFromTemplatesNotInStudy.length"
@@ -439,110 +456,87 @@ async function loadItemsFromTemplates() {
           icon="i-lucide-download"
           variant="outline"
           :loading="loadingTemplateItems"
-         
           @click="loadItemsFromTemplates"
         />
         <UButton label="Add item" icon="i-lucide-search" variant="outline" @click="openPicker" />
       </div>
     </div>
 
-    <div v-else class="overflow-x-auto">
-      <div class="mb-3 flex items-center justify-between gap-3">
-        <UButton
-          type="button"
-          icon="i-lucide-filter-x"
-          variant="outline"
-          size="sm"
-          @click="clearItemFilters()"
-        >
-          Clear Filters
-        </UButton>
+    <div v-else class="flex flex-col gap-3">
+      <div class="flex flex-wrap items-center justify-between gap-3">
         <UInput
-          v-model="itemFilters['global'].value"
-          type="text"
+          v-model="view.search"
           icon="i-lucide-search"
           placeholder="Keyword Search"
+          class="w-full max-w-sm"
         />
+        <TableFilterDrawer :active-count="view.activeFilterCount" @reset="view.resetFilters()">
+          <UFormField label="Category">
+            <UInput
+              v-model="view.filters.category"
+              placeholder="Search by category"
+              class="w-full"
+            />
+          </UFormField>
+          <UFormField label="Subcategory">
+            <UInput
+              v-model="view.filters.subcategory"
+              placeholder="Search by subcategory"
+              class="w-full"
+            />
+          </UFormField>
+          <UFormField label="Description">
+            <UInput
+              v-model="view.filters.description"
+              placeholder="Search by description"
+              class="w-full"
+            />
+          </UFormField>
+          <UFormField label="Scenario">
+            <UInput
+              v-model="view.filters.scenario"
+              placeholder="Search by scenario"
+              class="w-full"
+            />
+          </UFormField>
+        </TableFilterDrawer>
       </div>
 
-      <ContextMenu ref="contextMenu" :model="contextMenuItems" />
-
-      <DataTable
-        v-model:filters="itemFilters"
-        v-model:context-menu-selection="selectedItem"
-        :value="itemRows"
-        :loading="deletingItem"
-        data-key="id"
-        filterDisplay="menu"
-        context-menu
-        :globalFilterFields="['item_category.name', 'item_subcategory.name', 'description', 'scenarioNames']"
-        :row-class="() => (readOnly ? 'hover:bg-elevated' : 'cursor-pointer hover:bg-elevated')"
-        @row-contextmenu="onRowContextMenu"
-        @row-click="onRowClick"
-      >
-        <Column header="#" style="width: 3rem">
-          <template #body="{ index }">{{ index + 1 }}</template>
-        </Column>
-        <Column
-          field="item_category.name"
-          header="Category"
-          sortable
-          :showFilterOperator="false"
-          :showAddButton="false"
+      <UContextMenu :items="contextMenuItems" :disabled="readOnly">
+        <UTable
+          v-model:sorting="view.sorting"
+          :sorting-options="manualSorting"
+          :data="view.rows"
+          :columns="columns"
+          :loading="deletingItem"
+          :get-row-id="(item: ItemRow) => item.id"
+          :on-select="readOnly ? undefined : onRowSelect"
+          :on-contextmenu="onRowContextMenu"
+          :ui="{ tr: readOnly ? '' : 'cursor-pointer' }"
         >
-          <template #body="{ data }">{{ data.item_category?.name ?? '—' }}</template>
-          <template #filter="{ filterModel }">
-            <UInput v-model="filterModel.value" type="text" placeholder="Search by category" />
+          <template #index-cell="{ row }">{{ row.index + 1 }}</template>
+          <template #category-cell="{ row }">{{
+            row.original.item_category?.name ?? '—'
+          }}</template>
+          <template #subcategory-cell="{ row }">{{
+            row.original.item_subcategory?.name ?? '—'
+          }}</template>
+          <template #scenarioNames-cell="{ row }"
+            ><ScenarioBadges :names="itemScenarioNames(row.original)"
+          /></template>
+          <template #actions-cell="{ row }">
+            <UDropdownMenu :items="menuItems(row.original)" :content="{ align: 'end' }">
+              <UButton
+                icon="i-lucide-more-vertical"
+                color="neutral"
+                variant="ghost"
+                square
+                aria-label="Item options"
+              />
+            </UDropdownMenu>
           </template>
-        </Column>
-        <Column
-          field="item_subcategory.name"
-          header="Subcategory"
-          sortable
-          :showFilterOperator="false"
-          :showAddButton="false"
-        >
-          <template #body="{ data }">{{ data.item_subcategory?.name ?? '—' }}</template>
-          <template #filter="{ filterModel }">
-            <UInput v-model="filterModel.value" type="text" placeholder="Search by subcategory" />
-          </template>
-        </Column>
-        <Column
-          field="description"
-          header="Description"
-          sortable
-          :showFilterOperator="false"
-          :showAddButton="false"
-        >
-          <template #filter="{ filterModel }">
-            <UInput v-model="filterModel.value" type="text" placeholder="Search by description" />
-          </template>
-        </Column>
-        <Column
-          field="scenarioNames"
-          header="Scenario"
-          sortable
-          :showFilterOperator="false"
-          :showAddButton="false"
-        >
-          <template #body="{ data }"><ScenarioBadges :names="itemScenarioNames(data)" /></template>
-          <template #filter="{ filterModel }">
-            <UInput v-model="filterModel.value" type="text" placeholder="Search by scenario" />
-          </template>
-        </Column>
-        <Column v-if="!readOnly" header="" style="width: 4rem">
-          <template #body="{ data }">
-            <UButton
-              icon="i-lucide-more-vertical"
-              color="neutral"
-              variant="ghost"
-              square
-              aria-label="Item options"
-              @click.stop="openRowContextMenu($event, data)"
-            />
-          </template>
-        </Column>
-      </DataTable>
+        </UTable>
+      </UContextMenu>
     </div>
 
     <UModal
@@ -552,7 +546,12 @@ async function loadItemsFromTemplates() {
     >
       <template #body>
         <div class="flex flex-col gap-4">
-          <ScenarioMultiSelect v-model="itemScenarioIds" :scenarios="scenarios" required :error="itemScenarioError" />
+          <ScenarioMultiSelect
+            v-model="itemScenarioIds"
+            :scenarios="scenarios"
+            required
+            :error="itemScenarioError"
+          />
           <ItemCategoryFields
             v-model:category-id="itemCategoryId"
             v-model:subcategory-id="itemSubcategoryId"
@@ -568,13 +567,25 @@ async function loadItemsFromTemplates() {
           >
             <UInputNumber v-model="itemQuantity" :min="1" class="w-full" />
           </UFormField>
-          <UAlert v-if="itemSaveError" color="error" variant="outline" :description="itemSaveError" />
+          <UAlert
+            v-if="itemSaveError"
+            color="error"
+            variant="outline"
+            :description="itemSaveError"
+          />
         </div>
       </template>
       <template #footer>
-        <UButton label="Cancel" icon="i-lucide-x" variant="ghost" @click="itemDialogVisible = false" />
         <UButton
-          :label="editingItemId === null && itemQuantity > 1 ? `Save ${itemQuantity} items` : 'Save'"
+          label="Cancel"
+          icon="i-lucide-x"
+          variant="ghost"
+          @click="itemDialogVisible = false"
+        />
+        <UButton
+          :label="
+            editingItemId === null && itemQuantity > 1 ? `Save ${itemQuantity} items` : 'Save'
+          "
           icon="i-lucide-save"
           :loading="savingItem"
           @click="saveItemForm"
@@ -597,27 +608,28 @@ async function loadItemsFromTemplates() {
             :error="pickerScenarioError"
           />
           <UInput
-            v-model="pickerFilters['global'].value"
+            v-model="pickerSearch"
             type="text"
             icon="i-lucide-search"
             placeholder="Search the item catalog"
             class="w-full"
           />
 
-          <DataTable
-            v-model:filters="pickerFilters"
-            :value="catalogItemsNotInStudy"
-            :globalFilterFields="['item_category.name', 'item_subcategory.name', 'description']"
-            dataKey="id"
-            scrollable
-            scrollHeight="28rem"
+          <UTable
+            :data="visibleCatalogItems"
+            :columns="pickerColumns"
+            :get-row-id="(item: Item) => item.id"
             :loading="addingExistingItem"
-            :row-class="() => 'cursor-pointer hover:bg-elevated'"
-            @row-click="({ data }) => addExistingItem(data)"
+            sticky
+            class="max-h-112"
+            :ui="{ tr: 'cursor-pointer' }"
+            :on-select="(_e: Event, row: TableRow<Item>) => addExistingItem(row.original)"
           >
             <template #empty>
               <div class="flex flex-col items-center gap-2 py-4">
-                <p class="text-sm text-surface-500 dark:text-surface-400">No matching item in the catalog.</p>
+                <p class="text-sm text-surface-500 dark:text-surface-400">
+                  No matching item in the catalog.
+                </p>
                 <UButton
                   label="Create new item"
                   icon="i-lucide-plus"
@@ -627,11 +639,9 @@ async function loadItemsFromTemplates() {
                 />
               </div>
             </template>
-            <Column header="Item">
-              <template #body="{ data }">{{ describeCatalogItem(data) }}</template>
-            </Column>
-            <Column field="description" header="Description" />
-          </DataTable>
+            <template #item-cell="{ row }">{{ describeCatalogItem(row.original) }}</template>
+            <template #description-cell="{ row }">{{ row.original.description }}</template>
+          </UTable>
         </div>
       </template>
       <template #footer>

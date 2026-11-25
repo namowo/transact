@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import DataTable from 'openvue/datatable'
-import Column from 'openvue/column'
+import type { TableColumn, TableRow } from '@nuxt/ui'
 import SurfaceInstanceForm from './SurfaceInstanceForm.vue'
 import IndividualMultiSelect from '@/components/scenarios/IndividualMultiSelect.vue'
 import {
@@ -65,7 +64,9 @@ function scenarioTemplateIds(scenario: Scenario): Set<string> {
 
 const scenarioItems = computed(() =>
   props.scenarios.map((scenario) => {
-    const count = props.contactTemplates.filter((t) => scenarioTemplateIds(scenario).has(t.id)).length
+    const count = props.contactTemplates.filter((t) =>
+      scenarioTemplateIds(scenario).has(t.id),
+    ).length
     return {
       label: scenario.name,
       description: count
@@ -113,6 +114,14 @@ function individualSideOf(template: ContactTemplate): 'donor' | 'recipient' | nu
   return null
 }
 
+const templateColumns: TableColumn<ContactTemplate>[] = [
+  { id: 'name', accessorKey: 'name', header: 'Name' },
+  { id: 'donor', header: 'Donor' },
+  { id: 'recipient', header: 'Recipient' },
+  { id: 'activity', header: 'Activity' },
+  { id: 'go', header: '', meta: { class: { td: 'w-10' } } },
+]
+
 const filteredTemplates = computed(() => {
   const needle = filter.value.trim().toLowerCase()
   if (!needle) return scopedTemplates.value
@@ -143,14 +152,18 @@ const individualSide = computed(() =>
 )
 
 const itemSide = computed<'donor' | 'recipient' | null>(() =>
-  individualSide.value === 'donor' ? 'recipient' : individualSide.value === 'recipient' ? 'donor' : null,
+  individualSide.value === 'donor'
+    ? 'recipient'
+    : individualSide.value === 'recipient'
+      ? 'donor'
+      : null,
 )
 
 const itemSurfaceTemplate = computed(() => {
   if (!selectedTemplate.value || !itemSide.value) return null
   return itemSide.value === 'donor'
-    ? selectedTemplate.value.donor_surface_template ?? null
-    : selectedTemplate.value.recipient_surface_template ?? null
+    ? (selectedTemplate.value.donor_surface_template ?? null)
+    : (selectedTemplate.value.recipient_surface_template ?? null)
 })
 
 const itemSurfaceDraft = computed({
@@ -314,54 +327,46 @@ async function save() {
             class="w-full"
           />
           <div class="border border-default rounded-md overflow-hidden">
-            <DataTable
-              :value="filteredTemplates"
-              dataKey="id"
-              scrollable
-              scrollHeight="20rem"
-              :row-class="() => 'cursor-pointer hover:bg-elevated group'"
-              @row-click="({ data }: { data: ContactTemplate }) => selectTemplate(data)"
+            <UTable
+              :data="filteredTemplates"
+              :columns="templateColumns"
+              :get-row-id="(template: ContactTemplate) => template.id"
+              empty="No contact templates match your search."
+              sticky
+              class="max-h-80"
+              :ui="{ tr: 'cursor-pointer group' }"
+              :on-select="
+                (_e: Event, row: TableRow<ContactTemplate>) => selectTemplate(row.original)
+              "
             >
-              <template #empty>No contact templates match your search.</template>
-              <Column header="Name">
-                <template #body="{ data }">{{ templateName(data) }}</template>
-              </Column>
-              <Column header="Donor">
-                <template #body="{ data }">
-                  <span class="flex items-center gap-1.5">
-                    <UIcon
-                      v-if="surfaceIcon(data.donor_surface_template)"
-                      :name="surfaceIcon(data.donor_surface_template)!"
-                      class="shrink-0"
-                    />
-                    {{ surfaceDetail(data.donor_surface_template) }}
-                  </span>
-                </template>
-              </Column>
-              <Column header="Recipient">
-                <template #body="{ data }">
-                  <span class="flex items-center gap-1.5">
-                    <UIcon
-                      v-if="surfaceIcon(data.recipient_surface_template)"
-                      :name="surfaceIcon(data.recipient_surface_template)!"
-                      class="shrink-0"
-                    />
-                    {{ surfaceDetail(data.recipient_surface_template) }}
-                  </span>
-                </template>
-              </Column>
-              <Column header="Activity">
-                <template #body="{ data }">{{ data.activity_category?.name ?? '—' }}</template>
-              </Column>
-              <Column header="" style="width: 2.5rem">
-                <template #body>
+              <template #name-cell="{ row }">{{ templateName(row.original) }}</template>
+              <template #donor-cell="{ row: { original: data } }">
+                <span class="flex items-center gap-1.5">
                   <UIcon
-                    name="i-lucide-chevron-right"
-                    class="text-dimmed group-hover:text-default"
+                    v-if="surfaceIcon(data.donor_surface_template)"
+                    :name="surfaceIcon(data.donor_surface_template)!"
+                    class="shrink-0"
                   />
-                </template>
-              </Column>
-            </DataTable>
+                  {{ surfaceDetail(data.donor_surface_template) }}
+                </span>
+              </template>
+              <template #recipient-cell="{ row: { original: data } }">
+                <span class="flex items-center gap-1.5">
+                  <UIcon
+                    v-if="surfaceIcon(data.recipient_surface_template)"
+                    :name="surfaceIcon(data.recipient_surface_template)!"
+                    class="shrink-0"
+                  />
+                  {{ surfaceDetail(data.recipient_surface_template) }}
+                </span>
+              </template>
+              <template #activity-cell="{ row }">{{
+                row.original.activity_category?.name ?? '—'
+              }}</template>
+              <template #go-cell>
+                <UIcon name="i-lucide-chevron-right" class="text-dimmed group-hover:text-default" />
+              </template>
+            </UTable>
           </div>
         </div>
 
@@ -415,7 +420,10 @@ async function save() {
               :model-value="draft.previousContactId ?? NO_PREDECESSOR"
               :items="predecessorItems"
               class="w-full"
-              @update:model-value="(value: string) => (draft.previousContactId = value === NO_PREDECESSOR ? null : value)"
+              @update:model-value="
+                (value: string) =>
+                  (draft.previousContactId = value === NO_PREDECESSOR ? null : value)
+              "
             />
           </UFormField>
           <UFormField label="Name" hint="Optional - helps tell otherwise identical contacts apart">
@@ -445,9 +453,11 @@ async function save() {
       />
       <UButton
         v-if="step === 'details'"
-        :label="individualSide && batchIndividualIds.length > 1
-          ? `Save ${batchIndividualIds.length} contacts`
-          : 'Save'"
+        :label="
+          individualSide && batchIndividualIds.length > 1
+            ? `Save ${batchIndividualIds.length} contacts`
+            : 'Save'
+        "
         icon="i-lucide-save"
         :loading="submitting"
         :disabled="!canSave"

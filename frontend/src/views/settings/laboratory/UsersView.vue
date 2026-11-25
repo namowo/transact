@@ -1,10 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import DataTable from 'openvue/datatable'
-import Column from 'openvue/column'
-import type { DropdownMenuItem } from '@nuxt/ui'
+import type { DropdownMenuItem, TableColumn } from '@nuxt/ui'
 import { useConfirm } from '@/composables/useConfirm'
-import { FilterMatchMode } from '@openvue/core/api'
 import { listLabUsers, removeFromLaboratory } from '@/api/users'
 import { listUserGroups } from '@/api/userGroups'
 import UserGroupsModal from '@/components/groups/UserGroupsModal.vue'
@@ -16,6 +13,10 @@ import {
 } from '@/api/labMembershipRequests'
 import type { LabMembershipRequest, User, UserGroup } from '@/api/types'
 import { useAuthStore } from '@/stores/auth'
+import { manualSorting, useTableView } from '@/composables/useTableView'
+import { sortHeader } from '@/composables/tableColumns'
+import TableFilterDrawer from '@/components/ui/TableFilterDrawer.vue'
+import TablePagination from '@/components/ui/TablePagination.vue'
 
 const auth = useAuthStore()
 const confirm = useConfirm()
@@ -35,20 +36,30 @@ function canRemove(target: User) {
   return true
 }
 
-function initFilters() {
-  return {
-    global: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    first_name: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    last_name: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    email: { value: null, matchMode: FilterMatchMode.CONTAINS },
-  }
-}
+const view = useTableView(users, {
+  searchFields: ['first_name', 'last_name', 'email'],
+  filters: {
+    first_name: { field: 'first_name' },
+    last_name: { field: 'last_name' },
+    email: { field: 'email' },
+  },
+  pageSize: 10,
+})
 
-const filters = ref(initFilters())
+const columns: TableColumn<User>[] = [
+  { id: 'first_name', accessorKey: 'first_name', header: sortHeader('First name') },
+  { id: 'last_name', accessorKey: 'last_name', header: sortHeader('Last name') },
+  { id: 'email', accessorKey: 'email', header: sortHeader('Email') },
+  { id: 'groups', header: 'Groups', meta: { class: { td: 'w-56 whitespace-normal' } } },
+  { id: 'actions', header: '', meta: { class: { td: 'w-12' } } },
+]
 
-function clearFilters() {
-  filters.value = initFilters()
-}
+const requestColumns: TableColumn<LabMembershipRequest>[] = [
+  { id: 'requester', header: 'Requester' },
+  { id: 'email', accessorKey: 'email', header: 'Email' },
+  { id: 'created_at', accessorKey: 'created_at', header: 'Requested' },
+  { id: 'actions', header: '', meta: { class: { td: 'w-56' } } },
+]
 
 const requests = ref<LabMembershipRequest[]>([])
 const requestsLoading = ref(false)
@@ -110,12 +121,15 @@ function rowMenuItems(user: User): DropdownMenuItem[] {
     },
   ]
   if (canRemove(user)) {
-    items.push({ type: 'separator' }, {
-      label: 'Remove from laboratory',
-      icon: 'i-lucide-user-minus',
-      color: 'error',
-      onSelect: () => confirmRemoveUser(user),
-    })
+    items.push(
+      { type: 'separator' },
+      {
+        label: 'Remove from laboratory',
+        icon: 'i-lucide-user-minus',
+        color: 'error',
+        onSelect: () => confirmRemoveUser(user),
+      },
+    )
   }
   return items
 }
@@ -174,9 +188,7 @@ async function deny(request: LabMembershipRequest) {
     <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-0">Manage Lab Users</h1>
 
     <div v-if="requests.length || requestsLoading" class="flex flex-col gap-3">
-      <h2 class="text-lg font-semibold text-surface-900 dark:text-surface-0">
-        Pending requests
-      </h2>
+      <h2 class="text-lg font-semibold text-surface-900 dark:text-surface-0">Pending requests</h2>
 
       <UAlert
         v-if="requestsLoadError"
@@ -191,45 +203,40 @@ async function deny(request: LabMembershipRequest) {
         :description="requestsActionError"
       />
 
-      <div class="overflow-x-auto">
-        <DataTable :value="requests" :loading="requestsLoading" data-key="id">
-          <Column header="Requester">
-            <template #body="{ data }">
-              {{ data.user.first_name }} {{ data.user.last_name }}
-            </template>
-          </Column>
-          <Column header="Email">
-            <template #body="{ data }">{{ data.user.email }}</template>
-          </Column>
-          <Column header="Requested">
-            <template #body="{ data }">
-              {{ new Date(data.created_at).toLocaleDateString() }}
-            </template>
-          </Column>
-          <Column header="" style="width: 14rem">
-            <template #body="{ data }">
-              <div class="flex gap-1 justify-end">
-                <UButton
-                  label="Approve"
-                  icon="i-lucide-check"
-                  size="sm"
-                  :loading="actingOnId === data.id"
-                  @click="approve(data)"
-                />
-                <UButton
-                  label="Deny"
-                  icon="i-lucide-x"
-                  color="error"
-                  variant="ghost"
-                  size="sm"
-                  :loading="actingOnId === data.id"
-                  @click="deny(data)"
-                />
-              </div>
-            </template>
-          </Column>
-        </DataTable>
-      </div>
+      <UTable
+        :data="requests"
+        :columns="requestColumns"
+        :loading="requestsLoading"
+        :get-row-id="(request: LabMembershipRequest) => request.id"
+      >
+        <template #requester-cell="{ row }">
+          {{ row.original.user.first_name }} {{ row.original.user.last_name }}
+        </template>
+        <template #email-cell="{ row }">{{ row.original.user.email }}</template>
+        <template #created_at-cell="{ row }">
+          {{ new Date(row.original.created_at).toLocaleDateString() }}
+        </template>
+        <template #actions-cell="{ row }">
+          <div class="flex gap-1 justify-end">
+            <UButton
+              label="Approve"
+              icon="i-lucide-check"
+              size="sm"
+              :loading="actingOnId === row.original.id"
+              @click="approve(row.original)"
+            />
+            <UButton
+              label="Deny"
+              icon="i-lucide-x"
+              color="error"
+              variant="ghost"
+              size="sm"
+              :loading="actingOnId === row.original.id"
+              @click="deny(row.original)"
+            />
+          </div>
+        </template>
+      </UTable>
     </div>
 
     <div class="flex flex-col gap-3">
@@ -238,92 +245,65 @@ async function deny(request: LabMembershipRequest) {
       <UAlert v-if="loadError" color="error" variant="outline" :description="loadError" />
       <UAlert v-if="actionError" color="error" variant="outline" :description="actionError" />
 
-      <div class="overflow-x-auto">
-        <div class="mb-3 flex items-center justify-between gap-3">
-          <UButton type="button" icon="i-lucide-filter-x" variant="outline" size="sm" @click="clearFilters()">
-            Clear Filters
-          </UButton>
-          <UInput
-            v-model="filters['global'].value"
-            type="text"
-            icon="i-lucide-search"
-            placeholder="Keyword Search"
-          />
-        </div>
-
-        <DataTable
-          v-model:filters="filters"
-          :value="users"
-          :loading="loading"
-          data-key="id"
-          filterDisplay="menu"
-          removableSort
-          paginator
-          :rows="10"
-          :rowsPerPageOptions="[10, 25, 50]"
-          :globalFilterFields="['first_name', 'last_name', 'email']"
-        >
-          <template #empty>No users found.</template>
-
-          <Column
-            field="first_name"
-            header="First name"
-            sortable
-            :showFilterOperator="false"
-            :showAddButton="false"
-          >
-            <template #filter="{ filterModel }">
-              <UInput v-model="filterModel.value" type="text" placeholder="Search by first name" />
-            </template>
-          </Column>
-
-          <Column
-            field="last_name"
-            header="Last name"
-            sortable
-            :showFilterOperator="false"
-            :showAddButton="false"
-          >
-            <template #filter="{ filterModel }">
-              <UInput v-model="filterModel.value" type="text" placeholder="Search by last name" />
-            </template>
-          </Column>
-
-          <Column
-            field="email"
-            header="Email"
-            sortable
-            :showFilterOperator="false"
-            :showAddButton="false"
-          >
-            <template #filter="{ filterModel }">
-              <UInput v-model="filterModel.value" type="text" placeholder="Search by email" />
-            </template>
-          </Column>
-
-          <Column header="Groups" style="width: 14rem">
-            <template #body="{ data }">
-              <UserGroupBadges :user="data" />
-            </template>
-          </Column>
-
-          <Column header="" style="width: 3rem">
-            <template #body="{ data }">
-              <div class="flex justify-end">
-                <UDropdownMenu :items="rowMenuItems(data)" :content="{ align: 'end' }">
-                  <UButton
-                    icon="i-lucide-ellipsis-vertical"
-                    variant="ghost"
-                    color="neutral"
-                    square
-                    aria-label="User actions"
-                  />
-                </UDropdownMenu>
-              </div>
-            </template>
-          </Column>
-        </DataTable>
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <UInput
+          v-model="view.search"
+          icon="i-lucide-search"
+          placeholder="Keyword Search"
+          class="w-full max-w-sm"
+        />
+        <TableFilterDrawer :active-count="view.activeFilterCount" @reset="view.resetFilters()">
+          <UFormField label="First name">
+            <UInput
+              v-model="view.filters.first_name"
+              placeholder="Search by first name"
+              class="w-full"
+            />
+          </UFormField>
+          <UFormField label="Last name">
+            <UInput
+              v-model="view.filters.last_name"
+              placeholder="Search by last name"
+              class="w-full"
+            />
+          </UFormField>
+          <UFormField label="Email">
+            <UInput v-model="view.filters.email" placeholder="Search by email" class="w-full" />
+          </UFormField>
+        </TableFilterDrawer>
       </div>
+
+      <UTable
+        v-model:sorting="view.sorting"
+        :sorting-options="manualSorting"
+        :data="view.rows"
+        :columns="columns"
+        :loading="loading"
+        :get-row-id="(user: User) => user.id"
+        empty="No users found."
+      >
+        <template #groups-cell="{ row }">
+          <UserGroupBadges :user="row.original" />
+        </template>
+        <template #actions-cell="{ row }">
+          <div class="flex justify-end">
+            <UDropdownMenu :items="rowMenuItems(row.original)" :content="{ align: 'end' }">
+              <UButton
+                icon="i-lucide-ellipsis-vertical"
+                variant="ghost"
+                color="neutral"
+                square
+                aria-label="User actions"
+              />
+            </UDropdownMenu>
+          </div>
+        </template>
+      </UTable>
+      <TablePagination
+        v-model:page="view.page"
+        v-model:page-size="view.pageSize"
+        :total="view.total"
+      />
     </div>
 
     <UserGroupsModal

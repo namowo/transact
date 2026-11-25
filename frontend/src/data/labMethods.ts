@@ -85,7 +85,8 @@ const ceMethodDescriptors: Array<(method: CEMethod) => string | null> = [
   (m) => (m.volume_formamide != null ? `formamide ${m.volume_formamide} µl` : null),
   (m) => m.size_standard?.name ?? null,
   (m) => (m.volume_size_standard != null ? `size std. ${m.volume_size_standard} µl` : null),
-  (m) => (m.input_volume_pcr_product != null ? `PCR product ${m.input_volume_pcr_product} µl` : null),
+  (m) =>
+    m.input_volume_pcr_product != null ? `PCR product ${m.input_volume_pcr_product} µl` : null,
 ]
 
 // CE methods have no name of their own. Label them by CE device and, where
@@ -205,7 +206,7 @@ export interface MethodConfig {
   }
   laboratoryScoped: boolean
   fields: MethodFieldConfig[]
-  // Which field keys to show as DataTable columns (besides id).
+  // Which field keys to show as table columns (besides id).
   listColumns: string[]
   // Header labels for list columns that aren't editable in the form (so
   // they have no entry in `fields` to derive a label from) - e.g. a value
@@ -440,9 +441,11 @@ export const labMethods: MethodConfig[] = [
         step: 0.01,
         hint: 'Calculated automatically as formamide + size standard + PCR product, for a double check against what was actually measured.',
         computed: (values) =>
-          [values.volume_formamide, values.volume_size_standard, values.input_volume_pcr_product].every(
-            (v) => v !== null && v !== undefined && v !== '',
-          )
+          [
+            values.volume_formamide,
+            values.volume_size_standard,
+            values.input_volume_pcr_product,
+          ].every((v) => v !== null && v !== undefined && v !== '')
             ? // Round to 2 decimals to avoid float noise like 10.299999999.
               Math.round(
                 (Number(values.volume_formamide) +

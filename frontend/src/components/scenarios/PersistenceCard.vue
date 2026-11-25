@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import Panel from 'openvue/panel'
+import CollapsibleCard from '@/components/ui/CollapsibleCard.vue'
 import CategorySelect from './CategorySelect.vue'
 import DurationValueInput from './DurationValueInput.vue'
 import FieldLabel from './FieldLabel.vue'
@@ -20,10 +20,12 @@ const emit = defineEmits<{ remove: [] }>()
 const draft = defineModel<PersistenceDraft>({ required: true })
 const collapsed = defineModel<boolean>('collapsed', { default: false })
 
-const humidityPercent = usePercentModel(computed({
-  get: () => draft.value.humidity,
-  set: (value) => (draft.value.humidity = value),
-}))
+const humidityPercent = usePercentModel(
+  computed({
+    get: () => draft.value.humidity,
+    set: (value) => (draft.value.humidity = value),
+  }),
+)
 
 function errorFor(field: string): string | undefined {
   return props.errors[`persistencies[${props.index}].${field}`]
@@ -50,7 +52,7 @@ function formatDuration(seconds: number | null): string | null {
 </script>
 
 <template>
-  <Panel v-if="!props.editable" toggleable :collapsed="collapsed" @update:collapsed="collapsed = $event">
+  <CollapsibleCard v-if="!props.editable" v-model:collapsed="collapsed">
     <template #header>
       <span class="font-semibold">{{ draft.name || `Persistence #${props.index + 1}` }}</span>
       <UBadge label="From another study" color="info" />
@@ -91,9 +93,9 @@ function formatDuration(seconds: number | null): string | null {
         @click="emit('remove')"
       />
     </div>
-  </Panel>
+  </CollapsibleCard>
 
-  <Panel v-else v-model:collapsed="collapsed" toggleable>
+  <CollapsibleCard v-else v-model:collapsed="collapsed">
     <template #header>
       <span class="font-semibold">{{ draft.name || `Persistence #${props.index + 1}` }}</span>
     </template>
@@ -136,7 +138,13 @@ function formatDuration(seconds: number | null): string | null {
             />
           </template>
           <UFieldGroup>
-            <UInputNumber v-model="humidityPercent" orientation="vertical" :min="0" :max="100" class="w-full" />
+            <UInputNumber
+              v-model="humidityPercent"
+              orientation="vertical"
+              :min="0"
+              :max="100"
+              class="w-full"
+            />
             <UBadge color="neutral" variant="outline" size="lg" label="%" />
           </UFieldGroup>
         </UFormField>
@@ -197,5 +205,5 @@ function formatDuration(seconds: number | null): string | null {
         @click="emit('remove')"
       />
     </div>
-  </Panel>
+  </CollapsibleCard>
 </template>

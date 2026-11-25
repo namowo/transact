@@ -1,12 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import DataTable from 'openvue/datatable'
-import Column from 'openvue/column'
-import ContextMenu from 'openvue/contextmenu'
-import { FilterMatchMode } from '@openvue/core/api'
-import type { TabsItem } from '@nuxt/ui'
-import type { MenuItem } from 'openvue/menuitem'
+import type { ContextMenuItem, TableColumn, TableRow, TabsItem } from '@nuxt/ui'
 import ScenarioBadges from '@/components/data/ScenarioBadges.vue'
 import ContactChains from '@/components/data/ContactChains.vue'
 import type { LinkOp } from '@/components/data/ContactChains.vue'
@@ -16,10 +11,18 @@ import ItemsPanel from '@/components/data/ItemsPanel.vue'
 import SamplesPanel from '@/components/data/SamplesPanel.vue'
 import ResultsTab from '@/components/scenarios/ResultsTab.vue'
 import type { ContactChainInfo } from '@/components/data/ContactChainNode.vue'
-import { templateName, surfaceInstanceIcon, surfaceInstanceDetail } from '@/components/data/contactTemplateLabel'
+import {
+  templateName,
+  surfaceInstanceIcon,
+  surfaceInstanceDetail,
+} from '@/components/data/contactTemplateLabel'
 import { useIndividualOptions } from '@/components/scenarios/individualOptions'
 import { useConfirm } from '@/composables/useConfirm'
-import { canEnterStudyData, provideStudyReadOnly, useStudyReadOnly } from '@/composables/useStudyAccess'
+import {
+  canEnterStudyData,
+  provideStudyReadOnly,
+  useStudyReadOnly,
+} from '@/composables/useStudyAccess'
 import { useAuthStore } from '@/stores/auth'
 import { useTourStore } from '@/stores/tour'
 import { listScenarios } from '@/api/scenarios'
@@ -34,6 +37,10 @@ import {
 import { getErrorMessage } from '@/api/errors'
 import { listContacts, deleteContact, updateContact } from '@/api/contacts'
 import type { Contact, ContactTemplate, Sample, Scenario } from '@/api/types'
+import { useTableView } from '@/composables/useTableView'
+import { expandColumn } from '@/composables/tableColumns'
+import TableFilterDrawer from '@/components/ui/TableFilterDrawer.vue'
+import TablePagination from '@/components/ui/TablePagination.vue'
 
 const confirm = useConfirm()
 const route = useRoute()
@@ -91,7 +98,8 @@ async function load() {
     // individuals; this page lists the ones of its scenarios' templates.
     const templateIds = new Set(templates.map((t) => t.id))
     contacts.value = studyContacts.filter(
-      (contact) => contact.contact_template_id != null && templateIds.has(contact.contact_template_id),
+      (contact) =>
+        contact.contact_template_id != null && templateIds.has(contact.contact_template_id),
     )
   } catch {
     loadError.value = 'Could not load data for this study.'
@@ -127,8 +135,11 @@ const pendingUnassigned = computed(() => {
   if (!pending) return null
   const parts = []
   if (pending.unassigned_individuals)
-    parts.push(`${pending.unassigned_individuals} individual${pending.unassigned_individuals === 1 ? '' : 's'}`)
-  if (pending.unassigned_items) parts.push(`${pending.unassigned_items} item${pending.unassigned_items === 1 ? '' : 's'}`)
+    parts.push(
+      `${pending.unassigned_individuals} individual${pending.unassigned_individuals === 1 ? '' : 's'}`,
+    )
+  if (pending.unassigned_items)
+    parts.push(`${pending.unassigned_items} item${pending.unassigned_items === 1 ? '' : 's'}`)
   return parts.length ? parts.join(' and ') : null
 })
 const scenarioAssignOptions = computed(() =>
@@ -195,7 +206,10 @@ async function runPlanningSheetUpload() {
     if (pendingConfirmation.value) return
     planningSheetProblems.value = planningSheetErrors(err)
     if (!planningSheetProblems.value.length) {
-      planningSheetError.value = getErrorMessage(err, 'Could not upload this file. Please try again.')
+      planningSheetError.value = getErrorMessage(
+        err,
+        'Could not upload this file. Please try again.',
+      )
     }
   } finally {
     planningSheetUploading.value = false
@@ -221,7 +235,9 @@ const editingNames = ref(false)
 // instead of requiring each group to be expanded by hand first.
 watch(editingNames, (isEditing) => {
   if (!isEditing) return
-  expandedContactRows.value = Object.fromEntries(contactGroups.value.map((group) => [group.key, true]))
+  expandedContactRows.value = Object.fromEntries(
+    contactGroups.value.map((group) => [group.key, true]),
+  )
 })
 
 function onContactSaved(newContacts: Contact[]) {
@@ -318,7 +334,8 @@ const visibleContacts = computed<Contact[]>(() => {
   if (selectedScenarioId.value === null) return contacts.value
   const templateIds = new Set(visibleTemplates.value.map((t) => t.id))
   return contacts.value.filter(
-    (contact) => contact.contact_template_id != null && templateIds.has(contact.contact_template_id),
+    (contact) =>
+      contact.contact_template_id != null && templateIds.has(contact.contact_template_id),
   )
 })
 
@@ -340,7 +357,7 @@ const contactGroups = computed<ContactGroup[]>(() => {
   for (const contact of visibleContacts.value) {
     const template = contactTemplateFor(contact)
     const itemSide = template ? itemSideOf(template) : null
-    const itemSurfaceId = itemSide ? contact[itemSide]?.id ?? null : null
+    const itemSurfaceId = itemSide ? (contact[itemSide]?.id ?? null) : null
     const key = itemSide
       ? `${contact.contact_template_id}::${itemSurfaceId}`
       : `single::${contact.id}`
@@ -388,7 +405,10 @@ function sideIndividual(contact: Contact, side: 'donor_surface' | 'recipient_sur
   return contact[side]?.individual ?? null
 }
 
-function sideIndividualLabel(contact: Contact, side: 'donor_surface' | 'recipient_surface'): string | null {
+function sideIndividualLabel(
+  contact: Contact,
+  side: 'donor_surface' | 'recipient_surface',
+): string | null {
   const individual = sideIndividual(contact, side)
   return individual ? individualName(individual) : null
 }
@@ -408,7 +428,10 @@ function groupSideDisplay(group: ContactGroup, side: 'donor_surface' | 'recipien
 // The individual behind a group member row, for the expansion table's
 // separate Individual/Sex/Age columns - plain text crammed into one string
 // ("Individual 2 (female, 26y)") is harder to scan than a name plus badges.
-function memberIndividual(contact: Contact, itemSide: 'donor_surface' | 'recipient_surface' | null) {
+function memberIndividual(
+  contact: Contact,
+  itemSide: 'donor_surface' | 'recipient_surface' | null,
+) {
   const side = itemSide === 'donor_surface' ? 'recipient_surface' : 'donor_surface'
   return contact[side]?.individual ?? null
 }
@@ -579,7 +602,7 @@ const contactsViewItems = [
 
 // Edit-names mode keeps every row's input mounted at once (so several
 // contacts can be renamed in one pass without re-opening anything per row),
-// bypassing PrimeVue's single-row cell-edit machinery entirely.
+// instead of the click-to-edit one row at a time.
 const pendingMemberNames = new Map<string, string>()
 
 function onMemberNameInput(contact: Contact, value: string) {
@@ -609,14 +632,17 @@ async function saveRename() {
   }
 }
 
-// Inline cell edit on the expanded member table's Name column - a quicker
+// Click-to-edit on the expanded member table's Name column - a quicker
 // path to the same rename than opening the dialog, for renaming several
 // contacts in a row.
-async function onMemberNameEditComplete(event: { data: Contact; newValue: string; field: string }) {
-  const trimmed = event.newValue.trim() || null
-  if (trimmed === (event.data.name ?? null)) return
-  await updateContact(event.data.id, { name: trimmed })
-  patchContactName(event.data.id, trimmed)
+const inlineEditContactId = ref<string | null>(null)
+
+async function onMemberNameEditComplete(contact: Contact, value: string) {
+  inlineEditContactId.value = null
+  const trimmed = value.trim() || null
+  if (trimmed === (contact.name ?? null)) return
+  await updateContact(contact.id, { name: trimmed })
+  patchContactName(contact.id, trimmed)
 }
 
 function confirmDeleteGroup(group: ContactGroup) {
@@ -636,88 +662,79 @@ function confirmDeleteGroup(group: ContactGroup) {
 
 // -- Context menu --
 
-const contactContextMenu = ref<InstanceType<typeof ContextMenu>>()
-const contextMenuGroup = ref<ContactGroup>()
-const contextMenuContact = ref<Contact>()
+function groupMenuItems(group: ContactGroup): ContextMenuItem[] {
+  if (group.members.length === 1) return memberMenuItems(group.members[0]!)
+  return [
+    {
+      label: `Delete all ${group.members.length} contacts`,
+      icon: 'i-lucide-trash-2',
+      color: 'error',
+      onSelect: () => confirmDeleteGroup(group),
+    },
+  ]
+}
 
-const groupContextMenuItems = computed<MenuItem[]>(() => {
-  const group = contextMenuGroup.value
-  if (!group) return []
-  const items: MenuItem[] = []
-  if (group.members.length === 1) {
-    items.push({
-      label: 'Rename',
-      icon: 'i-lucide-pencil',
-      command: () => openRenameDialog(group.members[0]!),
-    })
-    if (canChain(group.members[0]!)) {
-      items.push({
-        label: 'Set previous contact',
-        icon: 'i-lucide-link',
-        command: () => openChainDialog(group.members[0]!),
-      })
-    }
-  }
-  items.push({
-    label: group.members.length > 1 ? `Delete all ${group.members.length} contacts` : 'Delete',
-    icon: 'i-lucide-trash-2',
-    command: () => confirmDeleteGroup(group),
-  })
-  return items
-})
-
-const memberContextMenuItems = computed<MenuItem[]>(() => {
-  const contact = contextMenuContact.value
-  if (!contact) return []
+function memberMenuItems(contact: Contact): ContextMenuItem[] {
   return [
     {
       label: 'Rename',
       icon: 'i-lucide-pencil',
-      command: () => openRenameDialog(contact),
+      onSelect: () => openRenameDialog(contact),
     },
     ...(canChain(contact)
-      ? [{ label: 'Set previous contact', icon: 'i-lucide-link', command: () => openChainDialog(contact) }]
+      ? [
+          {
+            label: 'Set previous contact',
+            icon: 'i-lucide-link',
+            onSelect: () => openChainDialog(contact),
+          },
+        ]
       : []),
     {
       label: 'Delete',
       icon: 'i-lucide-trash-2',
-      command: () => confirmDeleteContact(contact),
+      color: 'error' as const,
+      onSelect: () => confirmDeleteContact(contact),
     },
   ]
-})
-
-function openGroupContextMenu(event: Event, group: ContactGroup) {
-  if (readOnly.value) return
-  contextMenuContact.value = undefined
-  contextMenuGroup.value = group
-  contactContextMenu.value?.show(event)
 }
 
-function openMemberContextMenu(event: Event, contact: Contact) {
-  if (readOnly.value) return
-  contextMenuGroup.value = undefined
-  contextMenuContact.value = contact
-  contactContextMenu.value?.show(event)
+// The right-clicked row's menu.
+const groupContextMenuItems = ref<ContextMenuItem[]>([])
+const memberContextMenuItems = ref<ContextMenuItem[]>([])
+
+function onGroupRowContextMenu(_event: Event, row: TableRow<ContactGroup>) {
+  groupContextMenuItems.value = readOnly.value ? [] : groupMenuItems(row.original)
 }
 
-function onGroupRowContextMenu(event: { originalEvent: Event; data: ContactGroup }) {
-  openGroupContextMenu(event.originalEvent, event.data)
+function onMemberRowContextMenu(_event: Event, row: TableRow<Contact>) {
+  memberContextMenuItems.value = readOnly.value ? [] : memberMenuItems(row.original)
 }
 
 const expandedContactRows = ref<Record<string, boolean>>({})
 
-function initContactFilters() {
-  return {
-    global: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    scenarioNames: { value: null, matchMode: FilterMatchMode.CONTAINS },
-  }
-}
+const contactView = useTableView(contactGroups, {
+  searchFields: [(group) => (group.template ? templateName(group.template) : ''), 'scenarioNames'],
+  filters: { scenario: { field: 'scenarioNames' } },
+  pageSize: 25,
+})
 
-const contactFilters = ref(initContactFilters())
+const groupColumns = computed<TableColumn<ContactGroup>[]>(() => [
+  expandColumn(),
+  { id: 'template', header: 'Contact template' },
+  { id: 'donor', header: 'Donor' },
+  { id: 'recipient', header: 'Recipient' },
+  { id: 'scenarioNames', accessorKey: 'scenarioNames', header: 'Scenario' },
+  { id: 'count', header: 'Contacts', meta: { class: { td: 'w-24' } } },
+  ...(readOnly.value ? [] : [{ id: 'actions', header: '', meta: { class: { td: 'w-12' } } }]),
+])
 
-function clearContactFilters() {
-  contactFilters.value = initContactFilters()
-}
+const memberColumns = computed<TableColumn<Contact>[]>(() => [
+  { id: 'name', accessorKey: 'name', header: 'Name' },
+  { id: 'donor', header: 'Donor' },
+  { id: 'recipient', header: 'Recipient' },
+  ...(readOnly.value ? [] : [{ id: 'actions', header: '', meta: { class: { td: 'w-12' } } }]),
+])
 
 // Panel edits override the initially loaded count.
 const individualCountOverride = ref<number | null>(null)
@@ -749,24 +766,26 @@ const activeTab = computed<string>({
 <template>
   <div class="flex flex-col gap-6">
     <div class="flex items-center justify-between gap-3">
-      <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-0">{{ readOnly ? 'Data' : 'Data entry' }}</h1>
+      <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-0">
+        {{ readOnly ? 'Data' : 'Data entry' }}
+      </h1>
       <div class="flex items-center gap-2">
-      <UButton
-        v-if="!readOnly"
-        label="Upload planning sheet"
-        icon="i-lucide-file-up"
-        color="neutral"
-        variant="outline"
-        @click="openPlanningSheetUpload"
-      />
-      <UButton
-        v-if="!readOnly"
-        label="Guide me"
-        icon="i-lucide-circle-help"
-        color="neutral"
-        variant="ghost"
-        @click="tour.start('data-entry', { force: true })"
-      />
+        <UButton
+          v-if="!readOnly"
+          label="Upload planning sheet"
+          icon="i-lucide-file-up"
+          color="neutral"
+          variant="outline"
+          @click="openPlanningSheetUpload"
+        />
+        <UButton
+          v-if="!readOnly"
+          label="Guide me"
+          icon="i-lucide-circle-help"
+          color="neutral"
+          variant="ghost"
+          @click="tour.start('data-entry', { force: true })"
+        />
       </div>
     </div>
 
@@ -778,8 +797,9 @@ const activeTab = computed<string>({
       <template #body>
         <div class="flex flex-col gap-4">
           <p class="text-sm text-surface-500 dark:text-surface-400">
-            Upload the Excel planning checklist with the individuals and items you filled in. Rows with an ID update
-            existing entries, rows without an ID are added. Rows you removed from the file are not deleted here.
+            Upload the Excel planning checklist with the individuals and items you filled in. Rows
+            with an ID update existing entries, rows without an ID are added. Rows you removed from
+            the file are not deleted here.
           </p>
           <UFileUpload
             v-model="planningSheetFile"
@@ -789,7 +809,12 @@ const activeTab = computed<string>({
             icon="i-lucide-file-spreadsheet"
             class="w-full min-h-32"
           />
-          <UAlert v-if="planningSheetError" color="error" variant="subtle" :description="planningSheetError" />
+          <UAlert
+            v-if="planningSheetError"
+            color="error"
+            variant="subtle"
+            :description="planningSheetError"
+          />
           <UAlert
             v-if="pendingNewCategoryCount"
             color="warning"
@@ -799,8 +824,8 @@ const activeTab = computed<string>({
           >
             <template #description>
               <p class="mb-2">
-                They will be added to the shared catalog for all studies. Check them for typos - if one should be an
-                existing category, fix it in the file and upload it again.
+                They will be added to the shared catalog for all studies. Check them for typos - if
+                one should be an existing category, fix it in the file and upload it again.
               </p>
               <ul class="list-disc pl-4 max-h-48 overflow-y-auto">
                 <li v-for="name in pendingConfirmation?.new_categories" :key="`c-${name}`">
@@ -810,7 +835,8 @@ const activeTab = computed<string>({
                   v-for="sub in pendingConfirmation?.new_subcategories"
                   :key="`s-${sub.category}-${sub.name}`"
                 >
-                  Subcategory: <span class="font-medium">{{ sub.name }}</span> (in {{ sub.category }})
+                  Subcategory: <span class="font-medium">{{ sub.name }}</span> (in
+                  {{ sub.category }})
                 </li>
               </ul>
             </template>
@@ -856,7 +882,12 @@ const activeTab = computed<string>({
         </div>
       </template>
       <template #footer>
-        <UButton label="Cancel" icon="i-lucide-x" variant="ghost" @click="planningSheetVisible = false" />
+        <UButton
+          label="Cancel"
+          icon="i-lucide-x"
+          variant="ghost"
+          @click="planningSheetVisible = false"
+        />
         <UButton
           :label="pendingConfirmation ? 'Confirm & upload' : 'Upload'"
           :icon="pendingConfirmation ? 'i-lucide-check' : 'i-lucide-upload'"
@@ -874,7 +905,15 @@ const activeTab = computed<string>({
     <UAlert v-else-if="loadError" color="error" variant="outline" :description="loadError" />
 
     <div v-if="!loading && !loadError" class="flex flex-wrap items-end gap-3">
-      <UFormField label="Scenario" data-tour="data-scenario" :hint="readOnly ? 'Choose a scenario to filter the data' : 'Choose a scenario to add data to it, or view all data'">
+      <UFormField
+        label="Scenario"
+        data-tour="data-scenario"
+        :hint="
+          readOnly
+            ? 'Choose a scenario to filter the data'
+            : 'Choose a scenario to add data to it, or view all data'
+        "
+      >
         <USelect v-model="scenarioSelectValue" :items="scenarioOptions" class="w-72" />
       </UFormField>
       <p v-if="!studyScenarios.length && !readOnly" class="text-sm text-warning pb-2">
@@ -882,13 +921,33 @@ const activeTab = computed<string>({
       </p>
     </div>
 
-    <UTabs v-if="!loading && !loadError" v-model="activeTab" data-tour="data-tabs" :items="tabItems" :unmount-on-hide="false" class="w-full">
+    <UTabs
+      v-if="!loading && !loadError"
+      v-model="activeTab"
+      data-tour="data-tabs"
+      :items="tabItems"
+      :unmount-on-hide="false"
+      class="w-full"
+    >
       <template #individuals>
-        <IndividualsPanel :key="`individuals-${panelsKey}`" :study-id="studyId" :scenarios="studyScenarios" :scenario-id="selectedScenarioId" @update:count="individualCountOverride = $event" />
+        <IndividualsPanel
+          :key="`individuals-${panelsKey}`"
+          :study-id="studyId"
+          :scenarios="studyScenarios"
+          :scenario-id="selectedScenarioId"
+          @update:count="individualCountOverride = $event"
+        />
       </template>
 
       <template #items>
-        <ItemsPanel :key="`items-${panelsKey}`" :study-id="studyId" :contact-templates="visibleTemplates" :scenarios="studyScenarios" :scenario-id="selectedScenarioId" @update:count="itemCount = $event" />
+        <ItemsPanel
+          :key="`items-${panelsKey}`"
+          :study-id="studyId"
+          :contact-templates="visibleTemplates"
+          :scenarios="studyScenarios"
+          :scenario-id="selectedScenarioId"
+          @update:count="itemCount = $event"
+        />
       </template>
 
       <template #contacts>
@@ -935,170 +994,218 @@ const activeTab = computed<string>({
             @undo="undoChainChange"
           />
 
-          <div v-show="contactsView === 'list'" class="overflow-x-auto">
-            <div class="mb-3 flex items-center justify-between gap-3">
+          <div v-show="contactsView === 'list'" class="flex flex-col gap-3">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <UInput
+                v-model="contactView.search"
+                icon="i-lucide-search"
+                placeholder="Keyword Search"
+                class="w-full max-w-sm"
+              />
               <div class="flex gap-2">
-                <UButton
-                  type="button"
-                  icon="i-lucide-filter-x"
-                  variant="outline"
-                  size="sm"
-                  @click="clearContactFilters()"
-                >
-                  Clear Filters
-                </UButton>
                 <UButton
                   v-if="!readOnly"
                   type="button"
                   :label="editingNames ? 'Done' : 'Edit names'"
                   :icon="editingNames ? 'i-lucide-check' : 'i-lucide-pencil'"
                   :variant="editingNames ? 'solid' : 'outline'"
-                  size="sm"
                   :disabled="!visibleContacts.length"
                   @click="editingNames = !editingNames"
                 />
+                <TableFilterDrawer
+                  :active-count="contactView.activeFilterCount"
+                  @reset="contactView.resetFilters()"
+                >
+                  <UFormField label="Scenario">
+                    <UInput
+                      v-model="contactView.filters.scenario"
+                      placeholder="Search by scenario"
+                      class="w-full"
+                    />
+                  </UFormField>
+                </TableFilterDrawer>
               </div>
-              <UInput
-                v-model="contactFilters['global'].value"
-                type="text"
-                icon="i-lucide-search"
-                placeholder="Keyword Search"
-              />
             </div>
 
-            <ContextMenu ref="contactContextMenu" :model="contextMenuGroup ? groupContextMenuItems : memberContextMenuItems" />
-
-            <DataTable
-              v-model:filters="contactFilters"
-              v-model:expanded-rows="expandedContactRows"
-              :value="contactGroups"
-              data-key="key"
-              paginator
-              :rows="25"
-              :rows-per-page-options="[25, 50, 100, 200]"
-              filter-display="menu"
-              :global-filter-fields="['template.name', 'scenarioNames']"
-              :row-class="() => 'hover:bg-elevated'"
-              @row-contextmenu="onGroupRowContextMenu"
-            >
-              <template #empty>No actual contacts recorded yet.</template>
-              <Column expander style="width: 2.5rem" />
-              <Column header="Contact template">
-                <template #body="{ data }">{{ data.template ? templateName(data.template) : '—' }}</template>
-              </Column>
-              <Column header="Donor">
-                <template #body="{ data }">
+            <UContextMenu :items="groupContextMenuItems" :disabled="readOnly">
+              <UTable
+                v-model:expanded="expandedContactRows"
+                :data="contactView.rows"
+                :columns="groupColumns"
+                :get-row-id="(group: ContactGroup) => group.key"
+                empty="No actual contacts recorded yet."
+                :on-contextmenu="onGroupRowContextMenu"
+              >
+                <template #template-cell="{ row }">
+                  {{ row.original.template ? templateName(row.original.template) : '—' }}
+                </template>
+                <template #donor-cell="{ row: { original: data } }">
                   <span class="flex items-center gap-1.5">
-                    <UIcon v-if="groupSideDisplay(data, 'donor_surface').icon" :name="groupSideDisplay(data, 'donor_surface').icon!" class="shrink-0" />
+                    <UIcon
+                      v-if="groupSideDisplay(data, 'donor_surface').icon"
+                      :name="groupSideDisplay(data, 'donor_surface').icon!"
+                      class="shrink-0"
+                    />
                     {{ groupSideDisplay(data, 'donor_surface').label }}
                   </span>
                 </template>
-              </Column>
-              <Column header="Recipient">
-                <template #body="{ data }">
+                <template #recipient-cell="{ row: { original: data } }">
                   <span class="flex items-center gap-1.5">
-                    <UIcon v-if="groupSideDisplay(data, 'recipient_surface').icon" :name="groupSideDisplay(data, 'recipient_surface').icon!" class="shrink-0" />
+                    <UIcon
+                      v-if="groupSideDisplay(data, 'recipient_surface').icon"
+                      :name="groupSideDisplay(data, 'recipient_surface').icon!"
+                      class="shrink-0"
+                    />
                     {{ groupSideDisplay(data, 'recipient_surface').label }}
                   </span>
                 </template>
-              </Column>
-              <Column
-          field="scenarioNames"
-          header="Scenario"
-          sortable
-          :showFilterOperator="false"
-          :showAddButton="false"
-        >
-          <template #body="{ data }"><ScenarioBadges :names="[...new Set<string>(data.members.flatMap(contactScenarioNames))]" /></template>
-          <template #filter="{ filterModel }">
-            <UInput v-model="filterModel.value" type="text" placeholder="Search by scenario" />
-          </template>
-        </Column>
-              <Column header="Contacts" style="width: 6rem">
-                <template #body="{ data }">{{ data.members.length }}</template>
-              </Column>
-              <Column v-if="!readOnly" header="" style="width: 3rem">
-                <template #body="{ data }">
-                  <UButton
-                    icon="i-lucide-more-vertical"
-                    color="neutral"
-                    variant="ghost"
-                    square
-                    aria-label="Contact options"
-                    @click.stop="openGroupContextMenu($event, data)"
+                <template #scenarioNames-cell="{ row }">
+                  <ScenarioBadges
+                    :names="[
+                      ...new Set<string>(row.original.members.flatMap(contactScenarioNames)),
+                    ]"
                   />
                 </template>
-              </Column>
+                <template #count-cell="{ row }">{{ row.original.members.length }}</template>
+                <template #actions-cell="{ row }">
+                  <UDropdownMenu :items="groupMenuItems(row.original)" :content="{ align: 'end' }">
+                    <UButton
+                      icon="i-lucide-more-vertical"
+                      color="neutral"
+                      variant="ghost"
+                      square
+                      aria-label="Contact options"
+                    />
+                  </UDropdownMenu>
+                </template>
 
-              <template #expansion="{ data: group }">
-                <DataTable
-                  :value="group.members"
-                  data-key="id"
-                  edit-mode="cell"
-                  :row-class="() => 'hover:bg-elevated'"
-                  @row-contextmenu="(event: { originalEvent: Event; data: Contact }) => openMemberContextMenu(event.originalEvent, event.data)"
-                  @cell-edit-complete="onMemberNameEditComplete"
-                >
-                  <Column header="Name" field="name">
-                    <template #body="{ data }">
-                      <UInput
-                        v-if="editingNames"
-                        :model-value="data.name"
-                        :placeholder="contactFallbackName(data)"
-                        class="w-full"
-                        @update:model-value="(value: string) => onMemberNameInput(data, value)"
-                        @blur="onMemberNameBlur(data)"
-                        @keyup.enter="($event.target as HTMLElement)?.blur()"
-                      />
-                      <template v-else>{{ data.name || contactFallbackName(data) }}</template>
-                    </template>
-                    <template v-if="!editingNames && !readOnly" #editor="{ data, field }">
-                      <UInput v-model="data[field]" autofocus class="w-full" @keyup.enter="($event.target as HTMLElement)?.blur()" />
-                    </template>
-                  </Column>
-                  <Column header="Donor">
-                    <template #body="{ data }">
-                      <span class="flex items-center gap-1.5">
-                        <UIcon v-if="sideIcon(data, 'donor_surface')" :name="sideIcon(data, 'donor_surface')!" class="shrink-0" />
-                        {{ sideIndividualLabel(data, 'donor_surface') ?? sideDisplay(data, 'donor_surface').label }}
-                        <UBadge v-if="sideIndividual(data, 'donor_surface')?.sex?.name" color="neutral" variant="outline">
-                          {{ sideIndividual(data, 'donor_surface')!.sex!.name }}
-                        </UBadge>
-                        <UBadge v-if="sideIndividual(data, 'donor_surface')?.age != null" color="neutral" variant="outline">
-                          {{ sideIndividual(data, 'donor_surface')!.age }}y
-                        </UBadge>
-                      </span>
-                    </template>
-                  </Column>
-                  <Column header="Recipient">
-                    <template #body="{ data }">
-                      <span class="flex items-center gap-1.5">
-                        <UIcon v-if="sideIcon(data, 'recipient_surface')" :name="sideIcon(data, 'recipient_surface')!" class="shrink-0" />
-                        {{ sideIndividualLabel(data, 'recipient_surface') ?? sideDisplay(data, 'recipient_surface').label }}
-                        <UBadge v-if="sideIndividual(data, 'recipient_surface')?.sex?.name" color="neutral" variant="outline">
-                          {{ sideIndividual(data, 'recipient_surface')!.sex!.name }}
-                        </UBadge>
-                        <UBadge v-if="sideIndividual(data, 'recipient_surface')?.age != null" color="neutral" variant="outline">
-                          {{ sideIndividual(data, 'recipient_surface')!.age }}y
-                        </UBadge>
-                      </span>
-                    </template>
-                  </Column>
-                  <Column v-if="!readOnly" header="" style="width: 3rem">
-                    <template #body="{ data }">
-                      <UButton
-                        icon="i-lucide-more-vertical"
-                        color="neutral"
-                        variant="ghost"
-                        square
-                        aria-label="Contact options"
-                        @click.stop="openMemberContextMenu($event, data)"
-                      />
-                    </template>
-                  </Column>
-                </DataTable>
-              </template>
-            </DataTable>
+                <template #expanded="{ row: { original: group } }">
+                  <!-- Keep right-clicks in here from also opening the group's menu. -->
+                  <div @contextmenu.stop>
+                    <UContextMenu :items="memberContextMenuItems" :disabled="readOnly">
+                      <UTable
+                        :data="group.members"
+                        :columns="memberColumns"
+                        :get-row-id="(contact: Contact) => contact.id"
+                        :on-contextmenu="onMemberRowContextMenu"
+                      >
+                        <template #name-cell="{ row: { original: data } }">
+                          <UInput
+                            v-if="editingNames"
+                            :model-value="data.name"
+                            :placeholder="contactFallbackName(data)"
+                            class="w-full"
+                            @update:model-value="(value: string) => onMemberNameInput(data, value)"
+                            @blur="onMemberNameBlur(data)"
+                            @keyup.enter="($event.target as HTMLElement)?.blur()"
+                          />
+                          <UInput
+                            v-else-if="inlineEditContactId === data.id"
+                            :default-value="data.name ?? ''"
+                            :placeholder="contactFallbackName(data)"
+                            autofocus
+                            class="w-full"
+                            @blur="
+                              (event: FocusEvent) =>
+                                onMemberNameEditComplete(
+                                  data,
+                                  (event.target as HTMLInputElement).value,
+                                )
+                            "
+                            @keyup.enter="($event.target as HTMLElement)?.blur()"
+                            @keyup.escape="inlineEditContactId = null"
+                          />
+                          <button
+                            v-else-if="!readOnly"
+                            type="button"
+                            class="w-full text-left cursor-text"
+                            title="Click to rename"
+                            @click="inlineEditContactId = data.id"
+                          >
+                            {{ data.name || contactFallbackName(data) }}
+                          </button>
+                          <template v-else>{{ data.name || contactFallbackName(data) }}</template>
+                        </template>
+                        <template #donor-cell="{ row: { original: data } }">
+                          <span class="flex items-center gap-1.5">
+                            <UIcon
+                              v-if="sideIcon(data, 'donor_surface')"
+                              :name="sideIcon(data, 'donor_surface')!"
+                              class="shrink-0"
+                            />
+                            {{
+                              sideIndividualLabel(data, 'donor_surface') ??
+                              sideDisplay(data, 'donor_surface').label
+                            }}
+                            <UBadge
+                              v-if="sideIndividual(data, 'donor_surface')?.sex?.name"
+                              color="neutral"
+                              variant="outline"
+                            >
+                              {{ sideIndividual(data, 'donor_surface')!.sex!.name }}
+                            </UBadge>
+                            <UBadge
+                              v-if="sideIndividual(data, 'donor_surface')?.age != null"
+                              color="neutral"
+                              variant="outline"
+                            >
+                              {{ sideIndividual(data, 'donor_surface')!.age }}y
+                            </UBadge>
+                          </span>
+                        </template>
+                        <template #recipient-cell="{ row: { original: data } }">
+                          <span class="flex items-center gap-1.5">
+                            <UIcon
+                              v-if="sideIcon(data, 'recipient_surface')"
+                              :name="sideIcon(data, 'recipient_surface')!"
+                              class="shrink-0"
+                            />
+                            {{
+                              sideIndividualLabel(data, 'recipient_surface') ??
+                              sideDisplay(data, 'recipient_surface').label
+                            }}
+                            <UBadge
+                              v-if="sideIndividual(data, 'recipient_surface')?.sex?.name"
+                              color="neutral"
+                              variant="outline"
+                            >
+                              {{ sideIndividual(data, 'recipient_surface')!.sex!.name }}
+                            </UBadge>
+                            <UBadge
+                              v-if="sideIndividual(data, 'recipient_surface')?.age != null"
+                              color="neutral"
+                              variant="outline"
+                            >
+                              {{ sideIndividual(data, 'recipient_surface')!.age }}y
+                            </UBadge>
+                          </span>
+                        </template>
+                        <template #actions-cell="{ row }">
+                          <UDropdownMenu
+                            :items="memberMenuItems(row.original)"
+                            :content="{ align: 'end' }"
+                          >
+                            <UButton
+                              icon="i-lucide-more-vertical"
+                              color="neutral"
+                              variant="ghost"
+                              square
+                              aria-label="Contact options"
+                            />
+                          </UDropdownMenu>
+                        </template>
+                      </UTable>
+                    </UContextMenu>
+                  </div>
+                </template>
+              </UTable>
+            </UContextMenu>
+            <TablePagination
+              v-model:page="contactView.page"
+              v-model:page-size="contactView.pageSize"
+              :total="contactView.total"
+              :page-sizes="[25, 50, 100, 200]"
+            />
           </div>
 
           <ContactInstanceDialog
@@ -1124,7 +1231,12 @@ const activeTab = computed<string>({
               </UFormField>
             </template>
             <template #footer>
-              <UButton label="Cancel" icon="i-lucide-x" variant="ghost" @click="chainDialogVisible = false" />
+              <UButton
+                label="Cancel"
+                icon="i-lucide-x"
+                variant="ghost"
+                @click="chainDialogVisible = false"
+              />
               <UButton label="Save" icon="i-lucide-save" :loading="chaining" @click="saveChain" />
             </template>
           </UModal>
@@ -1135,12 +1247,20 @@ const activeTab = computed<string>({
             :ui="{ content: 'max-w-sm', footer: 'justify-end' }"
           >
             <template #body>
-              <UFormField label="Name" hint="Optional - helps tell otherwise identical contacts apart">
+              <UFormField
+                label="Name"
+                hint="Optional - helps tell otherwise identical contacts apart"
+              >
                 <UInput v-model="renameValue" class="w-full" @keyup.enter="saveRename" />
               </UFormField>
             </template>
             <template #footer>
-              <UButton label="Cancel" icon="i-lucide-x" variant="ghost" @click="renameDialogVisible = false" />
+              <UButton
+                label="Cancel"
+                icon="i-lucide-x"
+                variant="ghost"
+                @click="renameDialogVisible = false"
+              />
               <UButton label="Save" icon="i-lucide-save" :loading="renaming" @click="saveRename" />
             </template>
           </UModal>
@@ -1160,7 +1280,13 @@ const activeTab = computed<string>({
       </template>
 
       <template #results>
-        <ResultsTab :samples="scopedSamples" :study-id="studyId" :surface-scenarios="surfaceScenarios" :contacts="contacts" :export-name="exportName" />
+        <ResultsTab
+          :samples="scopedSamples"
+          :study-id="studyId"
+          :surface-scenarios="surfaceScenarios"
+          :contacts="contacts"
+          :export-name="exportName"
+        />
       </template>
     </UTabs>
   </div>

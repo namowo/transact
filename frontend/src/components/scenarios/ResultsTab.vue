@@ -2,12 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useForm } from 'vee-validate'
 import * as yup from 'yup'
-import DataTable from 'openvue/datatable'
-import Column from 'openvue/column'
-import ContextMenu from 'openvue/contextmenu'
-import { FilterMatchMode } from '@openvue/core/api'
-import type { MenuItem } from 'openvue/menuitem'
-import type { StepperItem } from '@nuxt/ui'
+import type { ContextMenuItem, StepperItem, TableColumn, TableRow } from '@nuxt/ui'
 import EntitySelect from '@/components/scenarios/EntitySelect.vue'
 import SamplePicker from '@/components/scenarios/SamplePicker.vue'
 import { surfaceLabel } from '@/components/data/sampleLabel'
@@ -45,6 +40,10 @@ import type {
   EPGAnalysisMethod,
   EPGInterpretationMethod,
 } from '@/api/types'
+import { manualSorting, useTableView } from '@/composables/useTableView'
+import { expandColumn, sortHeader } from '@/composables/tableColumns'
+import TableFilterDrawer from '@/components/ui/TableFilterDrawer.vue'
+import TablePagination from '@/components/ui/TablePagination.vue'
 
 const props = defineProps<{
   samples: Sample[]
@@ -91,17 +90,27 @@ function possibleIndividualIds(sampleId: string | null | undefined): Set<string>
   return new Set(ids.filter((id): id is string => !!id))
 }
 
-function contributorOptionsFor(sampleId: string | null | undefined, selected: PCRContributorInput[]) {
+function contributorOptionsFor(
+  sampleId: string | null | undefined,
+  selected: PCRContributorInput[],
+) {
   const possible = possibleIndividualIds(sampleId)
   if (possible === null) return contributorOptions.value
-  const keep = new Set([...possible, ...selected.map((c) => c.individual_id).filter((id): id is string => !!id)])
-  return contributorOptions.value.filter((option) => option.unknownLabel !== null || keep.has(option.id))
+  const keep = new Set([
+    ...possible,
+    ...selected.map((c) => c.individual_id).filter((id): id is string => !!id),
+  ])
+  return contributorOptions.value.filter(
+    (option) => option.unknownLabel !== null || keep.has(option.id),
+  )
 }
 
 function contributorKey(contributor: PCRContributorInput): string | null {
   if (contributor.individual_id) return contributor.individual_id
   if (contributor.unknown_label) {
-    return unknownPersonOptions.find((up) => up.unknownLabel === contributor.unknown_label)?.id ?? null
+    return (
+      unknownPersonOptions.find((up) => up.unknownLabel === contributor.unknown_label)?.id ?? null
+    )
   }
   return null
 }
@@ -112,7 +121,10 @@ function emptyContributor(): PCRContributorInput {
 
 // Keeps the contributors array in sync with no_of_contributors: growing it
 // adds blank rows, shrinking it drops the extra ones from the end.
-function syncContributors(contributors: PCRContributorInput[], count: number | null): PCRContributorInput[] {
+function syncContributors(
+  contributors: PCRContributorInput[],
+  count: number | null,
+): PCRContributorInput[] {
   const target = count ?? 0
   const next = contributors.slice(0, target)
   while (next.length < target) next.push(emptyContributor())
@@ -121,7 +133,9 @@ function syncContributors(contributors: PCRContributorInput[], count: number | n
 
 // The Samples tab passes its samples already in the user's sort order (see
 // SamplesPanel), so results simply follow the position of their sample.
-const sampleOrder = computed(() => new Map(props.samples.map((sample, index) => [sample.id, index])))
+const sampleOrder = computed(
+  () => new Map(props.samples.map((sample, index) => [sample.id, index])),
+)
 
 const allResults = ref<Result[]>([])
 const loading = ref(false)
@@ -135,7 +149,7 @@ const results = computed(() =>
 
 // The column sort is saved per user (all studies). With no sort, results
 // keep the order of the Samples tab.
-const { multiSortMeta, isCustom: isCustomSort, resetSort } = useTableSort('results')
+const { multiSortMeta, sorting, isCustom: isCustomSort, resetSort } = useTableSort('results')
 
 // Plain text fields so the columns can sort and filter on them. Sorted here
 // the same way the table sorts, so the CSV download matches the table.
@@ -303,10 +317,9 @@ async function applyCsvImport(table: string[][], decimal: DecimalSeparator) {
   const idCol = header.includes(CSV_ID) ? header.indexOf(CSV_ID) : header.indexOf('id')
   const pcrIdCol = header.indexOf(CSV_PCR_ID)
   const concentrationCol = header.indexOf(CSV_CONCENTRATION)
-  const pcrCols = Object.fromEntries(PCR_FIELDS.map((field) => [field, header.indexOf(CSV_PCR_COLUMNS[field])])) as Record<
-    PcrNumericField,
-    number
-  >
+  const pcrCols = Object.fromEntries(
+    PCR_FIELDS.map((field) => [field, header.indexOf(CSV_PCR_COLUMNS[field])]),
+  ) as Record<PcrNumericField, number>
   const hasPcrCols = PCR_FIELDS.some((field) => pcrCols[field] !== -1)
   if (idCol === -1 || (concentrationCol === -1 && !hasPcrCols)) {
     return {
@@ -329,7 +342,8 @@ async function applyCsvImport(table: string[][], decimal: DecimalSeparator) {
   }
   const plans = new Map<string, Plan>()
 
-  const parse = (cells: string[], col: number) => (col === -1 ? undefined : parseNumber(cells[col] ?? '', decimal))
+  const parse = (cells: string[], col: number) =>
+    col === -1 ? undefined : parseNumber(cells[col] ?? '', decimal)
   const invalid = (value: number | null | undefined, integer = false) =>
     value != null && (Number.isNaN(value) || value < 0 || (integer && !Number.isInteger(value)))
 
@@ -355,7 +369,9 @@ async function applyCsvImport(table: string[][], decimal: DecimalSeparator) {
     // DNA concentration belongs to the result, so every row of it must agree.
     const concentration = parse(cells, concentrationCol)
     if (invalid(concentration)) {
-      problems.push(`line ${line}: DNA concentration ${JSON.stringify(cells[concentrationCol])} is not a number of zero or more written with a "${decimal}" decimal separator`)
+      problems.push(
+        `line ${line}: DNA concentration ${JSON.stringify(cells[concentrationCol])} is not a number of zero or more written with a "${decimal}" decimal separator`,
+      )
       return
     }
     if (concentration !== undefined) {
@@ -410,7 +426,11 @@ async function applyCsvImport(table: string[][], decimal: DecimalSeparator) {
       // of the latest existing one.
       const latest = plan.pcrs.length ? plan.pcrs[plan.pcrs.length - 1] : null
       const fresh: PCRInput = latest
-        ? { ...latest, contributors: [], ...Object.fromEntries(PCR_FIELDS.map((field) => [field, null])) }
+        ? {
+            ...latest,
+            contributors: [],
+            ...Object.fromEntries(PCR_FIELDS.map((field) => [field, null])),
+          }
         : emptyPcrForm()
       apply(fresh)
       plan.pcrs.push(fresh)
@@ -429,14 +449,17 @@ async function applyCsvImport(table: string[][], decimal: DecimalSeparator) {
   const jobs = [...plans.values()].filter(
     (plan) =>
       plan.pcrsChanged ||
-      (plan.concentration !== undefined && plan.concentration !== (plan.result.dna_concentration ?? null)),
+      (plan.concentration !== undefined &&
+        plan.concentration !== (plan.result.dna_concentration ?? null)),
   )
   const updated = await Promise.all(
     jobs.map((plan) => {
       const input: ResultInput = {
         ...resultInputOf(plan.result),
         dna_concentration:
-          plan.concentration === undefined ? (plan.result.dna_concentration ?? null) : plan.concentration,
+          plan.concentration === undefined
+            ? (plan.result.dna_concentration ?? null)
+            : plan.concentration,
       }
       if (plan.pcrsChanged) input.pcrs = plan.pcrs
       return resultApi.update(plan.result.id, input)
@@ -446,7 +469,9 @@ async function applyCsvImport(table: string[][], decimal: DecimalSeparator) {
   allResults.value = allResults.value.map((item) => updatedById.get(item.id) ?? item)
   return {
     ok: true,
-    title: jobs.length ? `Updated ${jobs.length} result${jobs.length === 1 ? '' : 's'}` : 'No changes found',
+    title: jobs.length
+      ? `Updated ${jobs.length} result${jobs.length === 1 ? '' : 's'}`
+      : 'No changes found',
   }
 }
 
@@ -512,18 +537,53 @@ function methodLabel(
   return `#${method.id}`
 }
 
-function initFilters() {
-  return {
-    global: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    scenarioNames: { value: null, matchMode: FilterMatchMode.CONTAINS },
-  }
-}
+type ResultRow = (typeof resultRows.value)[number]
 
-const filters = ref(initFilters())
+const view = useTableView(resultRows, {
+  searchFields: ['sampleLabel', 'sampleName', 'scenarioNames', 'dna_concentration'],
+  filters: { scenario: { field: 'scenarioNames' } },
+  sorting,
+  pageSize: 25,
+})
 
-function clearFilters() {
-  filters.value = initFilters()
-}
+const columns = computed<TableColumn<ResultRow>[]>(() => [
+  expandColumn(),
+  { id: 'sampleLabel', accessorKey: 'sampleLabel', header: sortHeader('Sample', { multi: true }) },
+  { id: 'sampleName', accessorKey: 'sampleName', header: sortHeader('Name', { multi: true }) },
+  {
+    id: 'scenarioNames',
+    accessorKey: 'scenarioNames',
+    header: sortHeader('Scenario', { multi: true }),
+  },
+  {
+    id: 'dna_concentration',
+    accessorKey: 'dna_concentration',
+    header: sortHeader('DNA concentration', { multi: true }),
+  },
+  {
+    id: 'dna_quantity',
+    accessorKey: 'dna_quantity',
+    header: sortHeader('DNA quantity', { multi: true }),
+  },
+  {
+    id: 'degradation_index',
+    accessorKey: 'degradation_index',
+    header: sortHeader('Degradation index', { multi: true }),
+  },
+  {
+    id: 'pcrCount',
+    header: sortHeader('Genotyping results', { multi: true }),
+    meta: { class: { td: 'w-32' } },
+  },
+  ...(readOnly.value ? [] : [{ id: 'actions', header: '', meta: { class: { td: 'w-12' } } }]),
+])
+
+const pcrColumns = computed<TableColumn<PCR>[]>(() => [
+  { id: 'pcr_method', header: 'PCR method' },
+  { id: 'no_of_contributors', accessorKey: 'no_of_contributors', header: 'No. of contributors' },
+  { id: 'average_rfu', accessorKey: 'average_rfu', header: 'Average RFU' },
+  ...(readOnly.value ? [] : [{ id: 'actions', header: '', meta: { class: { td: 'w-12' } } }]),
+])
 
 // -- PCR form --
 // pcrs is full-replace on Result update, so adding/editing/deleting one PCR
@@ -643,7 +703,6 @@ function setContributorKey(index: number, key: string | null) {
   })
 }
 
-
 function isBlankContributor(contributor: PCRContributorInput): boolean {
   return Object.values(contributor).every((value) => value === null)
 }
@@ -758,22 +817,23 @@ const expandedRows = ref<Record<string, boolean>>({})
 
 // -- Result row context menu --
 
-const resultContextMenu = ref<InstanceType<typeof ContextMenu>>()
-const contextMenuResult = ref<Result>()
-
-const resultContextMenuItems = computed<MenuItem[]>(() => {
-  const result = contextMenuResult.value
-  if (!result) return []
+function resultMenuItems(result: Result): ContextMenuItem[] {
   return [
-    { label: 'Edit', icon: 'i-lucide-pencil', command: () => openEditDialog(result) },
-    { label: 'Delete', icon: 'i-lucide-trash-2', command: () => deleteRow(result) },
+    { label: 'Edit', icon: 'i-lucide-pencil', onSelect: () => openEditDialog(result) },
+    {
+      label: 'Delete',
+      icon: 'i-lucide-trash-2',
+      color: 'error',
+      onSelect: () => deleteRow(result),
+    },
   ]
-})
+}
 
-function openResultContextMenu(event: Event, result: Result) {
-  if (readOnly.value) return
-  contextMenuResult.value = result
-  resultContextMenu.value?.show(event)
+// The right-clicked result's menu.
+const resultContextMenuItems = ref<ContextMenuItem[]>([])
+
+function onResultContextMenu(_event: Event, row: TableRow<ResultRow>) {
+  resultContextMenuItems.value = readOnly.value ? [] : resultMenuItems(row.original)
 }
 
 // -- PCR dialog --
@@ -790,7 +850,9 @@ const submitPcrError = ref('')
 // (µL) × 1000. The backend recalculates it on save; here it is filled in
 // live and locked whenever both values are known.
 const pcrConcentration = computed(() =>
-  pcrDialogVisible.value ? (pcrDialogResult.value?.dna_concentration ?? null) : (dnaConcentration.value ?? null),
+  pcrDialogVisible.value
+    ? (pcrDialogResult.value?.dna_concentration ?? null)
+    : (dnaConcentration.value ?? null),
 )
 const derivedDnaInputAmount = computed(() => {
   const concentration = pcrConcentration.value
@@ -885,22 +947,23 @@ async function deletePcr(result: Result, pcr: PCR) {
 
 // -- PCR row context menu --
 
-const pcrContextMenu = ref<InstanceType<typeof ContextMenu>>()
-const contextMenuPcr = ref<{ result: Result; pcr: PCR }>()
-
-const pcrContextMenuItems = computed<MenuItem[]>(() => {
-  const entry = contextMenuPcr.value
-  if (!entry) return []
+function pcrMenuItems(result: Result, pcr: PCR): ContextMenuItem[] {
   return [
-    { label: 'Edit', icon: 'i-lucide-pencil', command: () => openEditPcrDialog(entry.result, entry.pcr) },
-    { label: 'Delete', icon: 'i-lucide-trash-2', command: () => deletePcr(entry.result, entry.pcr) },
+    { label: 'Edit', icon: 'i-lucide-pencil', onSelect: () => openEditPcrDialog(result, pcr) },
+    {
+      label: 'Delete',
+      icon: 'i-lucide-trash-2',
+      color: 'error',
+      onSelect: () => deletePcr(result, pcr),
+    },
   ]
-})
+}
 
-function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
-  if (readOnly.value) return
-  contextMenuPcr.value = { result, pcr }
-  pcrContextMenu.value?.show(event)
+// The right-clicked genotyping result's menu.
+const pcrContextMenuItems = ref<ContextMenuItem[]>([])
+
+function onPcrContextMenu(result: Result, row: TableRow<PCR>) {
+  pcrContextMenuItems.value = readOnly.value ? [] : pcrMenuItems(result, row.original)
 }
 </script>
 
@@ -938,14 +1001,9 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
 
     <UAlert v-if="loadError" color="error" variant="outline" :description="loadError" />
 
-    <ContextMenu ref="resultContextMenu" :model="resultContextMenuItems" />
-
     <div class="flex flex-col gap-3">
-      <div class="flex items-center justify-between gap-3">
+      <div class="flex flex-wrap items-center justify-between gap-3">
         <div class="flex flex-wrap gap-2">
-          <UButton type="button" icon="i-lucide-filter-x" variant="outline" size="sm" @click="clearFilters()">
-            Clear Filters
-          </UButton>
           <UButton
             type="button"
             icon="i-lucide-arrow-up-down"
@@ -977,102 +1035,89 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
             :apply-import="applyCsvImport"
           />
         </div>
-        <UInput
-          v-model="(filters['global'] as { value: string | null }).value"
-          type="text"
-          icon="i-lucide-search"
-          placeholder="Keyword Search"
-        />
+        <div class="flex items-center gap-2">
+          <UInput
+            v-model="view.search"
+            icon="i-lucide-search"
+            placeholder="Keyword Search"
+            class="w-full sm:w-64"
+          />
+          <TableFilterDrawer :active-count="view.activeFilterCount" @reset="view.resetFilters()">
+            <UFormField label="Scenario">
+              <UInput
+                v-model="view.filters.scenario"
+                placeholder="Search by scenario"
+                class="w-full"
+              />
+            </UFormField>
+          </TableFilterDrawer>
+        </div>
       </div>
       <TableSortHint />
 
-      <div class="overflow-x-auto">
-        <DataTable
-          v-model:filters="filters"
-          v-model:expanded-rows="expandedRows"
-          v-model:multi-sort-meta="multiSortMeta"
-          :value="resultRows"
+      <UContextMenu :items="resultContextMenuItems" :disabled="readOnly">
+        <UTable
+          v-model:expanded="expandedRows"
+          v-model:sorting="view.sorting"
+          :sorting-options="manualSorting"
+          :data="view.rows"
+          :columns="columns"
           :loading="loading"
-          data-key="id"
-          sort-mode="multiple"
-          paginator
-          :rows="25"
-          :rowsPerPageOptions="[25, 50, 100, 200]"
-          filterDisplay="menu"
-          removableSort
-          :globalFilterFields="['sample.surface.id', 'dna_concentration', 'scenarioNames']"
-          @row-contextmenu="({ originalEvent, data }: { originalEvent: Event; data: Result }) => openResultContextMenu(originalEvent, data)"
+          :get-row-id="(result: ResultRow) => result.id"
+          empty="No results recorded yet."
+          :on-contextmenu="onResultContextMenu"
         >
-          <template #empty>No results recorded yet.</template>
-          <Column expander style="width: 2.5rem" />
-          <Column field="sampleLabel" header="Sample" sortable>
-            <template #body="{ data }">{{ data.sampleLabel }}</template>
-          </Column>
-          <Column field="sampleName" header="Name" sortable>
-            <template #body="{ data }">{{ data.sampleName || '—' }}</template>
-          </Column>
-          <Column
-            field="scenarioNames"
-            header="Scenario"
-            sortable
-            :showFilterOperator="false"
-            :showAddButton="false"
-          >
-            <template #body="{ data }"><ScenarioBadges :names="surfaceScenarios[data.sample?.surface_id] ?? []" /></template>
-            <template #filter="{ filterModel }">
-              <UInput v-model="filterModel.value" type="text" placeholder="Search by scenario" />
+          <template #sampleName-cell="{ row }">{{ row.original.sampleName || '—' }}</template>
+          <template #scenarioNames-cell="{ row }">
+            <ScenarioBadges
+              :names="surfaceScenarios[row.original.sample?.surface_id ?? ''] ?? []"
+            />
+          </template>
+          <template #dna_concentration-cell="{ row: { original: data } }">
+            <UFieldGroup v-if="editMode" class="w-full min-w-44">
+              <UInputNumber
+                :model-value="data.dna_concentration ?? undefined"
+                :min="0"
+                :step="0.1"
+                :step-snapping="false"
+                :format-options="{ maximumFractionDigits: 6 }"
+                orientation="vertical"
+                class="w-full"
+                @update:model-value="(value: number | null) => saveConcentration(data, value)"
+              />
+              <UBadge color="neutral" variant="outline" size="lg" label="ng/µL" />
+            </UFieldGroup>
+            <template v-else>
+              {{
+                data.dna_concentration != null
+                  ? `${auth.formatNumber(data.dna_concentration, FIXED4)} ng/µL`
+                  : '—'
+              }}
             </template>
-          </Column>
-          <Column
-            field="dna_concentration"
-            header="DNA concentration"
-            sortable
-          >
-            <template #body="{ data }">
-              <UFieldGroup v-if="editMode" class="w-full min-w-44">
-                <UInputNumber
-                  :model-value="data.dna_concentration ?? undefined"
-                  :min="0"
-                  :step="0.1"
-                  :step-snapping="false"
-                  :format-options="{ maximumFractionDigits: 6 }"
-                  orientation="vertical"
-                  class="w-full"
-                  @update:model-value="(value: number | null) => saveConcentration(data, value)"
-                />
-                <UBadge color="neutral" variant="outline" size="lg" label="ng/µL" />
-              </UFieldGroup>
-              <template v-else>
-                {{ data.dna_concentration != null ? `${auth.formatNumber(data.dna_concentration, FIXED4)} ng/µL` : '—' }}
-              </template>
-            </template>
-          </Column>
-          <Column field="dna_quantity" header="DNA quantity" sortable>
-            <template #body="{ data }">
-              {{ data.dna_quantity != null ? `${auth.formatNumber(data.dna_quantity, FIXED4)} ng` : '—' }}
-            </template>
-          </Column>
-          <Column field="degradation_index" header="Degradation index" sortable>
-            <template #body="{ data }">{{ data.degradation_index != null ? auth.formatNumber(data.degradation_index) : '—' }}</template>
-          </Column>
-          <Column field="pcrCount" header="Genotyping results" sortable style="width: 8rem">
-            <template #body="{ data }">{{ data.pcrCount }}</template>
-          </Column>
-          <Column v-if="!readOnly" header="" style="width: 3rem">
-            <template #body="{ data }">
+          </template>
+          <template #dna_quantity-cell="{ row: { original: data } }">
+            {{
+              data.dna_quantity != null ? `${auth.formatNumber(data.dna_quantity, FIXED4)} ng` : '—'
+            }}
+          </template>
+          <template #degradation_index-cell="{ row: { original: data } }">
+            {{ data.degradation_index != null ? auth.formatNumber(data.degradation_index) : '—' }}
+          </template>
+          <template #actions-cell="{ row }">
+            <UDropdownMenu :items="resultMenuItems(row.original)" :content="{ align: 'end' }">
               <UButton
                 icon="i-lucide-more-vertical"
                 color="neutral"
                 variant="ghost"
                 square
                 aria-label="Result options"
-                @click.stop="openResultContextMenu($event, data)"
               />
-            </template>
-          </Column>
+            </UDropdownMenu>
+          </template>
 
-          <template #expansion="{ data: result }">
-            <div class="flex flex-col gap-2 p-2">
+          <template #expanded="{ row: { original: result } }">
+            <!-- Keep right-clicks in here from also opening the result's menu. -->
+            <div class="flex flex-col gap-2 p-2" @contextmenu.stop>
               <div class="flex items-center justify-between">
                 <h5 class="font-medium text-sm">Genotyping results</h5>
                 <UButton
@@ -1084,41 +1129,53 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
                   @click="openCreatePcrDialog(result)"
                 />
               </div>
-              <ContextMenu ref="pcrContextMenu" :model="pcrContextMenuItems" />
-              <DataTable
-                :value="result.pcrs"
-                data-key="id"
-                @row-contextmenu="({ originalEvent, data }: { originalEvent: Event; data: PCR }) => openPcrContextMenu(originalEvent, result, data)"
-              >
-                <template #empty>No genotyping results recorded yet.</template>
-                <Column header="PCR method">
-                  <template #body="{ data }">{{ data.pcr_method ? methodLabel(data.pcr_method) : '—' }}</template>
-                </Column>
-                <Column header="No. of contributors">
-                  <template #body="{ data }">{{ data.no_of_contributors ?? '—' }}</template>
-                </Column>
-                <Column header="Average RFU">
-                  <template #body="{ data }">
-                    {{ data.average_rfu != null ? `${auth.formatNumber(data.average_rfu)} RFU` : '—' }}
+              <UContextMenu :items="pcrContextMenuItems" :disabled="readOnly">
+                <UTable
+                  :data="result.pcrs"
+                  :columns="pcrColumns"
+                  :get-row-id="(pcr: PCR) => pcr.id"
+                  empty="No genotyping results recorded yet."
+                  :on-contextmenu="(_e: Event, row: TableRow<PCR>) => onPcrContextMenu(result, row)"
+                >
+                  <template #pcr_method-cell="{ row }">
+                    {{ row.original.pcr_method ? methodLabel(row.original.pcr_method) : '—' }}
                   </template>
-                </Column>
-                <Column v-if="!readOnly" header="" style="width: 3rem">
-                  <template #body="{ data }">
-                    <UButton
-                      icon="i-lucide-more-vertical"
-                      color="neutral"
-                      variant="ghost"
-                      square
-                      aria-label="Genotyping result options"
-                      @click.stop="openPcrContextMenu($event, result, data)"
-                    />
+                  <template #no_of_contributors-cell="{ row }">{{
+                    row.original.no_of_contributors ?? '—'
+                  }}</template>
+                  <template #average_rfu-cell="{ row }">
+                    {{
+                      row.original.average_rfu != null
+                        ? `${auth.formatNumber(row.original.average_rfu)} RFU`
+                        : '—'
+                    }}
                   </template>
-                </Column>
-              </DataTable>
+                  <template #actions-cell="{ row }">
+                    <UDropdownMenu
+                      :items="pcrMenuItems(result, row.original)"
+                      :content="{ align: 'end' }"
+                    >
+                      <UButton
+                        icon="i-lucide-more-vertical"
+                        color="neutral"
+                        variant="ghost"
+                        square
+                        aria-label="Genotyping result options"
+                      />
+                    </UDropdownMenu>
+                  </template>
+                </UTable>
+              </UContextMenu>
             </div>
           </template>
-        </DataTable>
-      </div>
+        </UTable>
+      </UContextMenu>
+      <TablePagination
+        v-model:page="view.page"
+        v-model:page-size="view.pageSize"
+        :total="view.total"
+        :page-sizes="[25, 50, 100, 200]"
+      />
     </div>
 
     <UModal
@@ -1136,21 +1193,43 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
             :options="quantificationMethods"
             :option-label="methodLabel"
           />
-          <p v-if="!quantificationMethods.length" class="text-sm text-surface-500 dark:text-surface-400 -mt-2">
+          <p
+            v-if="!quantificationMethods.length"
+            class="text-sm text-surface-500 dark:text-surface-400 -mt-2"
+          >
             No quantification methods yet. Add one under
-            <RouterLink :to="{ name: 'settings-methods-quantification' }" class="underline" target="_blank">
-              Settings → Methods → Quantification
-            </RouterLink>.
+            <RouterLink
+              :to="{ name: 'settings-methods-quantification' }"
+              class="underline"
+              target="_blank"
+            >
+              Settings → Methods → Quantification </RouterLink
+            >.
           </p>
 
           <UFormField label="DNA concentration" :error="errors.dna_concentration">
             <UFieldGroup>
-              <UInputNumber v-model="dnaConcentration" :min="0" :step="0.1" :step-snapping="false" :format-options="{ maximumFractionDigits: 6 }" orientation="vertical" class="w-full" />
+              <UInputNumber
+                v-model="dnaConcentration"
+                :min="0"
+                :step="0.1"
+                :step-snapping="false"
+                :format-options="{ maximumFractionDigits: 6 }"
+                orientation="vertical"
+                class="w-full"
+              />
               <UBadge color="neutral" variant="outline" size="lg" label="ng/µL" />
             </UFieldGroup>
           </UFormField>
           <UFormField label="Degradation index" :error="errors.degradation_index">
-            <UInputNumber v-model="degradationIndex" :step="0.01" :step-snapping="false" :format-options="{ maximumFractionDigits: 6 }" orientation="vertical" class="w-full" />
+            <UInputNumber
+              v-model="degradationIndex"
+              :step="0.01"
+              :step-snapping="false"
+              :format-options="{ maximumFractionDigits: 6 }"
+              orientation="vertical"
+              class="w-full"
+            />
           </UFormField>
 
           <UAlert v-if="submitError" color="error" variant="outline" :description="submitError" />
@@ -1174,21 +1253,42 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
                 :options="quantificationMethods"
                 :option-label="methodLabel"
               />
-              <p v-if="!quantificationMethods.length" class="text-sm text-surface-500 dark:text-surface-400 -mt-2">
+              <p
+                v-if="!quantificationMethods.length"
+                class="text-sm text-surface-500 dark:text-surface-400 -mt-2"
+              >
                 No quantification methods yet. Add one under
-                <RouterLink :to="{ name: 'settings-methods-quantification' }" class="underline" target="_blank">
-                  Settings → Methods → Quantification
-                </RouterLink>.
+                <RouterLink
+                  :to="{ name: 'settings-methods-quantification' }"
+                  class="underline"
+                  target="_blank"
+                >
+                  Settings → Methods → Quantification </RouterLink
+                >.
               </p>
 
               <UFormField label="DNA concentration" :error="errors.dna_concentration">
                 <UFieldGroup>
-                  <UInputNumber v-model="dnaConcentration" :step="0.0001" :step-snapping="false" :format-options="{ maximumFractionDigits: 6 }" orientation="vertical" class="w-full" />
+                  <UInputNumber
+                    v-model="dnaConcentration"
+                    :step="0.0001"
+                    :step-snapping="false"
+                    :format-options="{ maximumFractionDigits: 6 }"
+                    orientation="vertical"
+                    class="w-full"
+                  />
                   <UBadge color="neutral" variant="outline" size="lg" label="ng/µL" />
                 </UFieldGroup>
               </UFormField>
               <UFormField label="Degradation index" :error="errors.degradation_index">
-                <UInputNumber v-model="degradationIndex" :step="0.01" :step-snapping="false" :format-options="{ maximumFractionDigits: 6 }" orientation="vertical" class="w-full" />
+                <UInputNumber
+                  v-model="degradationIndex"
+                  :step="0.01"
+                  :step-snapping="false"
+                  :format-options="{ maximumFractionDigits: 6 }"
+                  orientation="vertical"
+                  class="w-full"
+                />
               </UFormField>
               <div class="flex justify-end mt-2">
                 <UButton
@@ -1215,11 +1315,18 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
                     :options="pcrMethods"
                     :option-label="methodLabel"
                   />
-                  <p v-if="!pcrMethods.length" class="text-sm text-surface-500 dark:text-surface-400">
+                  <p
+                    v-if="!pcrMethods.length"
+                    class="text-sm text-surface-500 dark:text-surface-400"
+                  >
                     No PCR methods yet. Add one under
-                    <RouterLink :to="{ name: 'settings-methods-pcr' }" class="underline" target="_blank">
-                      Settings → Methods → PCR
-                    </RouterLink>.
+                    <RouterLink
+                      :to="{ name: 'settings-methods-pcr' }"
+                      class="underline"
+                      target="_blank"
+                    >
+                      Settings → Methods → PCR </RouterLink
+                    >.
                   </p>
                 </div>
                 <div class="flex flex-col gap-1">
@@ -1229,11 +1336,18 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
                     :options="postPcrTreatmentMethods"
                     :option-label="(m: PostPCRTreatmentMethod) => `#${m.id}`"
                   />
-                  <p v-if="!postPcrTreatmentMethods.length" class="text-sm text-surface-500 dark:text-surface-400">
+                  <p
+                    v-if="!postPcrTreatmentMethods.length"
+                    class="text-sm text-surface-500 dark:text-surface-400"
+                  >
                     No post-PCR treatment methods yet. Add one under
-                    <RouterLink :to="{ name: 'settings-methods-post-pcr-treatment' }" class="underline" target="_blank">
-                      Settings → Methods → Post-PCR treatment
-                    </RouterLink>.
+                    <RouterLink
+                      :to="{ name: 'settings-methods-post-pcr-treatment' }"
+                      class="underline"
+                      target="_blank"
+                    >
+                      Settings → Methods → Post-PCR treatment </RouterLink
+                    >.
                   </p>
                 </div>
                 <div class="flex flex-col gap-1">
@@ -1241,13 +1355,22 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
                     v-model="ceMethodId"
                     label="CE method"
                     :options="ceMethodOptions"
-                    :option-label="(method) => ceMethodOptionLabels[method.id] ?? methodLabel(method)"
+                    :option-label="
+                      (method) => ceMethodOptionLabels[method.id] ?? methodLabel(method)
+                    "
                   />
-                  <p v-if="!ceMethods.length" class="text-sm text-surface-500 dark:text-surface-400">
+                  <p
+                    v-if="!ceMethods.length"
+                    class="text-sm text-surface-500 dark:text-surface-400"
+                  >
                     No CE methods yet. Add one under
-                    <RouterLink :to="{ name: 'settings-methods-ce' }" class="underline" target="_blank">
-                      Settings → Methods → CE
-                    </RouterLink>.
+                    <RouterLink
+                      :to="{ name: 'settings-methods-ce' }"
+                      class="underline"
+                      target="_blank"
+                    >
+                      Settings → Methods → CE </RouterLink
+                    >.
                   </p>
                 </div>
                 <div class="flex flex-col gap-1">
@@ -1257,11 +1380,18 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
                     :options="epgAnalysisMethods"
                     :option-label="methodLabel"
                   />
-                  <p v-if="!epgAnalysisMethods.length" class="text-sm text-surface-500 dark:text-surface-400">
+                  <p
+                    v-if="!epgAnalysisMethods.length"
+                    class="text-sm text-surface-500 dark:text-surface-400"
+                  >
                     No EPG analysis methods yet. Add one under
-                    <RouterLink :to="{ name: 'settings-methods-epg-analysis' }" class="underline" target="_blank">
-                      Settings → Methods → EPG analysis
-                    </RouterLink>.
+                    <RouterLink
+                      :to="{ name: 'settings-methods-epg-analysis' }"
+                      class="underline"
+                      target="_blank"
+                    >
+                      Settings → Methods → EPG analysis </RouterLink
+                    >.
                   </p>
                 </div>
                 <div class="flex flex-col gap-1">
@@ -1271,34 +1401,76 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
                     :options="epgInterpretationMethods"
                     :option-label="methodLabel"
                   />
-                  <p v-if="!epgInterpretationMethods.length" class="text-sm text-surface-500 dark:text-surface-400">
+                  <p
+                    v-if="!epgInterpretationMethods.length"
+                    class="text-sm text-surface-500 dark:text-surface-400"
+                  >
                     No EPG interpretation methods yet. Add one under
-                    <RouterLink :to="{ name: 'settings-methods-epg-interpretation' }" class="underline" target="_blank">
-                      Settings → Methods → EPG interpretation
-                    </RouterLink>.
+                    <RouterLink
+                      :to="{ name: 'settings-methods-epg-interpretation' }"
+                      class="underline"
+                      target="_blank"
+                    >
+                      Settings → Methods → EPG interpretation </RouterLink
+                    >.
                   </p>
                 </div>
               </div>
 
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <UFormField label="Sample input volume in PCR" :error="pcrErrors.sample_input_volume_in_pcr">
+                <UFormField
+                  label="Sample input volume in PCR"
+                  :error="pcrErrors.sample_input_volume_in_pcr"
+                >
                   <UFieldGroup>
-                    <UInputNumber v-model="sampleInputVolumeInPcr" :step="0.1" :step-snapping="false" :format-options="{ maximumFractionDigits: 6 }" orientation="vertical" class="w-full" />
+                    <UInputNumber
+                      v-model="sampleInputVolumeInPcr"
+                      :step="0.1"
+                      :step-snapping="false"
+                      :format-options="{ maximumFractionDigits: 6 }"
+                      orientation="vertical"
+                      class="w-full"
+                    />
                     <UBadge color="neutral" variant="outline" size="lg" label="µL" />
                   </UFieldGroup>
                 </UFormField>
-                <UFormField label="DNA input amount in PCR" :error="pcrErrors.dna_input_amount_in_pcr" :help="dnaInputAmountHelp">
+                <UFormField
+                  label="DNA input amount in PCR"
+                  :error="pcrErrors.dna_input_amount_in_pcr"
+                  :help="dnaInputAmountHelp"
+                >
                   <UFieldGroup>
-                    <UInputNumber v-model="dnaInputAmountInPcr" :disabled="derivedDnaInputAmount !== null" :step="0.001" :step-snapping="false" :format-options="{ maximumFractionDigits: 6 }" orientation="vertical" class="w-full" />
+                    <UInputNumber
+                      v-model="dnaInputAmountInPcr"
+                      :disabled="derivedDnaInputAmount !== null"
+                      :step="0.001"
+                      :step-snapping="false"
+                      :format-options="{ maximumFractionDigits: 6 }"
+                      orientation="vertical"
+                      class="w-full"
+                    />
                     <UBadge color="neutral" variant="outline" size="lg" label="pg" />
                   </UFieldGroup>
                 </UFormField>
                 <UFormField label="No. of contributors" :error="pcrErrors.no_of_contributors">
-                  <UInputNumber v-model="noOfContributors" :min="0" orientation="vertical" class="w-full" />
+                  <UInputNumber
+                    v-model="noOfContributors"
+                    :min="0"
+                    orientation="vertical"
+                    class="w-full"
+                  />
                 </UFormField>
                 <UFormField label="Average RFU" :error="pcrErrors.average_rfu">
                   <UFieldGroup>
-                    <UInputNumber v-model="averageRfu" :min="0" :step="0.1" :step-snapping="false" :format-options="{ maximumFractionDigits: 6 }" orientation="vertical" class="w-full" />
+                    <UInputNumber
+                      v-model="averageRfu"
+                      :min="0"
+                      :step="0.1"
+                      :step-snapping="false"
+                      :format-options="{ maximumFractionDigits: 6 }"
+                      orientation="vertical"
+                      class="w-full"
+                    />
                     <UBadge color="neutral" variant="outline" size="lg" label="RFU" />
                   </UFieldGroup>
                 </UFormField>
@@ -1328,7 +1500,9 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
                   <UFormField label="Mx" class="w-28">
                     <UInputNumber
                       :model-value="contributor.mixture_proportion"
-                      @update:model-value="updateContributor(index, { mixture_proportion: $event ?? null })"
+                      @update:model-value="
+                        updateContributor(index, { mixture_proportion: $event ?? null })
+                      "
                       :min="0"
                       :max="1"
                       :step="0.01"
@@ -1350,7 +1524,12 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
                 />
               </div>
 
-              <UAlert v-if="submitError" color="error" variant="outline" :description="submitError" />
+              <UAlert
+                v-if="submitError"
+                color="error"
+                variant="outline"
+                :description="submitError"
+              />
             </div>
           </template>
         </UStepper>
@@ -1378,9 +1557,13 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
               />
               <p v-if="!pcrMethods.length" class="text-sm text-surface-500 dark:text-surface-400">
                 No PCR methods yet. Add one under
-                <RouterLink :to="{ name: 'settings-methods-pcr' }" class="underline" target="_blank">
-                  Settings → Methods → PCR
-                </RouterLink>.
+                <RouterLink
+                  :to="{ name: 'settings-methods-pcr' }"
+                  class="underline"
+                  target="_blank"
+                >
+                  Settings → Methods → PCR </RouterLink
+                >.
               </p>
             </div>
             <div class="flex flex-col gap-1">
@@ -1390,11 +1573,18 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
                 :options="postPcrTreatmentMethods"
                 :option-label="(m: PostPCRTreatmentMethod) => `#${m.id}`"
               />
-              <p v-if="!postPcrTreatmentMethods.length" class="text-sm text-surface-500 dark:text-surface-400">
+              <p
+                v-if="!postPcrTreatmentMethods.length"
+                class="text-sm text-surface-500 dark:text-surface-400"
+              >
                 No post-PCR treatment methods yet. Add one under
-                <RouterLink :to="{ name: 'settings-methods-post-pcr-treatment' }" class="underline" target="_blank">
-                  Settings → Methods → Post-PCR treatment
-                </RouterLink>.
+                <RouterLink
+                  :to="{ name: 'settings-methods-post-pcr-treatment' }"
+                  class="underline"
+                  target="_blank"
+                >
+                  Settings → Methods → Post-PCR treatment </RouterLink
+                >.
               </p>
             </div>
             <div class="flex flex-col gap-1">
@@ -1407,8 +1597,8 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
               <p v-if="!ceMethods.length" class="text-sm text-surface-500 dark:text-surface-400">
                 No CE methods yet. Add one under
                 <RouterLink :to="{ name: 'settings-methods-ce' }" class="underline" target="_blank">
-                  Settings → Methods → CE
-                </RouterLink>.
+                  Settings → Methods → CE </RouterLink
+                >.
               </p>
             </div>
             <div class="flex flex-col gap-1">
@@ -1418,11 +1608,18 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
                 :options="epgAnalysisMethods"
                 :option-label="methodLabel"
               />
-              <p v-if="!epgAnalysisMethods.length" class="text-sm text-surface-500 dark:text-surface-400">
+              <p
+                v-if="!epgAnalysisMethods.length"
+                class="text-sm text-surface-500 dark:text-surface-400"
+              >
                 No EPG analysis methods yet. Add one under
-                <RouterLink :to="{ name: 'settings-methods-epg-analysis' }" class="underline" target="_blank">
-                  Settings → Methods → EPG analysis
-                </RouterLink>.
+                <RouterLink
+                  :to="{ name: 'settings-methods-epg-analysis' }"
+                  class="underline"
+                  target="_blank"
+                >
+                  Settings → Methods → EPG analysis </RouterLink
+                >.
               </p>
             </div>
             <div class="flex flex-col gap-1">
@@ -1432,34 +1629,76 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
                 :options="epgInterpretationMethods"
                 :option-label="methodLabel"
               />
-              <p v-if="!epgInterpretationMethods.length" class="text-sm text-surface-500 dark:text-surface-400">
+              <p
+                v-if="!epgInterpretationMethods.length"
+                class="text-sm text-surface-500 dark:text-surface-400"
+              >
                 No EPG interpretation methods yet. Add one under
-                <RouterLink :to="{ name: 'settings-methods-epg-interpretation' }" class="underline" target="_blank">
-                  Settings → Methods → EPG interpretation
-                </RouterLink>.
+                <RouterLink
+                  :to="{ name: 'settings-methods-epg-interpretation' }"
+                  class="underline"
+                  target="_blank"
+                >
+                  Settings → Methods → EPG interpretation </RouterLink
+                >.
               </p>
             </div>
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <UFormField label="Sample input volume in PCR" :error="pcrErrors.sample_input_volume_in_pcr">
+            <UFormField
+              label="Sample input volume in PCR"
+              :error="pcrErrors.sample_input_volume_in_pcr"
+            >
               <UFieldGroup>
-                <UInputNumber v-model="sampleInputVolumeInPcr" :step="0.1" :step-snapping="false" :format-options="{ maximumFractionDigits: 6 }" orientation="vertical" class="w-full" />
+                <UInputNumber
+                  v-model="sampleInputVolumeInPcr"
+                  :step="0.1"
+                  :step-snapping="false"
+                  :format-options="{ maximumFractionDigits: 6 }"
+                  orientation="vertical"
+                  class="w-full"
+                />
                 <UBadge color="neutral" variant="outline" size="lg" label="µL" />
               </UFieldGroup>
             </UFormField>
-            <UFormField label="DNA input amount in PCR" :error="pcrErrors.dna_input_amount_in_pcr" :help="dnaInputAmountHelp">
+            <UFormField
+              label="DNA input amount in PCR"
+              :error="pcrErrors.dna_input_amount_in_pcr"
+              :help="dnaInputAmountHelp"
+            >
               <UFieldGroup>
-                <UInputNumber v-model="dnaInputAmountInPcr" :disabled="derivedDnaInputAmount !== null" :step="0.001" :step-snapping="false" :format-options="{ maximumFractionDigits: 6 }" orientation="vertical" class="w-full" />
+                <UInputNumber
+                  v-model="dnaInputAmountInPcr"
+                  :disabled="derivedDnaInputAmount !== null"
+                  :step="0.001"
+                  :step-snapping="false"
+                  :format-options="{ maximumFractionDigits: 6 }"
+                  orientation="vertical"
+                  class="w-full"
+                />
                 <UBadge color="neutral" variant="outline" size="lg" label="pg" />
               </UFieldGroup>
             </UFormField>
             <UFormField label="No. of contributors" :error="pcrErrors.no_of_contributors">
-              <UInputNumber v-model="noOfContributors" :min="0" orientation="vertical" class="w-full" />
+              <UInputNumber
+                v-model="noOfContributors"
+                :min="0"
+                orientation="vertical"
+                class="w-full"
+              />
             </UFormField>
             <UFormField label="Average RFU" :error="pcrErrors.average_rfu">
               <UFieldGroup>
-                <UInputNumber v-model="averageRfu" :min="0" :step="0.1" :step-snapping="false" :format-options="{ maximumFractionDigits: 6 }" orientation="vertical" class="w-full" />
+                <UInputNumber
+                  v-model="averageRfu"
+                  :min="0"
+                  :step="0.1"
+                  :step-snapping="false"
+                  :format-options="{ maximumFractionDigits: 6 }"
+                  orientation="vertical"
+                  class="w-full"
+                />
                 <UBadge color="neutral" variant="outline" size="lg" label="RFU" />
               </UFieldGroup>
             </UFormField>
@@ -1478,7 +1717,12 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
               <UFormField :label="`Contributor ${index + 1}`" class="flex-1">
                 <USelectMenu
                   :model-value="contributorKey(contributor)"
-                  :items="contributorOptionsFor(pcrDialogResult?.sample_id, pcrFormValues.contributors ?? [])"
+                  :items="
+                    contributorOptionsFor(
+                      pcrDialogResult?.sample_id,
+                      pcrFormValues.contributors ?? [],
+                    )
+                  "
                   value-key="id"
                   placeholder="Select an individual or unknown person"
                   clear
@@ -1489,7 +1733,9 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
               <UFormField label="Mx" class="w-28">
                 <UInputNumber
                   :model-value="contributor.mixture_proportion"
-                  @update:model-value="updateContributor(index, { mixture_proportion: $event ?? null })"
+                  @update:model-value="
+                    updateContributor(index, { mixture_proportion: $event ?? null })
+                  "
                   :min="0"
                   :max="1"
                   :step="0.01"
@@ -1502,12 +1748,27 @@ function openPcrContextMenu(event: Event, result: Result, pcr: PCR) {
             </div>
           </div>
 
-          <UAlert v-if="submitPcrError" color="error" variant="outline" :description="submitPcrError" />
+          <UAlert
+            v-if="submitPcrError"
+            color="error"
+            variant="outline"
+            :description="submitPcrError"
+          />
         </div>
       </template>
       <template #footer>
-        <UButton label="Cancel" icon="i-lucide-x" variant="ghost" @click="pcrDialogVisible = false" />
-        <UButton label="Save" icon="i-lucide-save" :loading="submittingPcr" @click="submitPcrForm" />
+        <UButton
+          label="Cancel"
+          icon="i-lucide-x"
+          variant="ghost"
+          @click="pcrDialogVisible = false"
+        />
+        <UButton
+          label="Save"
+          icon="i-lucide-save"
+          :loading="submittingPcr"
+          @click="submitPcrForm"
+        />
       </template>
     </UModal>
   </div>

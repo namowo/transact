@@ -1,15 +1,15 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import DataTable from 'openvue/datatable'
-import Column from 'openvue/column'
-import ContextMenu from 'openvue/contextmenu'
-import { FilterMatchMode } from '@openvue/core/api'
+import type { ContextMenuItem, TableColumn, TableRow } from '@nuxt/ui'
 import { listStudies } from '@/api/studies'
 import { useAuthStore } from '@/stores/auth'
 import { canEditStudy } from '@/composables/useStudyAccess'
 import type { Study } from '@/api/types'
-import type { MenuItem } from 'openvue/menuitem'
+import { manualSorting, useTableView } from '@/composables/useTableView'
+import { sortHeader } from '@/composables/tableColumns'
+import TableFilterDrawer from '@/components/ui/TableFilterDrawer.vue'
+import TablePagination from '@/components/ui/TablePagination.vue'
 
 const props = defineProps<{ scope: 'laboratory' | 'all' }>()
 
@@ -47,21 +47,34 @@ const qcStatusOptions = [
   { label: 'Not checked', value: false },
 ]
 
-function initFilters() {
-  return {
-    global: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    title: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    year: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    'laboratory.laboratory_name': { value: null, matchMode: FilterMatchMode.CONTAINS },
-    quality_check_passed: { value: null, matchMode: FilterMatchMode.EQUALS },
-  }
-}
+const view = useTableView(scopedStudies, {
+  searchFields: ['title', 'journal', 'doi', 'year', (study) => formatAuthors(study.authors)],
+  filters: {
+    title: { field: 'title' },
+    year: { field: 'year' },
+    laboratory: { field: 'laboratory.laboratory_name' },
+    qc: { field: 'quality_check_passed', mode: 'equals' },
+  },
+  sorting: [{ id: 'created_at', desc: true }],
+  sortAccessors: { laboratory: 'laboratory.laboratory_name' },
+  pageSize: 10,
+})
 
-const filters = ref(initFilters())
-
-function clearFilters() {
-  filters.value = initFilters()
-}
+const columns = computed<TableColumn<Study>[]>(() => [
+  { id: 'title', accessorKey: 'title', header: sortHeader('Title') },
+  { id: 'authors', accessorKey: 'authors', header: 'Authors' },
+  { id: 'doi', accessorKey: 'doi', header: 'DOI', meta: { class: { td: 'w-40' } } },
+  { id: 'year', accessorKey: 'year', header: sortHeader('Year'), meta: { class: { td: 'w-24' } } },
+  { id: 'laboratory', header: sortHeader('Laboratory'), meta: { class: { td: 'w-48' } } },
+  { id: 'qc', header: 'QC', meta: { class: { td: 'w-32' } } },
+  {
+    id: 'created_at',
+    accessorKey: 'created_at',
+    header: sortHeader('Created'),
+    meta: { class: { td: 'w-32' } },
+  },
+  ...(auth.isAuthenticated ? [{ id: 'actions', header: '', meta: { class: { td: 'w-12' } } }] : []),
+])
 
 function isOwnLab(study: Study) {
   return study.laboratory_id === auth.user?.laboratory_id
@@ -87,35 +100,29 @@ function choosePurpose(purpose: 'transfer' | 'repository') {
   router.push({ name: 'studies-new', query: { purpose } })
 }
 
-const contextMenu = ref<InstanceType<typeof ContextMenu>>()
-const selectedStudy = ref<Study>()
-
-const contextMenuItems = computed<MenuItem[]>(() => {
-  const study = selectedStudy.value
-  if (!study) return []
-
+function menuItems(study: Study): ContextMenuItem[] {
   const editable = canEdit(study)
-
   return [
     {
       label: 'Details',
       icon: editable ? 'i-lucide-pencil' : 'i-lucide-eye',
-      command: () => openStep(study, 'details'),
+      onSelect: () => openStep(study, 'details'),
     },
     {
       label: 'Planning',
       icon: 'i-lucide-network',
-      command: () => openStep(study, 'planning'),
+      onSelect: () => openStep(study, 'planning'),
     },
-    {
-      label: editable ? 'Add data' : 'Data',
-      icon: 'i-lucide-database',
-      visible: !!study.add_data_to_repository,
-      command: () => openStep(study, 'data-entry'),
-    },
-    {
-      separator: true,
-    },
+    ...(study.add_data_to_repository
+      ? [
+          {
+            label: editable ? 'Add data' : 'Data',
+            icon: 'i-lucide-database',
+            onSelect: () => openStep(study, 'data-entry'),
+          },
+        ]
+      : []),
+    { type: 'separator' },
     {
       // TODO: enable once study data export is implemented
       label: 'Download (coming soon)',
@@ -123,21 +130,18 @@ const contextMenuItems = computed<MenuItem[]>(() => {
       disabled: true,
     },
   ]
-})
-
-function onRowContextMenu(event: { originalEvent: Event; data: Study }) {
-  selectedStudy.value = event.data
-  contextMenu.value?.show(event.originalEvent)
 }
 
-function openContextMenu(event: Event, study: Study) {
-  selectedStudy.value = study
-  contextMenu.value?.show(event)
+// The right-clicked row's menu.
+const contextMenuItems = ref<ContextMenuItem[]>([])
+
+function onRowContextMenu(_event: Event, row: TableRow<Study>) {
+  contextMenuItems.value = auth.isAuthenticated ? menuItems(row.original) : []
 }
 
-function onRowClick(event: { data: Study }) {
+function onRowSelect(_event: Event, row: TableRow<Study>) {
   if (!canOpen()) return
-  openStep(event.data, 'details')
+  openStep(row.original, 'details')
 }
 </script>
 
@@ -168,165 +172,126 @@ function onRowClick(event: { data: Study }) {
     </div>
 
     <div class="flex flex-col gap-3">
-      <div class="flex items-center justify-between gap-3">
-        <UButton type="button" icon="i-lucide-filter-x" variant="outline" size="sm" @click="clearFilters()">
-          Clear Filters
-        </UButton>
+      <div class="flex flex-wrap items-center justify-between gap-3">
         <UInput
-          v-model="filters['global'].value"
-          type="text"
+          v-model="view.search"
           icon="i-lucide-search"
           placeholder="Search title, author, journal, DOI…"
-          class="sm:max-w-sm w-full"
+          class="w-full sm:max-w-sm"
         />
-      </div>
-
-      <ContextMenu ref="contextMenu" :model="contextMenuItems" />
-
-      <div class="overflow-x-auto">
-      <DataTable
-        v-model:filters="filters"
-        v-model:context-menu-selection="selectedStudy"
-        :value="scopedStudies"
-        :loading="loading"
-        data-key="id"
-        context-menu
-        removableSort
-        paginator
-        :rows="10"
-        :rows-per-page-options="[10, 25, 50]"
-        :global-filter-fields="['title', 'journal', 'doi', 'year']"
-        filter-display="menu"
-        sort-field="created_at"
-        :sort-order="-1"
-        :row-class="() => (canOpen() ? 'cursor-pointer hover:bg-elevated' : '')"
-        @row-contextmenu="onRowContextMenu"
-        @row-click="onRowClick"
-      >
-        <template #empty>No studies found.</template>
-
-        <Column
-          field="title"
-          header="Title"
-          sortable
-          :show-filter-operator="false"
-          :show-add-button="false"
-        >
-          <template #body="{ data }: { data: Study }">
-            <span v-if="data.title" class="font-medium">{{ data.title }}</span>
-            <UBadge v-else label="Not set" color="neutral" variant="subtle" size="sm" />
-          </template>
-          <template #filter="{ filterModel }">
-            <UInput v-model="filterModel.value" type="text" placeholder="Search by title" />
-          </template>
-        </Column>
-
-        <Column header="Authors">
-          <template #body="{ data }: { data: Study }">
-            <span v-if="data.authors.length" class="text-sm">{{ formatAuthors(data.authors) }}</span>
-            <UBadge v-else label="Not set" color="neutral" variant="subtle" size="sm" />
-          </template>
-        </Column>
-
-        <Column header="DOI" style="width: 10rem">
-          <template #body="{ data }: { data: Study }">
-            <a
-              v-if="data.doi"
-              :href="`https://doi.org/${data.doi}`"
-              target="_blank"
-              rel="noopener"
-              class="text-sm text-primary"
-              @click.stop
-              >{{ data.doi }}</a
-            >
-            <UBadge v-else label="Not set" color="neutral" variant="subtle" size="sm" />
-          </template>
-        </Column>
-
-        <Column
-          field="year"
-          header="Year"
-          sortable
-          style="width: 6rem"
-          :show-filter-operator="false"
-          :show-add-button="false"
-        >
-          <template #body="{ data }: { data: Study }">
-            <span v-if="data.year" class="text-sm">{{ data.year }}</span>
-            <UBadge v-else label="Not set" color="neutral" variant="subtle" size="sm" />
-          </template>
-          <template #filter="{ filterModel }">
-            <UInput v-model="filterModel.value" type="text" placeholder="Search by year" />
-          </template>
-        </Column>
-
-        <Column
-          field="laboratory.laboratory_name"
-          header="Laboratory"
-          sortable
-          style="width: 12rem"
-          :show-filter-operator="false"
-          :show-add-button="false"
-        >
-          <template #body="{ data }: { data: Study }">
-            <UBadge
-              :label="data.laboratory?.laboratory_name ?? 'Unknown laboratory'"
-              :color="isOwnLab(data) ? 'success' : 'neutral'"
-              size="sm"
+        <TableFilterDrawer :active-count="view.activeFilterCount" @reset="view.resetFilters()">
+          <UFormField label="Title">
+            <UInput v-model="view.filters.title" placeholder="Search by title" class="w-full" />
+          </UFormField>
+          <UFormField label="Year">
+            <UInput v-model="view.filters.year" placeholder="Search by year" class="w-full" />
+          </UFormField>
+          <UFormField label="Laboratory">
+            <UInput
+              v-model="view.filters.laboratory"
+              placeholder="Search by laboratory"
+              class="w-full"
             />
-          </template>
-          <template #filter="{ filterModel }">
-            <UInput v-model="filterModel.value" type="text" placeholder="Search by laboratory" />
-          </template>
-        </Column>
-
-        <Column
-          field="quality_check_passed"
-          header="QC"
-          style="width: 8rem"
-          :show-filter-match-modes="false"
-          :show-filter-operator="false"
-          :show-add-button="false"
-        >
-          <template #body="{ data }: { data: Study }">
-            <UBadge
-              :label="data.quality_check_passed ? 'Passed' : 'Not checked'"
-              :color="data.quality_check_passed ? 'info' : 'neutral'"
-              :variant="data.quality_check_passed ? 'solid' : 'subtle'"
-              size="sm"
-            />
-          </template>
-          <template #filter="{ filterModel }">
+          </UFormField>
+          <UFormField label="Quality check">
             <USelectMenu
-              v-model="filterModel.value"
+              v-model="view.filters.qc"
               :items="qcStatusOptions"
               value-key="value"
               placeholder="Any status"
               clear
               class="w-full"
             />
-          </template>
-        </Column>
+          </UFormField>
+        </TableFilterDrawer>
+      </div>
 
-        <Column field="created_at" header="Created" sortable style="width: 8rem">
-          <template #body="{ data }: { data: Study }">
-            <span class="text-sm">{{ new Date(data.created_at).toLocaleDateString() }}</span>
+      <UContextMenu :items="contextMenuItems" :disabled="!auth.isAuthenticated">
+        <UTable
+          v-model:sorting="view.sorting"
+          :sorting-options="manualSorting"
+          :data="view.rows"
+          :columns="columns"
+          :loading="loading"
+          :get-row-id="(study: Study) => study.id"
+          empty="No studies found."
+          :on-select="canOpen() ? onRowSelect : undefined"
+          :on-contextmenu="onRowContextMenu"
+          :ui="{ tr: canOpen() ? 'cursor-pointer' : '' }"
+        >
+          <template #title-cell="{ row }">
+            <span v-if="row.original.title" class="font-medium whitespace-normal">{{
+              row.original.title
+            }}</span>
+            <UBadge v-else label="Not set" color="neutral" variant="subtle" size="sm" />
           </template>
-        </Column>
 
-        <Column v-if="auth.isAuthenticated" header="" style="width: 3rem">
-          <template #body="{ data }: { data: Study }">
-            <UButton
-              icon="i-lucide-more-vertical"
-              color="neutral"
-              variant="ghost"
+          <template #authors-cell="{ row }">
+            <span v-if="row.original.authors.length" class="text-sm whitespace-normal">
+              {{ formatAuthors(row.original.authors) }}
+            </span>
+            <UBadge v-else label="Not set" color="neutral" variant="subtle" size="sm" />
+          </template>
+
+          <template #doi-cell="{ row }">
+            <a
+              v-if="row.original.doi"
+              :href="`https://doi.org/${row.original.doi}`"
+              target="_blank"
+              rel="noopener"
+              class="text-sm text-primary"
+              @click.stop
+              >{{ row.original.doi }}</a
+            >
+            <UBadge v-else label="Not set" color="neutral" variant="subtle" size="sm" />
+          </template>
+
+          <template #year-cell="{ row }">
+            <span v-if="row.original.year" class="text-sm">{{ row.original.year }}</span>
+            <UBadge v-else label="Not set" color="neutral" variant="subtle" size="sm" />
+          </template>
+
+          <template #laboratory-cell="{ row }">
+            <UBadge
+              :label="row.original.laboratory?.laboratory_name ?? 'Unknown laboratory'"
+              :color="isOwnLab(row.original) ? 'success' : 'neutral'"
               size="sm"
-              @click.stop="openContextMenu($event, data)"
             />
           </template>
-        </Column>
-      </DataTable>
-      </div>
+
+          <template #qc-cell="{ row }">
+            <UBadge
+              :label="row.original.quality_check_passed ? 'Passed' : 'Not checked'"
+              :color="row.original.quality_check_passed ? 'info' : 'neutral'"
+              :variant="row.original.quality_check_passed ? 'solid' : 'subtle'"
+              size="sm"
+            />
+          </template>
+
+          <template #created_at-cell="{ row }">
+            <span class="text-sm">{{
+              new Date(row.original.created_at).toLocaleDateString()
+            }}</span>
+          </template>
+
+          <template #actions-cell="{ row }">
+            <UDropdownMenu :items="menuItems(row.original)" :content="{ align: 'end' }">
+              <UButton
+                icon="i-lucide-more-vertical"
+                color="neutral"
+                variant="ghost"
+                size="sm"
+                :aria-label="`Actions for ${row.original.title || 'study'}`"
+              />
+            </UDropdownMenu>
+          </template>
+        </UTable>
+      </UContextMenu>
+      <TablePagination
+        v-model:page="view.page"
+        v-model:page-size="view.pageSize"
+        :total="view.total"
+      />
     </div>
 
     <UModal
@@ -335,25 +300,30 @@ function onRowClick(event: { data: Study }) {
       :ui="{ content: 'max-w-lg', footer: 'justify-end' }"
     >
       <template #body>
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <UPageCard
-          title="Plan a transfer experiment"
-          description="Design a new experiment: describe it, plan its scenarios and print a checklist for the lab."
-          icon="i-lucide-network"
-          variant="outline"
-          :on-click="() => choosePurpose('transfer')"
-        />
-        <UPageCard
-          title="Add data to repository"
-          description="Share an experiment you've carried out: describe it, plan its scenarios and enter the results."
-          icon="i-lucide-database"
-          variant="outline"
-          :on-click="() => choosePurpose('repository')"
-        />
-      </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <UPageCard
+            title="Plan a transfer experiment"
+            description="Design a new experiment: describe it, plan its scenarios and print a checklist for the lab."
+            icon="i-lucide-network"
+            variant="outline"
+            :on-click="() => choosePurpose('transfer')"
+          />
+          <UPageCard
+            title="Add data to repository"
+            description="Share an experiment you've carried out: describe it, plan its scenarios and enter the results."
+            icon="i-lucide-database"
+            variant="outline"
+            :on-click="() => choosePurpose('repository')"
+          />
+        </div>
       </template>
       <template #footer>
-        <UButton label="Cancel" icon="i-lucide-x" variant="ghost" @click="showPurposeDialog = false" />
+        <UButton
+          label="Cancel"
+          icon="i-lucide-x"
+          variant="ghost"
+          @click="showPurposeDialog = false"
+        />
       </template>
     </UModal>
   </div>

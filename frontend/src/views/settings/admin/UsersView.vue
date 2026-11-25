@@ -1,10 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import DataTable from 'openvue/datatable'
-import Column from 'openvue/column'
-import type { DropdownMenuItem } from '@nuxt/ui'
+import type { DropdownMenuItem, TableColumn } from '@nuxt/ui'
 import { useConfirm } from '@/composables/useConfirm'
-import { FilterMatchMode } from '@openvue/core/api'
 import LaboratorySelect from '@/components/auth/LaboratorySelect.vue'
 import UserGroupsModal from '@/components/groups/UserGroupsModal.vue'
 import UserGroupBadges from '@/components/groups/UserGroupBadges.vue'
@@ -13,6 +10,10 @@ import { listLaboratories } from '@/api/laboratories'
 import { listUserGroups } from '@/api/userGroups'
 import type { Laboratory, User, UserGroup } from '@/api/types'
 import { useAuthStore } from '@/stores/auth'
+import { manualSorting, useTableView } from '@/composables/useTableView'
+import { sortHeader } from '@/composables/tableColumns'
+import TableFilterDrawer from '@/components/ui/TableFilterDrawer.vue'
+import TablePagination from '@/components/ui/TablePagination.vue'
 
 const auth = useAuthStore()
 const confirm = useConfirm()
@@ -31,21 +32,26 @@ const labDialogSaving = ref(false)
 const groupsDialogVisible = ref(false)
 const groupsDialogUser = ref<User | null>(null)
 
-function initFilters() {
-  return {
-    global: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    first_name: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    last_name: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    email: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    'laboratory.laboratory_name': { value: null, matchMode: FilterMatchMode.EQUALS },
-  }
-}
+const view = useTableView(users, {
+  searchFields: ['first_name', 'last_name', 'email', 'laboratory.laboratory_name'],
+  filters: {
+    first_name: { field: 'first_name' },
+    last_name: { field: 'last_name' },
+    email: { field: 'email' },
+    laboratory: { field: 'laboratory.laboratory_name', mode: 'equals' },
+  },
+  sortAccessors: { laboratory: 'laboratory.laboratory_name' },
+  pageSize: 10,
+})
 
-const filters = ref(initFilters())
-
-function clearFilters() {
-  filters.value = initFilters()
-}
+const columns: TableColumn<User>[] = [
+  { id: 'first_name', accessorKey: 'first_name', header: sortHeader('First name') },
+  { id: 'last_name', accessorKey: 'last_name', header: sortHeader('Last name') },
+  { id: 'email', accessorKey: 'email', header: sortHeader('Email') },
+  { id: 'laboratory', header: sortHeader('Laboratory') },
+  { id: 'groups', header: 'Groups', meta: { class: { td: 'w-56 whitespace-normal' } } },
+  { id: 'actions', header: '', meta: { class: { td: 'w-12' } } },
+]
 
 async function load() {
   loading.value = true
@@ -92,12 +98,15 @@ function rowMenuItems(user: User): DropdownMenuItem[] {
     },
   ]
   if (user.id !== auth.user?.id) {
-    items.push({ type: 'separator' }, {
-      label: 'Delete account',
-      icon: 'i-lucide-trash-2',
-      color: 'error',
-      onSelect: () => confirmDeleteUser(user),
-    })
+    items.push(
+      { type: 'separator' },
+      {
+        label: 'Delete account',
+        icon: 'i-lucide-trash-2',
+        color: 'error',
+        onSelect: () => confirmDeleteUser(user),
+      },
+    )
   }
   return items
 }
@@ -184,89 +193,35 @@ async function deleteUserConfirmed(user: User) {
     <UAlert v-if="loadError" color="error" variant="outline" :description="loadError" />
     <UAlert v-if="actionError" color="error" variant="outline" :description="actionError" />
 
-    <div class="overflow-x-auto">
-      <div class="mb-3 flex items-center justify-between gap-3">
-        <UButton type="button" icon="i-lucide-filter-x" variant="outline" size="sm" @click="clearFilters()">
-          Clear Filters
-        </UButton>
+    <div class="flex flex-col gap-3">
+      <div class="flex flex-wrap items-center justify-between gap-3">
         <UInput
-          v-model="filters['global'].value"
-          type="text"
+          v-model="view.search"
           icon="i-lucide-search"
           placeholder="Keyword Search"
+          class="w-full max-w-sm"
         />
-      </div>
-
-      <DataTable
-        v-model:filters="filters"
-        :value="users"
-        :loading="loading"
-        data-key="id"
-        filterDisplay="menu"
-        removableSort
-        paginator
-        :rows="10"
-        :rowsPerPageOptions="[10, 25, 50]"
-        :globalFilterFields="[
-          'first_name',
-          'last_name',
-          'email',
-          'laboratory.laboratory_name',
-        ]"
-      >
-        <template #empty>No users found.</template>
-
-        <Column
-          field="first_name"
-          header="First name"
-          sortable
-          :showFilterOperator="false"
-          :showAddButton="false"
-        >
-          <template #filter="{ filterModel }">
-            <UInput v-model="filterModel.value" type="text" placeholder="Search by first name" />
-          </template>
-        </Column>
-
-        <Column
-          field="last_name"
-          header="Last name"
-          sortable
-          :showFilterOperator="false"
-          :showAddButton="false"
-        >
-          <template #filter="{ filterModel }">
-            <UInput v-model="filterModel.value" type="text" placeholder="Search by last name" />
-          </template>
-        </Column>
-
-        <Column
-          field="email"
-          header="Email"
-          sortable
-          :showFilterOperator="false"
-          :showAddButton="false"
-        >
-          <template #filter="{ filterModel }">
-            <UInput v-model="filterModel.value" type="text" placeholder="Search by email" />
-          </template>
-        </Column>
-
-        <Column
-          header="Laboratory"
-          filterField="laboratory.laboratory_name"
-          sortField="laboratory.laboratory_name"
-          sortable
-          :showFilterMatchModes="false"
-          :showFilterOperator="false"
-          :showAddButton="false"
-        >
-          <template #body="{ data }">
-            {{ data.laboratory?.laboratory_name ?? '—' }}
-          </template>
-          <template #filter="{ filterModel }">
+        <TableFilterDrawer :active-count="view.activeFilterCount" @reset="view.resetFilters()">
+          <UFormField label="First name">
+            <UInput
+              v-model="view.filters.first_name"
+              placeholder="Search by first name"
+              class="w-full"
+            />
+          </UFormField>
+          <UFormField label="Last name">
+            <UInput
+              v-model="view.filters.last_name"
+              placeholder="Search by last name"
+              class="w-full"
+            />
+          </UFormField>
+          <UFormField label="Email">
+            <UInput v-model="view.filters.email" placeholder="Search by email" class="w-full" />
+          </UFormField>
+          <UFormField label="Laboratory">
             <USelectMenu
-              v-model="filterModel.value"
+              v-model="view.filters.laboratory"
               :items="laboratories"
               label-key="laboratory_name"
               value-key="laboratory_name"
@@ -274,31 +229,44 @@ async function deleteUserConfirmed(user: User) {
               clear
               class="w-full"
             />
-          </template>
-        </Column>
+          </UFormField>
+        </TableFilterDrawer>
+      </div>
 
-        <Column header="Groups" style="width: 14rem">
-          <template #body="{ data }">
-            <UserGroupBadges :user="data" />
-          </template>
-        </Column>
-
-        <Column header="" style="width: 3rem">
-          <template #body="{ data }">
-            <div class="flex justify-end">
-              <UDropdownMenu :items="rowMenuItems(data)" :content="{ align: 'end' }">
-                <UButton
-                  icon="i-lucide-ellipsis-vertical"
-                  variant="ghost"
-                  color="neutral"
-                  square
-                  aria-label="User actions"
-                />
-              </UDropdownMenu>
-            </div>
-          </template>
-        </Column>
-      </DataTable>
+      <UTable
+        v-model:sorting="view.sorting"
+        :sorting-options="manualSorting"
+        :data="view.rows"
+        :columns="columns"
+        :loading="loading"
+        :get-row-id="(user: User) => user.id"
+        empty="No users found."
+      >
+        <template #laboratory-cell="{ row }">
+          {{ row.original.laboratory?.laboratory_name ?? '—' }}
+        </template>
+        <template #groups-cell="{ row }">
+          <UserGroupBadges :user="row.original" />
+        </template>
+        <template #actions-cell="{ row }">
+          <div class="flex justify-end">
+            <UDropdownMenu :items="rowMenuItems(row.original)" :content="{ align: 'end' }">
+              <UButton
+                icon="i-lucide-ellipsis-vertical"
+                variant="ghost"
+                color="neutral"
+                square
+                aria-label="User actions"
+              />
+            </UDropdownMenu>
+          </div>
+        </template>
+      </UTable>
+      <TablePagination
+        v-model:page="view.page"
+        v-model:page-size="view.pageSize"
+        :total="view.total"
+      />
     </div>
 
     <UModal
@@ -307,16 +275,26 @@ async function deleteUserConfirmed(user: User) {
       :ui="{ content: 'max-w-md', footer: 'justify-end' }"
     >
       <template #body>
-      <div v-if="labDialogUser" class="flex flex-col gap-4">
-        <p class="text-sm text-surface-600 dark:text-surface-300">
-          {{ labDialogUser.first_name }} {{ labDialogUser.last_name }} ({{ labDialogUser.email }})
-        </p>
-        <LaboratorySelect v-model="labDialogValue" />
-      </div>
+        <div v-if="labDialogUser" class="flex flex-col gap-4">
+          <p class="text-sm text-surface-600 dark:text-surface-300">
+            {{ labDialogUser.first_name }} {{ labDialogUser.last_name }} ({{ labDialogUser.email }})
+          </p>
+          <LaboratorySelect v-model="labDialogValue" />
+        </div>
       </template>
       <template #footer>
-        <UButton label="Cancel" icon="i-lucide-x" variant="ghost" @click="labDialogVisible = false" />
-        <UButton label="Save" icon="i-lucide-save" :loading="labDialogSaving" @click="saveLabDialog" />
+        <UButton
+          label="Cancel"
+          icon="i-lucide-x"
+          variant="ghost"
+          @click="labDialogVisible = false"
+        />
+        <UButton
+          label="Save"
+          icon="i-lucide-save"
+          :loading="labDialogSaving"
+          @click="saveLabDialog"
+        />
       </template>
     </UModal>
 

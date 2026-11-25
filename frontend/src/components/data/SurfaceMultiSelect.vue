@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import DataTable from 'openvue/datatable'
-import Column from 'openvue/column'
-import { FilterMatchMode } from '@openvue/core/api'
 import { templateName, surfaceInstanceIcon, surfaceInstanceDetail } from './contactTemplateLabel'
 import { useIndividualOptions } from '@/components/scenarios/individualOptions'
 import ScenarioBadges from './ScenarioBadges.vue'
 import type { Contact, ContactTemplate, Scenario, Surface } from '@/api/types'
+import type { TableColumn } from '@nuxt/ui'
+import { manualSorting, useTableView } from '@/composables/useTableView'
+import { sortHeader } from '@/composables/tableColumns'
+import TableFilterDrawer from '@/components/ui/TableFilterDrawer.vue'
 
 // Lets the user pick several surfaces at once when recording samples, one
 // checkbox for the donor surface and one for the recipient surface per
@@ -34,7 +35,9 @@ function contactLabel(contact: Contact): string {
 
 function surfaceDetail(surface?: Surface | null): string {
   if (!surface) return '—'
-  return surface.individual ? describeIndividual(surface.individual) : surfaceInstanceDetail(surface)
+  return surface.individual
+    ? describeIndividual(surface.individual)
+    : surfaceInstanceDetail(surface)
 }
 
 // Narrow the contacts to one scenario (via the contact's template).
@@ -118,109 +121,105 @@ function toggleSide(side: Side) {
   surfaceIds.value = [...next]
 }
 
-function initFilters() {
-  return {
-    global: { value: null, matchMode: FilterMatchMode.CONTAINS },
-  }
-}
+const view = useTableView(rows, {
+  searchFields: ['contactLabel', 'scenarioNames', 'donorLabel', 'recipientLabel'],
+})
 
-const filters = ref(initFilters())
-
-function clearFilters() {
-  filters.value = initFilters()
-}
+const columns: TableColumn<ContactRow>[] = [
+  { id: 'contactLabel', accessorKey: 'contactLabel', header: sortHeader('Contact') },
+  { id: 'scenario', header: 'Scenario' },
+  { id: 'donor', header: 'Donor' },
+  { id: 'recipient', header: 'Recipient' },
+]
 </script>
 
 <template>
   <div class="flex flex-col gap-2">
     <div class="flex items-center justify-between gap-3">
-      <UButton type="button" icon="i-lucide-filter-x" variant="outline" size="sm" @click="clearFilters()">
-        Clear Filters
-      </UButton>
       <UInput
-        v-model="(filters['global'] as { value: string | null }).value"
-        type="text"
+        v-model="view.search"
         icon="i-lucide-search"
         placeholder="Keyword Search"
+        class="w-full max-w-sm"
       />
-    </div>
-    <USelect v-model="scenarioFilter" :items="scenarioOptions" class="w-full sm:w-72" />
-    <div class="border border-default rounded-md overflow-hidden">
-      <DataTable
-        v-model:filters="filters"
-        :value="rows"
-        data-key="contact.id"
-        filter-display="menu"
-        :global-filter-fields="['contactLabel', 'scenarioNames', 'donorLabel', 'recipientLabel']"
-        scrollable
-        scroll-height="18rem"
+      <TableFilterDrawer
+        :active-count="scenarioFilter === 'all' ? 0 : 1"
+        @reset="scenarioFilter = 'all'"
       >
-        <template #empty>No surfaces yet. Add an actual contact first.</template>
-        <Column field="contactLabel" header="Contact" sortable>
-          <template #body="{ data }">{{ data.contactLabel }}</template>
-        </Column>
-        <Column header="Scenario">
-          <template #body="{ data }"><ScenarioBadges :names="scenarioNamesOf(data.contact)" /></template>
-        </Column>
-        <Column header="Donor">
-          <template #header>
-            <label class="flex items-center gap-2 cursor-pointer">
-              <UCheckbox
-                :model-value="sideState('donor_surface')"
-                :disabled="!sideContacts('donor_surface').length"
-                @update:model-value="toggleSide('donor_surface')"
+        <UFormField label="Scenario">
+          <USelect v-model="scenarioFilter" :items="scenarioOptions" class="w-full" />
+        </UFormField>
+      </TableFilterDrawer>
+    </div>
+    <div class="border border-default rounded-md overflow-hidden">
+      <UTable
+        v-model:sorting="view.sorting"
+        :sorting-options="manualSorting"
+        :data="view.rows"
+        :columns="columns"
+        :get-row-id="(row: ContactRow) => row.contact.id"
+        empty="No surfaces yet. Add an actual contact first."
+        sticky
+        class="max-h-72"
+      >
+        <template #scenario-cell="{ row }"
+          ><ScenarioBadges :names="scenarioNamesOf(row.original.contact)"
+        /></template>
+        <template #donor-header>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <UCheckbox
+              :model-value="sideState('donor_surface')"
+              :disabled="!sideContacts('donor_surface').length"
+              @update:model-value="toggleSide('donor_surface')"
+            />
+            <span class="font-semibold">Donor</span>
+          </label>
+        </template>
+        <template #donor-cell="{ row: { original: data } }">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <UCheckbox
+              :model-value="isSelected(data.contact, 'donor_surface')"
+              :disabled="!data.contact.donor_surface"
+              @update:model-value="toggleSurface(data.contact, 'donor_surface')"
+            />
+            <span class="flex items-center gap-1.5">
+              <UIcon
+                v-if="surfaceInstanceIcon(data.contact.donor_surface)"
+                :name="surfaceInstanceIcon(data.contact.donor_surface)!"
+                class="shrink-0"
               />
-              <span class="font-semibold">Donor</span>
-            </label>
-          </template>
-          <template #body="{ data }">
-            <label class="flex items-center gap-2 cursor-pointer">
-              <UCheckbox
-                :model-value="isSelected(data.contact, 'donor_surface')"
-                :disabled="!data.contact.donor_surface"
-                @update:model-value="toggleSurface(data.contact, 'donor_surface')"
+              {{ data.donorLabel }}
+            </span>
+          </label>
+        </template>
+        <template #recipient-header>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <UCheckbox
+              :model-value="sideState('recipient_surface')"
+              :disabled="!sideContacts('recipient_surface').length"
+              @update:model-value="toggleSide('recipient_surface')"
+            />
+            <span class="font-semibold">Recipient</span>
+          </label>
+        </template>
+        <template #recipient-cell="{ row: { original: data } }">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <UCheckbox
+              :model-value="isSelected(data.contact, 'recipient_surface')"
+              :disabled="!data.contact.recipient_surface"
+              @update:model-value="toggleSurface(data.contact, 'recipient_surface')"
+            />
+            <span class="flex items-center gap-1.5">
+              <UIcon
+                v-if="surfaceInstanceIcon(data.contact.recipient_surface)"
+                :name="surfaceInstanceIcon(data.contact.recipient_surface)!"
+                class="shrink-0"
               />
-              <span class="flex items-center gap-1.5">
-                <UIcon
-                  v-if="surfaceInstanceIcon(data.contact.donor_surface)"
-                  :name="surfaceInstanceIcon(data.contact.donor_surface)!"
-                  class="shrink-0"
-                />
-                {{ data.donorLabel }}
-              </span>
-            </label>
-          </template>
-        </Column>
-        <Column header="Recipient">
-          <template #header>
-            <label class="flex items-center gap-2 cursor-pointer">
-              <UCheckbox
-                :model-value="sideState('recipient_surface')"
-                :disabled="!sideContacts('recipient_surface').length"
-                @update:model-value="toggleSide('recipient_surface')"
-              />
-              <span class="font-semibold">Recipient</span>
-            </label>
-          </template>
-          <template #body="{ data }">
-            <label class="flex items-center gap-2 cursor-pointer">
-              <UCheckbox
-                :model-value="isSelected(data.contact, 'recipient_surface')"
-                :disabled="!data.contact.recipient_surface"
-                @update:model-value="toggleSurface(data.contact, 'recipient_surface')"
-              />
-              <span class="flex items-center gap-1.5">
-                <UIcon
-                  v-if="surfaceInstanceIcon(data.contact.recipient_surface)"
-                  :name="surfaceInstanceIcon(data.contact.recipient_surface)!"
-                  class="shrink-0"
-                />
-                {{ data.recipientLabel }}
-              </span>
-            </label>
-          </template>
-        </Column>
-      </DataTable>
+              {{ data.recipientLabel }}
+            </span>
+          </label>
+        </template>
+      </UTable>
     </div>
   </div>
 </template>

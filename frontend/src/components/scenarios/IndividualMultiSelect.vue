@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import DataTable from 'openvue/datatable'
-import Column from 'openvue/column'
+import type { TableColumn } from '@nuxt/ui'
+import { expandColumn } from '@/composables/tableColumns'
 import { useIndividualOptions, groupIndividuals } from './individualOptions'
 import type { IndividualGroup } from './individualOptions'
 import type { Individual } from '@/api/types'
@@ -55,108 +55,113 @@ function toggleMember(individual: Individual) {
 }
 
 const expandedRows = ref<Record<string, boolean>>({})
+
+const groupColumns: TableColumn<IndividualGroup>[] = [
+  expandColumn(),
+  { id: 'select', header: '', meta: { class: { td: 'w-10' } } },
+  { id: 'count', header: 'Count', meta: { class: { td: 'w-18' } } },
+  { id: 'sex', header: 'Sex' },
+  { id: 'age', accessorKey: 'age', header: 'Age' },
+  { id: 'dna', accessorKey: 'dna', header: 'DNA shedding propensity' },
+  { id: 'skin', accessorKey: 'skin', header: 'Skin disease' },
+  { id: 'selected', accessorKey: 'selected', header: 'Selected', meta: { class: { td: 'w-24' } } },
+]
+
+const memberColumns: TableColumn<Individual>[] = [
+  { id: 'select', header: '', meta: { class: { td: 'w-10' } } },
+  { id: 'name', accessorKey: 'name', header: 'Individual' },
+  { id: 'sex', header: 'Sex' },
+  { id: 'age', accessorKey: 'age', header: 'Age' },
+  { id: 'dna', accessorKey: 'dna', header: 'DNA shedding propensity' },
+  { id: 'skin', accessorKey: 'skin', header: 'Skin disease' },
+]
 </script>
 
 <template>
   <div class="flex flex-col gap-1">
     <div class="border border-default rounded-md overflow-hidden">
-      <DataTable
-        v-model:expanded-rows="expandedRows"
-        :value="groups"
-        data-key="key"
+      <UTable
+        v-model:expanded="expandedRows"
+        :data="groups"
+        :columns="groupColumns"
+        :get-row-id="(group: IndividualGroup) => group.key"
         :loading="loading"
-        scrollable
-        scroll-height="16rem"
+        empty="No individuals yet."
+        sticky
+        class="max-h-64"
       >
-        <template #empty>No individuals yet.</template>
-        <Column expander style="width: 2.5rem" />
-        <Column header="" style="width: 2.5rem">
-          <template #body="{ data }">
-            <UCheckbox
-              :model-value="groupSelectionState(data)"
-              @update:model-value="toggleGroup(data)"
-            />
-          </template>
-        </Column>
-        <Column header="Count" style="width: 4.5rem">
-          <template #body="{ data }">
-            <UBadge v-if="data.members.length > 1" color="neutral" variant="subtle">
-              {{ data.members.length }}x
-            </UBadge>
-          </template>
-        </Column>
-        <Column header="Sex">
-          <template #body="{ data }">
-            <UBadge v-if="data.sexName" color="neutral" variant="outline">{{ data.sexName }}</UBadge>
-            <span v-else>—</span>
-          </template>
-        </Column>
-        <Column header="Age">
-          <template #body="{ data }">{{ data.age ?? '—' }}</template>
-        </Column>
-        <Column header="DNA shedding propensity">
-          <template #body="{ data }">
-            <UBadge v-if="data.dnaSheddingPropensityCategoryName" color="neutral" variant="outline">
-              {{ data.dnaSheddingPropensityCategoryName }}
-            </UBadge>
-            <span v-else>—</span>
-          </template>
-        </Column>
-        <Column header="Skin disease">
-          <template #body="{ data }">
-            <UBadge v-if="data.skinDiseaseCategoryName" color="neutral" variant="outline">
-              {{ data.skinDiseaseCategoryName }}
-            </UBadge>
-            <span v-else>—</span>
-          </template>
-        </Column>
-        <Column header="Selected" style="width: 6rem">
-          <template #body="{ data }">
-            {{ data.members.filter((m: Individual) => selected.has(m.id)).length }} / {{ data.members.length }}
-          </template>
-        </Column>
-
-        <template #expansion="{ data: group }">
-          <DataTable :value="group.members" data-key="id">
-            <Column header="" style="width: 2.5rem">
-              <template #body="{ data }">
-                <UCheckbox
-                  :model-value="selected.has(data.id)"
-                  @update:model-value="toggleMember(data)"
-                />
-              </template>
-            </Column>
-            <Column header="Individual">
-              <template #body="{ data }">{{ individualName(data) }}</template>
-            </Column>
-            <Column header="Sex">
-              <template #body="{ data }">
-                <UBadge v-if="data.sex?.name" color="neutral" variant="outline">{{ data.sex.name }}</UBadge>
-                <span v-else>—</span>
-              </template>
-            </Column>
-            <Column header="Age">
-              <template #body="{ data }">{{ data.age ?? '—' }}</template>
-            </Column>
-            <Column header="DNA shedding propensity">
-              <template #body="{ data }">
-                <UBadge v-if="data.dna_shedding_propensity_category?.name" color="neutral" variant="outline">
-                  {{ data.dna_shedding_propensity_category.name }}
-                </UBadge>
-                <span v-else>—</span>
-              </template>
-            </Column>
-            <Column header="Skin disease">
-              <template #body="{ data }">
-                <UBadge v-if="data.skin_disease_category?.name" color="neutral" variant="outline">
-                  {{ data.skin_disease_category.name }}
-                </UBadge>
-                <span v-else>—</span>
-              </template>
-            </Column>
-          </DataTable>
+        <template #select-cell="{ row: { original: data } }">
+          <UCheckbox
+            :model-value="groupSelectionState(data)"
+            @update:model-value="toggleGroup(data)"
+          />
         </template>
-      </DataTable>
+        <template #count-cell="{ row: { original: data } }">
+          <UBadge v-if="data.members.length > 1" color="neutral" variant="subtle">
+            {{ data.members.length }}x
+          </UBadge>
+        </template>
+        <template #sex-cell="{ row: { original: data } }">
+          <UBadge v-if="data.sexName" color="neutral" variant="outline">{{ data.sexName }}</UBadge>
+          <span v-else>—</span>
+        </template>
+        <template #age-cell="{ row: { original: data } }">{{ data.age ?? '—' }}</template>
+        <template #dna-cell="{ row: { original: data } }">
+          <UBadge v-if="data.dnaSheddingPropensityCategoryName" color="neutral" variant="outline">
+            {{ data.dnaSheddingPropensityCategoryName }}
+          </UBadge>
+          <span v-else>—</span>
+        </template>
+        <template #skin-cell="{ row: { original: data } }">
+          <UBadge v-if="data.skinDiseaseCategoryName" color="neutral" variant="outline">
+            {{ data.skinDiseaseCategoryName }}
+          </UBadge>
+          <span v-else>—</span>
+        </template>
+        <template #selected-cell="{ row: { original: data } }">
+          {{ data.members.filter((m: Individual) => selected.has(m.id)).length }} /
+          {{ data.members.length }}
+        </template>
+
+        <template #expanded="{ row: { original: group } }">
+          <UTable
+            :data="group.members"
+            :columns="memberColumns"
+            :get-row-id="(m: Individual) => m.id"
+          >
+            <template #select-cell="{ row: { original: data } }">
+              <UCheckbox
+                :model-value="selected.has(data.id)"
+                @update:model-value="toggleMember(data)"
+              />
+            </template>
+            <template #name-cell="{ row: { original: data } }">{{ individualName(data) }}</template>
+            <template #sex-cell="{ row: { original: data } }">
+              <UBadge v-if="data.sex?.name" color="neutral" variant="outline">{{
+                data.sex.name
+              }}</UBadge>
+              <span v-else>—</span>
+            </template>
+            <template #age-cell="{ row: { original: data } }">{{ data.age ?? '—' }}</template>
+            <template #dna-cell="{ row: { original: data } }">
+              <UBadge
+                v-if="data.dna_shedding_propensity_category?.name"
+                color="neutral"
+                variant="outline"
+              >
+                {{ data.dna_shedding_propensity_category.name }}
+              </UBadge>
+              <span v-else>—</span>
+            </template>
+            <template #skin-cell="{ row: { original: data } }">
+              <UBadge v-if="data.skin_disease_category?.name" color="neutral" variant="outline">
+                {{ data.skin_disease_category.name }}
+              </UBadge>
+              <span v-else>—</span>
+            </template>
+          </UTable>
+        </template>
+      </UTable>
     </div>
     <p v-if="!loading && !groups.length" class="text-sm text-muted">
       {{ scenarioId ? 'No individuals in this scenario yet.' : 'No individuals yet.' }}

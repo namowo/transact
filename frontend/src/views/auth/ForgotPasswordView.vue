@@ -34,11 +34,10 @@ const onSubmit = handleSubmit(async (values) => {
 
 <template>
   <div v-if="done" class="flex flex-col gap-4 text-center">
-    <i class="pi pi-envelope text-4xl text-primary" />
+    <UIcon name="i-lucide-mail" class="size-9 text-primary" />
     <UAlert color="info" variant="outline">
       <template #description>
-        If an account matches <strong>{{ email }}</strong
-        >, we've sent a password reset link to it.
+        If an account matches <strong>{{ email }}</strong>, we've sent a password reset link to it.
       </template>
     </UAlert>
     <RouterLink :to="{ name: 'login' }" class="text-primary no-underline hover:underline">

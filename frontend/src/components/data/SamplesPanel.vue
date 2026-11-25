@@ -2,9 +2,6 @@
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useForm } from 'vee-validate'
 import * as yup from 'yup'
-import DataTable from 'openvue/datatable'
-import Column from 'openvue/column'
-import { FilterMatchMode } from '@openvue/core/api'
 import DataTableSkeleton from '@/components/data/DataTableSkeleton.vue'
 import EntitySelect from '@/components/scenarios/EntitySelect.vue'
 import InlineCreatableSelect from '@/components/scenarios/InlineCreatableSelect.vue'
@@ -15,7 +12,12 @@ import TableSortHint from '@/components/data/TableSortHint.vue'
 import { downloadTextFile, parseCsv, parseNumber, toCsv, type DecimalSeparator } from './csv'
 import { useToast } from '@nuxt/ui/composables'
 import { templateName } from './contactTemplateLabel'
-import { surfaceLabel, sampleSetLabel, extractionMethodLabel, samplingMethodLabel } from './sampleLabel'
+import {
+  surfaceLabel,
+  sampleSetLabel,
+  extractionMethodLabel,
+  samplingMethodLabel,
+} from './sampleLabel'
 import { sampleApi, sampleSetApi, samplingMethodApi, extractionMethodApi } from '@/api/methods'
 import { useAuthStore } from '@/stores/auth'
 import { useStudyReadOnly } from '@/composables/useStudyAccess'
@@ -30,6 +32,11 @@ import type {
   ExtractionMethod,
   Surface,
 } from '@/api/types'
+import type { TableColumn } from '@nuxt/ui'
+import { manualSorting, useTableView } from '@/composables/useTableView'
+import { sortHeader } from '@/composables/tableColumns'
+import TableFilterDrawer from '@/components/ui/TableFilterDrawer.vue'
+import TablePagination from '@/components/ui/TablePagination.vue'
 
 const props = defineProps<{
   studyId: string
@@ -74,7 +81,12 @@ const sampleSets = ref<SampleSet[]>([])
 
 // The column sort is saved per user (all studies). Ctrl/Cmd-click a header
 // to sort by several columns.
-const { multiSortMeta, isCustom: isCustomSort, resetSort } = useTableSort('samples', [
+const {
+  multiSortMeta,
+  sorting,
+  isCustom: isCustomSort,
+  resetSort,
+} = useTableSort('samples', [
   { field: 'scenarioNames', order: 1 },
   { field: 'contactLabel', order: 1 },
   { field: 'surfaceLabel', order: 1 },
@@ -121,21 +133,86 @@ async function load() {
 
 onMounted(load)
 
-function initFilters() {
-  return {
-    global: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    'extraction_method.extraction_protocol': { value: null, matchMode: FilterMatchMode.CONTAINS },
-    elution_volume: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    area: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    scenarioNames: { value: null, matchMode: FilterMatchMode.CONTAINS },
-  }
-}
+type SampleRow = (typeof orderedSamples.value)[number]
 
-const filters = ref(initFilters())
+const view = useTableView(orderedSamples, {
+  searchFields: [
+    'contactLabel',
+    'surfaceLabel',
+    'sampleSetLabel',
+    'name',
+    'scenarioNames',
+    'samplingMethodLabel',
+    'extraction_method.extraction_protocol',
+    'elution_volume',
+    'area',
+  ],
+  filters: {
+    scenario: { field: 'scenarioNames' },
+    extraction: { field: 'extraction_method.extraction_protocol' },
+    elution_volume: { field: 'elution_volume' },
+    area: { field: 'area' },
+  },
+  sorting,
+  pageSize: 25,
+})
 
-function clearFilters() {
-  filters.value = initFilters()
-}
+const EXTRACTION = 'extraction_method.extraction_protocol'
+
+const columns = computed<TableColumn<SampleRow>[]>(() => [
+  {
+    id: 'contactLabel',
+    accessorKey: 'contactLabel',
+    header: sortHeader('Contact', { multi: true }),
+  },
+  {
+    id: 'surfaceLabel',
+    accessorKey: 'surfaceLabel',
+    header: sortHeader('Surface', { multi: true }),
+  },
+  {
+    id: 'sampleSetLabel',
+    accessorKey: 'sampleSetLabel',
+    header: sortHeader('Sample set', { multi: true }),
+  },
+  { id: 'name', accessorKey: 'name', header: sortHeader('Name', { multi: true }) },
+  {
+    id: 'scenarioNames',
+    accessorKey: 'scenarioNames',
+    header: sortHeader('Scenario', { multi: true }),
+  },
+  {
+    id: 'samplingMethodLabel',
+    accessorKey: 'samplingMethodLabel',
+    header: sortHeader('Sampling method', { multi: true }),
+  },
+  {
+    id: EXTRACTION,
+    accessorFn: (row) => row.extraction_method?.extraction_protocol,
+    header: sortHeader('Extraction method', { multi: true }),
+  },
+  {
+    id: 'elution_volume',
+    accessorKey: 'elution_volume',
+    header: sortHeader('Elution volume', { multi: true }),
+  },
+  { id: 'area', accessorKey: 'area', header: sortHeader('Area', { multi: true }) },
+  ...(readOnly.value ? [] : [{ id: 'actions', header: '', meta: { class: { td: 'w-24' } } }]),
+])
+
+const detailColumns: TableColumn<DetailRow>[] = [
+  { id: 'contact', header: 'Contact' },
+  { id: 'surface', header: 'Surface' },
+  { id: 'name', accessorKey: 'name', header: 'Name', meta: { class: { td: 'min-w-48' } } },
+  {
+    id: 'elutionVolume',
+    accessorKey: 'elutionVolume',
+    header: 'Elution volume (µL)',
+    meta: { class: { td: 'min-w-40' } },
+  },
+  { id: 'area', accessorKey: 'area', header: 'Area (cm²)', meta: { class: { td: 'min-w-40' } } },
+  { id: 'remove', header: '', meta: { class: { td: 'w-12' } } },
+]
 
 const samplingMethods = ref<SamplingMethod[]>([])
 const extractionMethods = ref<ExtractionMethod[]>([])
@@ -222,7 +299,9 @@ function insertTemplateToken(token: string) {
 }
 
 function applyNameTemplate(template: string, index: number): string {
-  return template.replace(/\{(#+)\}/g, (_, hashes: string) => String(index).padStart(hashes.length, '0'))
+  return template.replace(/\{(#+)\}/g, (_, hashes: string) =>
+    String(index).padStart(hashes.length, '0'),
+  )
 }
 
 // Sample names must be unique within the study (case-insensitive).
@@ -313,9 +392,7 @@ function openEditDialog(row: Sample) {
   dialogVisible.value = true
 }
 
-const canSave = computed(() =>
-  editingId.value === null ? surfaceIds.value.length > 0 : true,
-)
+const canSave = computed(() => (editingId.value === null ? surfaceIds.value.length > 0 : true))
 
 const submitForm = handleSubmit(async (formValues) => {
   submitting.value = true
@@ -332,9 +409,7 @@ const submitForm = handleSubmit(async (formValues) => {
       const updated = await sampleApi.update(editingId.value, {
         ...formValues,
       })
-      allSamples.value = allSamples.value.map((item) =>
-        item.id === updated.id ? updated : item,
-      )
+      allSamples.value = allSamples.value.map((item) => (item.id === updated.id ? updated : item))
     }
     dialogVisible.value = false
   } catch {
@@ -597,14 +672,29 @@ async function importCsv() {
       }
       seenIds.add(id)
       const name = nameCol === -1 ? (sample.name ?? null) : (cells[nameCol] ?? '').trim() || null
-      const volume = volumeCol === -1 ? (sample.elution_volume ?? null) : parseNumber(cells[volumeCol] ?? '', decimal)
-      const area = areaCol === -1 ? (sample.area ?? null) : parseNumber(cells[areaCol] ?? '', decimal)
-      if ((volume !== null && (Number.isNaN(volume) || volume < 0)) || (area !== null && (Number.isNaN(area) || area < 0))) {
+      const volume =
+        volumeCol === -1
+          ? (sample.elution_volume ?? null)
+          : parseNumber(cells[volumeCol] ?? '', decimal)
+      const area =
+        areaCol === -1 ? (sample.area ?? null) : parseNumber(cells[areaCol] ?? '', decimal)
+      if (
+        (volume !== null && (Number.isNaN(volume) || volume < 0)) ||
+        (area !== null && (Number.isNaN(area) || area < 0))
+      ) {
         const bad = [
-          volumeCol !== -1 && !(volume === null || (!Number.isNaN(volume) && volume >= 0)) ? `${CSV_VOLUME} ${JSON.stringify(cells[volumeCol])}` : '',
-          areaCol !== -1 && !(area === null || (!Number.isNaN(area) && area >= 0)) ? `${CSV_AREA} ${JSON.stringify(cells[areaCol])}` : '',
-        ].filter(Boolean).join(', ')
-        problems.push(`line ${line}: ${bad} is not a number of zero or more written with a "${decimal}" decimal separator (choose the other one in the upload dialog if the file uses it)`)
+          volumeCol !== -1 && !(volume === null || (!Number.isNaN(volume) && volume >= 0))
+            ? `${CSV_VOLUME} ${JSON.stringify(cells[volumeCol])}`
+            : '',
+          areaCol !== -1 && !(area === null || (!Number.isNaN(area) && area >= 0))
+            ? `${CSV_AREA} ${JSON.stringify(cells[areaCol])}`
+            : '',
+        ]
+          .filter(Boolean)
+          .join(', ')
+        problems.push(
+          `line ${line}: ${bad} is not a number of zero or more written with a "${decimal}" decimal separator (choose the other one in the upload dialog if the file uses it)`,
+        )
         return
       }
       if (
@@ -618,7 +708,9 @@ async function importCsv() {
 
     // Names must stay unique across the whole study once the changes are applied.
     if (!problems.length) {
-      const finalNames = new Map(studySampleNames.value.map((sample) => [sample.id, sample.name ?? null]))
+      const finalNames = new Map(
+        studySampleNames.value.map((sample) => [sample.id, sample.name ?? null]),
+      )
       for (const change of changes) finalNames.set(change.sample.id, change.name)
       const owners = new Map<string, number>()
       for (const name of finalNames.values()) {
@@ -662,10 +754,16 @@ async function importCsv() {
     allSamples.value = allSamples.value.map((item) => updatedById.get(item.id) ?? item)
     toast.add({
       color: 'success',
-      title: changes.length ? `Updated ${changes.length} sample${changes.length === 1 ? '' : 's'}` : 'No changes found',
+      title: changes.length
+        ? `Updated ${changes.length} sample${changes.length === 1 ? '' : 's'}`
+        : 'No changes found',
     })
   } catch {
-    toast.add({ color: 'error', title: 'Import failed', description: 'Could not read or save this file. Please try again.' })
+    toast.add({
+      color: 'error',
+      title: 'Import failed',
+      description: 'Could not read or save this file. Please try again.',
+    })
   } finally {
     importing.value = false
   }
@@ -782,11 +880,8 @@ function onSampleSetCreated(created: { id: string; name?: string | null }) {
     <UAlert v-if="loadError" color="error" variant="outline" :description="loadError" />
 
     <div class="flex flex-col gap-3">
-      <div class="flex items-center justify-between gap-3">
+      <div class="flex flex-wrap items-center justify-between gap-3">
         <div class="flex flex-wrap gap-2">
-          <UButton type="button" icon="i-lucide-filter-x" variant="outline" size="sm" @click="clearFilters()">
-            Clear Filters
-          </UButton>
           <UButton
             type="button"
             icon="i-lucide-arrow-up-down"
@@ -806,7 +901,10 @@ function onSampleSetCreated(created: { id: string; name?: string | null }) {
             :disabled="!samples.length"
             @click="editMode = !editMode"
           />
-          <div class="flex items-center gap-2 border border-default rounded-md px-2 py-1" data-tour="samples-csv">
+          <div
+            class="flex items-center gap-2 border border-default rounded-md px-2 py-1"
+            data-tour="samples-csv"
+          >
             <span class="text-xs font-medium text-muted">CSV</span>
             <UButton
               type="button"
@@ -830,12 +928,40 @@ function onSampleSetCreated(created: { id: string; name?: string | null }) {
             />
           </div>
         </div>
-        <UInput
-          v-model="filters['global'].value"
-          type="text"
-          icon="i-lucide-search"
-          placeholder="Keyword Search"
-        />
+        <div class="flex items-center gap-2">
+          <UInput
+            v-model="view.search"
+            icon="i-lucide-search"
+            placeholder="Keyword Search"
+            class="w-full sm:w-64"
+          />
+          <TableFilterDrawer :active-count="view.activeFilterCount" @reset="view.resetFilters()">
+            <UFormField label="Scenario">
+              <UInput
+                v-model="view.filters.scenario"
+                placeholder="Search by scenario"
+                class="w-full"
+              />
+            </UFormField>
+            <UFormField label="Extraction method">
+              <UInput
+                v-model="view.filters.extraction"
+                placeholder="Search by extraction method"
+                class="w-full"
+              />
+            </UFormField>
+            <UFormField label="Elution volume">
+              <UInput
+                v-model="view.filters.elution_volume"
+                placeholder="Search by elution volume"
+                class="w-full"
+              />
+            </UFormField>
+            <UFormField label="Area">
+              <UInput v-model="view.filters.area" placeholder="Search by area" class="w-full" />
+            </UFormField>
+          </TableFilterDrawer>
+        </div>
       </div>
       <TableSortHint />
 
@@ -848,136 +974,111 @@ function onSampleSetCreated(created: { id: string; name?: string | null }) {
         description="No samples yet."
       />
 
-      <div v-else class="overflow-x-auto">
-        <DataTable
-          v-model:filters="filters"
-          v-model:multi-sort-meta="multiSortMeta"
-          :value="orderedSamples"
-          data-key="id"
-          sort-mode="multiple"
-          removable-sort
-          paginator
-          :rows="25"
-          :rowsPerPageOptions="[25, 50, 100, 200]"
-          filterDisplay="menu"
-          :globalFilterFields="['extraction_method.extraction_protocol', 'elution_volume', 'area', 'scenarioNames']"
+      <template v-else>
+        <UTable
+          v-model:sorting="view.sorting"
+          :sorting-options="manualSorting"
+          :data="view.rows"
+          :columns="columns"
+          :get-row-id="(sample: SampleRow) => sample.id"
         >
-          <Column field="contactLabel" header="Contact" sortable>
-            <template #body="{ data }">{{ data.contactLabel }}</template>
-          </Column>
-          <Column field="surfaceLabel" header="Surface" sortable>
-            <template #body="{ data }">{{ data.surfaceLabel }}</template>
-          </Column>
-          <Column field="sampleSetLabel" header="Sample set" sortable>
-            <template #body="{ data }">{{ data.sampleSetLabel ?? '—' }}</template>
-          </Column>
-          <Column field="name" header="Name" sortable>
-            <template #body="{ data }">
-              <UInput
-                v-if="editMode"
-                :model-value="data.name ?? ''"
-                placeholder="Optional"
-                class="w-full"
-                @change="(event: Event) => saveSampleField(data, { name: (event.target as HTMLInputElement).value.trim() || null })"
-              />
-              <template v-else>{{ data.name || '—' }}</template>
-            </template>
-          </Column>
-          <Column
-          field="scenarioNames"
-          header="Scenario"
-          sortable
-          :showFilterOperator="false"
-          :showAddButton="false"
-        >
-          <template #body="{ data }"><ScenarioBadges :names="sampleScenarioNames(data)" /></template>
-          <template #filter="{ filterModel }">
-            <UInput v-model="filterModel.value" type="text" placeholder="Search by scenario" />
+          <template #sampleSetLabel-cell="{ row }">{{
+            row.original.sampleSetLabel ?? '—'
+          }}</template>
+          <template #name-cell="{ row: { original: data } }">
+            <UInput
+              v-if="editMode"
+              :model-value="data.name ?? ''"
+              placeholder="Optional"
+              class="w-full"
+              @change="
+                (event: Event) =>
+                  saveSampleField(data, {
+                    name: (event.target as HTMLInputElement).value.trim() || null,
+                  })
+              "
+            />
+            <template v-else>{{ data.name || '—' }}</template>
           </template>
-        </Column>
-          <Column field="samplingMethodLabel" header="Sampling method" sortable>
-            <template #body="{ data }">{{ data.samplingMethodLabel }}</template>
-          </Column>
-          <Column
-            field="extraction_method.extraction_protocol"
-            header="Extraction method"
-            sortable
-            :showFilterOperator="false"
-            :showAddButton="false"
-          >
-            <template #body="{ data }">{{ extractionMethodLabel(data.extraction_method) }}</template>
-            <template #filter="{ filterModel }">
-              <UInput v-model="filterModel.value" type="text" placeholder="Search by extraction method" />
-            </template>
-          </Column>
-          <Column
-            field="elution_volume"
-            header="Elution volume"
-            sortable
-            :showFilterOperator="false"
-            :showAddButton="false"
-          >
-            <template #body="{ data }">
-              <UInputNumber :min="0" :step="0.1" :step-snapping="false" :format-options="{ maximumFractionDigits: 6 }"
-                v-if="editMode"
-                :model-value="data.elution_volume ?? undefined"
-                orientation="vertical"
-                class="w-full min-w-32"
-                @update:model-value="(value: number | null) => saveSampleField(data, { elution_volume: numberOrNull(value) })"
+          <template #scenarioNames-cell="{ row }"
+            ><ScenarioBadges :names="sampleScenarioNames(row.original)"
+          /></template>
+          <template #[`${EXTRACTION}-cell`]="{ row }">{{
+            extractionMethodLabel(row.original.extraction_method)
+          }}</template>
+          <template #elution_volume-cell="{ row: { original: data } }">
+            <UInputNumber
+              :min="0"
+              :step="0.1"
+              :step-snapping="false"
+              :format-options="{ maximumFractionDigits: 6 }"
+              v-if="editMode"
+              :model-value="data.elution_volume ?? undefined"
+              orientation="vertical"
+              class="w-full min-w-32"
+              @update:model-value="
+                (value: number | null) =>
+                  saveSampleField(data, { elution_volume: numberOrNull(value) })
+              "
+            />
+            <template v-else>{{
+              data.elution_volume != null ? auth.formatNumber(data.elution_volume) : '—'
+            }}</template>
+          </template>
+          <template #area-cell="{ row: { original: data } }">
+            <UInputNumber
+              :min="0"
+              :step="0.1"
+              :step-snapping="false"
+              :format-options="{ maximumFractionDigits: 6 }"
+              v-if="editMode"
+              :model-value="data.area ?? undefined"
+              orientation="vertical"
+              class="w-full min-w-32"
+              @update:model-value="
+                (value: number | null) => saveSampleField(data, { area: numberOrNull(value) })
+              "
+            />
+            <template v-else>{{ data.area != null ? auth.formatNumber(data.area) : '—' }}</template>
+          </template>
+          <template #actions-cell="{ row: { original: data } }">
+            <div class="flex gap-1 justify-end">
+              <UButton
+                icon="i-lucide-pencil"
+                variant="ghost"
+                square
+                aria-label="Edit"
+                @click="openEditDialog(data)"
               />
-              <template v-else>{{ data.elution_volume != null ? auth.formatNumber(data.elution_volume) : '—' }}</template>
-            </template>
-            <template #filter="{ filterModel }">
-              <UInput v-model="filterModel.value" type="text" placeholder="Search by elution volume" />
-            </template>
-          </Column>
-          <Column
-            field="area"
-            header="Area"
-            sortable
-            :showFilterOperator="false"
-            :showAddButton="false"
-          >
-            <template #body="{ data }">
-              <UInputNumber :min="0" :step="0.1" :step-snapping="false" :format-options="{ maximumFractionDigits: 6 }"
-                v-if="editMode"
-                :model-value="data.area ?? undefined"
-                orientation="vertical"
-                class="w-full min-w-32"
-                @update:model-value="(value: number | null) => saveSampleField(data, { area: numberOrNull(value) })"
+              <UButton
+                icon="i-lucide-trash-2"
+                variant="ghost"
+                square
+                color="error"
+                aria-label="Delete"
+                @click="deleteRow(data)"
               />
-              <template v-else>{{ data.area != null ? auth.formatNumber(data.area) : '—' }}</template>
-            </template>
-            <template #filter="{ filterModel }">
-              <UInput v-model="filterModel.value" type="text" placeholder="Search by area" />
-            </template>
-          </Column>
-          <Column v-if="!readOnly" header="" style="width: 6rem">
-            <template #body="{ data }">
-              <div class="flex gap-1 justify-end">
-                <UButton icon="i-lucide-pencil" variant="ghost" square aria-label="Edit" @click="openEditDialog(data)" />
-                <UButton
-                  icon="i-lucide-trash-2"
-                  variant="ghost"
-                  square
-                  color="error"
-                  aria-label="Delete"
-                  @click="deleteRow(data)"
-                />
-              </div>
-            </template>
-          </Column>
-        </DataTable>
-      </div>
+            </div>
+          </template>
+        </UTable>
+        <TablePagination
+          v-model:page="view.page"
+          v-model:page-size="view.pageSize"
+          :total="view.total"
+          :page-sizes="[25, 50, 100, 200]"
+        />
+      </template>
     </div>
 
     <UModal
       v-model:open="dialogVisible"
-      :title="editingId !== null
-        ? 'Edit sample'
-        : step === 1
-          ? 'Add sample - step 1 of 2'
-          : `Add sample - step 2 of 2: details for ${detailRows.length} new sample${detailRows.length === 1 ? '' : 's'}`"
+      :title="
+        editingId !== null
+          ? 'Edit sample'
+          : step === 1
+            ? 'Add sample - step 1 of 2'
+            : `Add sample - step 2 of 2: details for ${detailRows.length} new sample${detailRows.length === 1 ? '' : 's'}`
+      "
       :ui="{ content: 'max-w-5xl', footer: 'justify-end' }"
     >
       <template #body>
@@ -1003,7 +1104,10 @@ function onSampleSetCreated(created: { id: string; name?: string | null }) {
               :option-label="surfaceLabel"
               :error="errors.surface_id"
             />
-            <UFormField label="Internal name" hint="Optional - helps tell otherwise identical samples apart">
+            <UFormField
+              label="Internal name"
+              hint="Optional - helps tell otherwise identical samples apart"
+            >
               <UInput v-model="name" class="w-full" />
             </UFormField>
           </template>
@@ -1021,11 +1125,18 @@ function onSampleSetCreated(created: { id: string; name?: string | null }) {
             :options="samplingMethods"
             :option-label="samplingMethodLabel"
           />
-          <p v-if="!samplingMethods.length" class="text-sm text-surface-500 dark:text-surface-400 -mt-2">
+          <p
+            v-if="!samplingMethods.length"
+            class="text-sm text-surface-500 dark:text-surface-400 -mt-2"
+          >
             No sampling methods yet. Add one under
-            <RouterLink :to="{ name: 'settings-methods-sampling' }" class="underline" target="_blank">
-              Settings → Methods → Sampling
-            </RouterLink>.
+            <RouterLink
+              :to="{ name: 'settings-methods-sampling' }"
+              class="underline"
+              target="_blank"
+            >
+              Settings → Methods → Sampling </RouterLink
+            >.
           </p>
           <EntitySelect
             v-model="extractionMethodId"
@@ -1033,14 +1144,24 @@ function onSampleSetCreated(created: { id: string; name?: string | null }) {
             :options="extractionMethods"
             :option-label="extractionMethodLabel"
           />
-          <p v-if="!extractionMethods.length" class="text-sm text-surface-500 dark:text-surface-400 -mt-2">
+          <p
+            v-if="!extractionMethods.length"
+            class="text-sm text-surface-500 dark:text-surface-400 -mt-2"
+          >
             No extraction methods yet. Add one under
-            <RouterLink :to="{ name: 'settings-methods-extraction' }" class="underline" target="_blank">
-              Settings → Methods → Extraction
-            </RouterLink>.
+            <RouterLink
+              :to="{ name: 'settings-methods-extraction' }"
+              class="underline"
+              target="_blank"
+            >
+              Settings → Methods → Extraction </RouterLink
+            >.
           </p>
           <template v-if="editingId === null">
-            <UFormField label="Name template" hint="Optional - you can adjust each name in the next step">
+            <UFormField
+              label="Name template"
+              hint="Optional - you can adjust each name in the next step"
+            >
               <div class="flex flex-wrap items-center gap-2 mb-2">
                 <span class="text-sm text-surface-500 dark:text-surface-400">Insert counter:</span>
                 <UButton
@@ -1060,7 +1181,12 @@ function onSampleSetCreated(created: { id: string; name?: string | null }) {
                   @click="insertTemplateToken(token.token)"
                 />
               </div>
-              <UInput ref="templateInput" v-model="nameTemplate" placeholder="e.g. Sample {##}" class="w-full" />
+              <UInput
+                ref="templateInput"
+                v-model="nameTemplate"
+                placeholder="e.g. Sample {##}"
+                class="w-full"
+              />
               <template #help>
                 Samples are numbered in the order of the selected surfaces:
                 <code>{#}</code> gives 1, 2, 3 …, <code>{##}</code> gives 01, 02, 03 …,
@@ -1071,13 +1197,29 @@ function onSampleSetCreated(created: { id: string; name?: string | null }) {
           <template v-else>
             <UFormField label="Elution volume" :error="errors.elution_volume">
               <UFieldGroup>
-                <UInputNumber :min="0" :step="0.1" :step-snapping="false" :format-options="{ maximumFractionDigits: 6 }" v-model="elutionVolume" orientation="vertical" class="w-full" />
+                <UInputNumber
+                  :min="0"
+                  :step="0.1"
+                  :step-snapping="false"
+                  :format-options="{ maximumFractionDigits: 6 }"
+                  v-model="elutionVolume"
+                  orientation="vertical"
+                  class="w-full"
+                />
                 <UBadge color="neutral" variant="outline" size="lg" label="µL" />
               </UFieldGroup>
             </UFormField>
             <UFormField label="Area" :error="errors.area">
               <UFieldGroup>
-                <UInputNumber :min="0" :step="0.1" :step-snapping="false" :format-options="{ maximumFractionDigits: 6 }" v-model="area" orientation="vertical" class="w-full" />
+                <UInputNumber
+                  :min="0"
+                  :step="0.1"
+                  :step-snapping="false"
+                  :format-options="{ maximumFractionDigits: 6 }"
+                  v-model="area"
+                  orientation="vertical"
+                  class="w-full"
+                />
                 <UBadge color="neutral" variant="outline" size="lg" label="cm²" />
               </UFieldGroup>
             </UFormField>
@@ -1087,8 +1229,8 @@ function onSampleSetCreated(created: { id: string; name?: string | null }) {
         </div>
         <div v-else class="flex flex-col gap-3" data-tour="sample-dialog">
           <p class="text-sm text-surface-500 dark:text-surface-400">
-            Add a name, elution volume and area for each sample, or leave them empty and fill them in later.
-            Nothing is saved until you click Create.
+            Add a name, elution volume and area for each sample, or leave them empty and fill them
+            in later. Nothing is saved until you click Create.
           </p>
           <div class="flex justify-end">
             <UButton
@@ -1100,16 +1242,35 @@ function onSampleSetCreated(created: { id: string; name?: string | null }) {
               @click="bulkOpen = !bulkOpen"
             />
           </div>
-          <div v-if="bulkOpen" class="flex flex-wrap items-end gap-3 border border-default rounded-md p-3">
+          <div
+            v-if="bulkOpen"
+            class="flex flex-wrap items-end gap-3 border border-default rounded-md p-3"
+          >
             <UFormField label="Set elution volume for all" class="flex-1 min-w-48">
               <UFieldGroup class="w-full">
-                <UInputNumber :min="0" :step="0.1" :step-snapping="false" :format-options="{ maximumFractionDigits: 6 }" v-model="bulkElutionVolume" orientation="vertical" class="w-full" />
+                <UInputNumber
+                  :min="0"
+                  :step="0.1"
+                  :step-snapping="false"
+                  :format-options="{ maximumFractionDigits: 6 }"
+                  v-model="bulkElutionVolume"
+                  orientation="vertical"
+                  class="w-full"
+                />
                 <UBadge color="neutral" variant="outline" size="lg" label="µL" />
               </UFieldGroup>
             </UFormField>
             <UFormField label="Set area for all" class="flex-1 min-w-48">
               <UFieldGroup class="w-full">
-                <UInputNumber :min="0" :step="0.1" :step-snapping="false" :format-options="{ maximumFractionDigits: 6 }" v-model="bulkArea" orientation="vertical" class="w-full" />
+                <UInputNumber
+                  :min="0"
+                  :step="0.1"
+                  :step-snapping="false"
+                  :format-options="{ maximumFractionDigits: 6 }"
+                  v-model="bulkArea"
+                  orientation="vertical"
+                  class="w-full"
+                />
                 <UBadge color="neutral" variant="outline" size="lg" label="cm²" />
               </UFieldGroup>
             </UFormField>
@@ -1122,50 +1283,62 @@ function onSampleSetCreated(created: { id: string; name?: string | null }) {
             />
           </div>
 
-          <div class="overflow-x-auto">
-            <DataTable :value="detailRows" data-key="key" scrollable scroll-height="28rem">
-              <Column header="Contact">
-                <template #body="{ data }">{{ contactLabelFor(data.contactId) }}</template>
-              </Column>
-              <Column header="Surface">
-                <template #body="{ data }">{{ surfaceEntryLabel(data.surfaceId) }}</template>
-              </Column>
-              <Column header="Name" style="min-width: 12rem">
-                <template #body="{ data }">
-                  <UInput
-                    v-model="data.name"
-                    placeholder="Optional"
-                    class="w-full"
-                    :color="duplicateRowNames.has(data.key) ? 'error' : undefined"
-                    :highlight="duplicateRowNames.has(data.key)"
-                  />
-                </template>
-              </Column>
-              <Column header="Elution volume (µL)" style="min-width: 10rem">
-                <template #body="{ data }">
-                  <UInputNumber :min="0" :step="0.1" :step-snapping="false" :format-options="{ maximumFractionDigits: 6 }" v-model="data.elutionVolume" orientation="vertical" class="w-full" />
-                </template>
-              </Column>
-              <Column header="Area (cm²)" style="min-width: 10rem">
-                <template #body="{ data }">
-                  <UInputNumber :min="0" :step="0.1" :step-snapping="false" :format-options="{ maximumFractionDigits: 6 }" v-model="data.area" orientation="vertical" class="w-full" />
-                </template>
-              </Column>
-              <Column style="width: 3rem">
-                <template #body="{ data }">
-                  <UButton
-                    icon="i-lucide-trash-2"
-                    color="error"
-                    variant="ghost"
-                    size="sm"
-                    aria-label="Remove this sample"
-                    title="Remove this sample"
-                    @click="removeDetailRow(data.key)"
-                  />
-                </template>
-              </Column>
-            </DataTable>
-          </div>
+          <UTable
+            :data="detailRows"
+            :columns="detailColumns"
+            :get-row-id="(row: DetailRow) => row.key"
+            sticky
+            class="max-h-112"
+          >
+            <template #contact-cell="{ row }">{{
+              contactLabelFor(row.original.contactId)
+            }}</template>
+            <template #surface-cell="{ row }">{{
+              surfaceEntryLabel(row.original.surfaceId)
+            }}</template>
+            <template #name-cell="{ row: { original: data } }">
+              <UInput
+                v-model="data.name"
+                placeholder="Optional"
+                class="w-full"
+                :color="duplicateRowNames.has(data.key) ? 'error' : undefined"
+                :highlight="duplicateRowNames.has(data.key)"
+              />
+            </template>
+            <template #elutionVolume-cell="{ row: { original: data } }">
+              <UInputNumber
+                :min="0"
+                :step="0.1"
+                :step-snapping="false"
+                :format-options="{ maximumFractionDigits: 6 }"
+                v-model="data.elutionVolume"
+                orientation="vertical"
+                class="w-full"
+              />
+            </template>
+            <template #area-cell="{ row: { original: data } }">
+              <UInputNumber
+                :min="0"
+                :step="0.1"
+                :step-snapping="false"
+                :format-options="{ maximumFractionDigits: 6 }"
+                v-model="data.area"
+                orientation="vertical"
+                class="w-full"
+              />
+            </template>
+            <template #remove-cell="{ row }">
+              <UButton
+                icon="i-lucide-trash-2"
+                color="error"
+                variant="ghost"
+                size="sm"
+                aria-label="Remove this sample"
+                title="Remove this sample"
+                @click="removeDetailRow(row.original.key)"
+              />
+            </template>
+          </UTable>
           <UAlert
             v-if="duplicateRowNames.size"
             color="error"
@@ -1210,7 +1383,6 @@ function onSampleSetCreated(created: { id: string; name?: string | null }) {
       </template>
     </UModal>
 
-
     <UModal
       v-model:open="importDialogVisible"
       title="Upload CSV"
@@ -1219,8 +1391,8 @@ function onSampleSetCreated(created: { id: string; name?: string | null }) {
       <template #body>
         <div class="flex flex-col gap-4">
           <p class="text-sm text-surface-500 dark:text-surface-400">
-            Upload a file downloaded from this table. The columns name, elution_volume_ul and area_cm2 will replace
-            the current values. The id and info_* columns are not changed.
+            Upload a file downloaded from this table. The columns name, elution_volume_ul and
+            area_cm2 will replace the current values. The id and info_* columns are not changed.
           </p>
           <UFileUpload
             v-model="pendingCsvFile"
@@ -1238,8 +1410,18 @@ function onSampleSetCreated(created: { id: string; name?: string | null }) {
         </div>
       </template>
       <template #footer>
-        <UButton label="Cancel" icon="i-lucide-x" variant="ghost" @click="importDialogVisible = false" />
-        <UButton label="Import" icon="i-lucide-upload" :disabled="!pendingCsvFile" @click="importCsv" />
+        <UButton
+          label="Cancel"
+          icon="i-lucide-x"
+          variant="ghost"
+          @click="importDialogVisible = false"
+        />
+        <UButton
+          label="Import"
+          icon="i-lucide-upload"
+          :disabled="!pendingCsvFile"
+          @click="importCsv"
+        />
       </template>
     </UModal>
 
@@ -1251,8 +1433,8 @@ function onSampleSetCreated(created: { id: string; name?: string | null }) {
       <template #body>
         <div class="flex flex-col gap-4 text-sm">
           <p>
-            Edit the file in a spreadsheet and upload it again with <strong>Upload CSV</strong> to update the
-            samples.
+            Edit the file in a spreadsheet and upload it again with <strong>Upload CSV</strong> to
+            update the samples.
           </p>
           <ul class="flex flex-col gap-2 list-disc pl-5">
             <li>
@@ -1260,15 +1442,20 @@ function onSampleSetCreated(created: { id: string; name?: string | null }) {
               <code>area_cm2</code>. Names must be unique within the study.
             </li>
             <li>
-              <strong>Do not edit:</strong> <code>id_do_not_edit</code>. It tells the upload which sample a row
-              belongs to, so don't change, delete or duplicate it, and don't add rows.
+              <strong>Do not edit:</strong> <code>id_do_not_edit</code>. It tells the upload which
+              sample a row belongs to, so don't change, delete or duplicate it, and don't add rows.
             </li>
             <li>
-              <strong>Information only:</strong> <code>info_scenario</code>, <code>info_contact</code>, <code>info_surface</code>
-              and <code>info_sample_set</code>. Changes to these columns are ignored.
+              <strong>Information only:</strong> <code>info_scenario</code>,
+              <code>info_contact</code>, <code>info_surface</code> and <code>info_sample_set</code>.
+              Changes to these columns are ignored.
             </li>
           </ul>
-          <p>Downloaded files always use a point as decimal separator (for example 1.5). When uploading you choose the decimal separator your file uses (point or comma); it defaults to your profile's number format.</p>
+          <p>
+            Downloaded files always use a point as decimal separator (for example 1.5). When
+            uploading you choose the decimal separator your file uses (point or comma); it defaults
+            to your profile's number format.
+          </p>
           <UCheckbox v-model="csvHintDontShowAgain" label="Don't show this again" />
         </div>
       </template>

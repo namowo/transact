@@ -16,8 +16,10 @@ const emit = defineEmits<{
 }>()
 
 // USelect's label-key only supports a plain field lookup, not a callback
-// like PrimeVue's option-label, so precompute the display label per item.
-const items = computed(() => props.options.map((option) => ({ ...option, label: props.optionLabel(option) })))
+// like an option-label prop, so precompute the display label per item.
+const items = computed(() =>
+  props.options.map((option) => ({ ...option, label: props.optionLabel(option) })),
+)
 </script>
 
 <template>

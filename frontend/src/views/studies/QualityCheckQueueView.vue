@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import DataTable from 'openvue/datatable'
-import Column from 'openvue/column'
-import { FilterMatchMode } from '@openvue/core/api'
+import type { TableColumn } from '@nuxt/ui'
 import { listStudies, passQualityCheck } from '@/api/studies'
 import type { Study } from '@/api/types'
+import { manualSorting, useTableView } from '@/composables/useTableView'
+import { sortHeader } from '@/composables/tableColumns'
+import TableFilterDrawer from '@/components/ui/TableFilterDrawer.vue'
 
 const studies = ref<Study[]>([])
 const loading = ref(false)
@@ -14,20 +15,22 @@ const actingOnId = ref<string | null>(null)
 
 const pendingStudies = computed(() => studies.value.filter((s) => !s.quality_check_passed))
 
-function initFilters() {
-  return {
-    global: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    title: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    'laboratory.laboratory_name': { value: null, matchMode: FilterMatchMode.CONTAINS },
-    year: { value: null, matchMode: FilterMatchMode.CONTAINS },
-  }
-}
+const view = useTableView(pendingStudies, {
+  searchFields: ['title', 'laboratory.laboratory_name', 'year'],
+  filters: {
+    title: { field: 'title' },
+    laboratory: { field: 'laboratory.laboratory_name' },
+    year: { field: 'year' },
+  },
+  sortAccessors: { laboratory: 'laboratory.laboratory_name' },
+})
 
-const filters = ref(initFilters())
-
-function clearFilters() {
-  filters.value = initFilters()
-}
+const columns: TableColumn<Study>[] = [
+  { id: 'title', accessorKey: 'title', header: sortHeader('Title') },
+  { id: 'laboratory', header: sortHeader('Laboratory') },
+  { id: 'year', accessorKey: 'year', header: sortHeader('Year') },
+  { id: 'actions', header: '', meta: { class: { td: 'w-48 text-right' } } },
+]
 
 async function load() {
   loading.value = true
@@ -45,9 +48,7 @@ onMounted(load)
 
 async function approve(study: Study) {
   if (
-    !window.confirm(
-      'Pass the quality check for this study? This will also publish it immediately.',
-    )
+    !window.confirm('Pass the quality check for this study? This will also publish it immediately.')
   ) {
     return
   }
@@ -71,72 +72,52 @@ async function approve(study: Study) {
     <UAlert v-if="loadError" color="error" variant="outline" :description="loadError" />
     <UAlert v-if="actionError" color="error" variant="outline" :description="actionError" />
 
-    <div class="overflow-x-auto">
-      <div class="mb-3 flex items-center justify-between gap-3">
-        <UButton type="button" icon="i-lucide-filter-x" variant="outline" size="sm" @click="clearFilters()">
-          Clear Filters
-        </UButton>
+    <div class="flex flex-col gap-3">
+      <div class="flex flex-wrap items-center justify-between gap-3">
         <UInput
-          v-model="filters['global'].value"
-          type="text"
+          v-model="view.search"
           icon="i-lucide-search"
           placeholder="Keyword Search"
+          class="w-full max-w-sm"
         />
+        <TableFilterDrawer :active-count="view.activeFilterCount" @reset="view.resetFilters()">
+          <UFormField label="Title">
+            <UInput v-model="view.filters.title" placeholder="Search by title" class="w-full" />
+          </UFormField>
+          <UFormField label="Laboratory">
+            <UInput
+              v-model="view.filters.laboratory"
+              placeholder="Search by laboratory"
+              class="w-full"
+            />
+          </UFormField>
+          <UFormField label="Year">
+            <UInput v-model="view.filters.year" placeholder="Search by year" class="w-full" />
+          </UFormField>
+        </TableFilterDrawer>
       </div>
 
-      <DataTable
-        v-model:filters="filters"
-        :value="pendingStudies"
+      <UTable
+        v-model:sorting="view.sorting"
+        :sorting-options="manualSorting"
+        :data="view.rows"
+        :columns="columns"
         :loading="loading"
-        data-key="id"
-        filterDisplay="menu"
-        :globalFilterFields="['title', 'laboratory.laboratory_name', 'year']"
+        :get-row-id="(study: Study) => study.id"
+        empty="No studies are waiting for a quality check."
       >
-        <Column
-          field="title"
-          header="Title"
-          sortable
-          :showFilterOperator="false"
-          :showAddButton="false"
-        >
-          <template #filter="{ filterModel }">
-            <UInput v-model="filterModel.value" type="text" placeholder="Search by title" />
-          </template>
-        </Column>
-        <Column
-          field="laboratory.laboratory_name"
-          header="Laboratory"
-          sortable
-          :showFilterOperator="false"
-          :showAddButton="false"
-        >
-          <template #body="{ data }">{{ data.laboratory?.laboratory_name ?? '—' }}</template>
-          <template #filter="{ filterModel }">
-            <UInput v-model="filterModel.value" type="text" placeholder="Search by laboratory" />
-          </template>
-        </Column>
-        <Column
-          field="year"
-          header="Year"
-          sortable
-          :showFilterOperator="false"
-          :showAddButton="false"
-        >
-          <template #filter="{ filterModel }">
-            <UInput v-model="filterModel.value" type="text" placeholder="Search by year" />
-          </template>
-        </Column>
-        <Column header="" style="width: 12rem">
-          <template #body="{ data }">
-            <UButton
-              label="Pass quality check"
-              size="sm"
-              :loading="actingOnId === data.id"
-              @click="approve(data)"
-            />
-          </template>
-        </Column>
-      </DataTable>
+        <template #laboratory-cell="{ row }">
+          {{ row.original.laboratory?.laboratory_name ?? '—' }}
+        </template>
+        <template #actions-cell="{ row }">
+          <UButton
+            label="Pass quality check"
+            size="sm"
+            :loading="actingOnId === row.original.id"
+            @click="approve(row.original)"
+          />
+        </template>
+      </UTable>
     </div>
   </div>
 </template>

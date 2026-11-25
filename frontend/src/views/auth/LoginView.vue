@@ -99,7 +99,9 @@ async function onUsePasskey(useEmail: boolean) {
     <div class="flex flex-col gap-1">
       <h1 class="text-3xl font-medium text-surface-900 dark:text-surface-0">Login</h1>
       <p class="text-sm text-surface-500 dark:text-surface-400">
-        <template v-if="step === 'email'">Enter your email below to log in to your account</template>
+        <template v-if="step === 'email'"
+          >Enter your email below to log in to your account</template
+        >
         <template v-else>
           Enter your password for
           <strong class="text-surface-700 dark:text-surface-200">{{ email }}</strong>
@@ -152,7 +154,12 @@ async function onUsePasskey(useEmail: boolean) {
             />
           </template>
         </UInput>
-        <UAlert v-if="errors.password" color="error" variant="subtle" :description="errors.password" />
+        <UAlert
+          v-if="errors.password"
+          color="error"
+          variant="subtle"
+          :description="errors.password"
+        />
       </div>
       <button
         type="button"
@@ -160,7 +167,7 @@ async function onUsePasskey(useEmail: boolean) {
         :disabled="passkeyLoading"
         @click="onUsePasskey(true)"
       >
-        <i class="pi pi-key text-xs" />
+        <UIcon name="i-lucide-key-round" class="size-3" />
         {{ passkeyLoading ? 'Waiting for passkey…' : 'Use a passkey instead' }}
       </button>
       <button
@@ -168,7 +175,7 @@ async function onUsePasskey(useEmail: boolean) {
         class="self-start flex items-center gap-1 text-sm text-primary bg-transparent border-0 cursor-pointer p-0"
         @click="onBack"
       >
-        <i class="pi pi-arrow-left text-xs" />
+        <UIcon name="i-lucide-arrow-left" class="size-3" />
         Use a different email
       </button>
     </div>
@@ -186,7 +193,12 @@ async function onUsePasskey(useEmail: boolean) {
       instead.
     </p>
 
-    <UButton type="submit" :label="step === 'email' ? 'Continue' : 'Log in'" :loading="loading" block />
+    <UButton
+      type="submit"
+      :label="step === 'email' ? 'Continue' : 'Log in'"
+      :loading="loading"
+      block
+    />
 
     <template v-if="step === 'email'">
       <USeparator label="or" class="my-0!" />
@@ -203,7 +215,10 @@ async function onUsePasskey(useEmail: boolean) {
 
     <p class="text-center text-sm text-surface-600 dark:text-surface-300 mt-2">
       Don't have an account?
-      <RouterLink :to="{ name: 'register', query: { email } }" class="text-primary no-underline hover:underline">
+      <RouterLink
+        :to="{ name: 'register', query: { email } }"
+        class="text-primary no-underline hover:underline"
+      >
         Sign Up
       </RouterLink>
     </p>

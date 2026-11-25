@@ -74,7 +74,8 @@ async def create(obj_in: CreateSchema, db: AsyncSession = Depends(get_async_sess
 async def update(
     id: UUID, obj_in: UpdateSchema, db: AsyncSession = Depends(get_async_session)
 ):
-    return await crud.update(db, id, obj_in)
+    # Only the fields sent change; a field sent as null is cleared.
+    return await crud.update(db, id, obj_in, exclude_none=False)
 
 
 @router.delete(

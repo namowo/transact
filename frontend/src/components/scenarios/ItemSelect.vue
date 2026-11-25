@@ -2,12 +2,13 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useForm } from 'vee-validate'
 import * as yup from 'yup'
-import DataTable from 'openvue/datatable'
-import Column from 'openvue/column'
-import { FilterMatchMode } from '@openvue/core/api'
 import ItemCategoryFields from './ItemCategoryFields.vue'
 import { createItem, listItemsGrouped, updateItem } from '@/api/items'
 import type { Item, ItemGroup } from '@/api/types'
+import type { TableColumn, TableRow } from '@nuxt/ui'
+import { manualSorting, useTableView } from '@/composables/useTableView'
+import { sortHeader } from '@/composables/tableColumns'
+import TableFilterDrawer from '@/components/ui/TableFilterDrawer.vue'
 
 // Selecting an item here just picks which Item row a surface points at;
 // category, subcategory and description are edited entirely through this
@@ -48,7 +49,10 @@ watch(
 )
 
 function describeItem(item: Item): string {
-  return [item.item_category?.name, item.item_subcategory?.name].filter(Boolean).join(' — ') || 'Uncategorized'
+  return (
+    [item.item_category?.name, item.item_subcategory?.name].filter(Boolean).join(' — ') ||
+    'Uncategorized'
+  )
 }
 
 // Items are only distinguished by category/subcategory/description (they
@@ -57,19 +61,25 @@ function describeItem(item: Item): string {
 // labels. A filterable table makes every row's full detail visible instead.
 const pickerVisible = ref(false)
 
-function initFilters() {
-  return {
-    global: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    'item_category.name': { value: null, matchMode: FilterMatchMode.CONTAINS },
-    'item_subcategory.name': { value: null, matchMode: FilterMatchMode.CONTAINS },
-    description: { value: null, matchMode: FilterMatchMode.CONTAINS },
-  }
-}
+const view = useTableView(items, {
+  searchFields: ['item_category.name', 'item_subcategory.name', 'description'],
+  filters: {
+    category: { field: 'item_category.name' },
+    subcategory: { field: 'item_subcategory.name' },
+    description: { field: 'description' },
+  },
+  sortAccessors: { category: 'item_category.name', subcategory: 'item_subcategory.name' },
+})
 
-const filters = ref(initFilters())
+const columns: TableColumn<Item>[] = [
+  { id: 'category', header: sortHeader('Category') },
+  { id: 'subcategory', header: sortHeader('Subcategory') },
+  { id: 'description', accessorKey: 'description', header: sortHeader('Description') },
+]
 
-function clearFilters() {
-  filters.value = initFilters()
+function pickItem(_event: Event, row: TableRow<Item>) {
+  itemId.value = row.original.id
+  pickerVisible.value = false
 }
 
 interface FormState {
@@ -92,7 +102,12 @@ const schema = yup.object({
   description: yup.string().trim().required('Description is required.'),
 })
 
-const { defineField, errors, handleSubmit, resetForm: resetFormValues } = useForm<FormState>({
+const {
+  defineField,
+  errors,
+  handleSubmit,
+  resetForm: resetFormValues,
+} = useForm<FormState>({
   validationSchema: schema,
   initialValues: emptyForm(null),
 })
@@ -176,7 +191,12 @@ const saveItem = handleSubmit(async (values) => {
           aria-label="Edit item"
           @click="openEditDialog"
         />
-        <UButton icon="i-lucide-plus" variant="ghost" aria-label="Add new item" @click="openCreateDialog" />
+        <UButton
+          icon="i-lucide-plus"
+          variant="ghost"
+          aria-label="Add new item"
+          @click="openCreateDialog"
+        />
       </div>
     </UFormField>
 
@@ -188,68 +208,57 @@ const saveItem = handleSubmit(async (values) => {
       <template #body>
         <div class="flex flex-col gap-3">
           <div class="flex items-center justify-between gap-3">
-            <UButton type="button" icon="i-lucide-filter-x" variant="outline" size="sm" @click="clearFilters()">
-              Clear Filters
-            </UButton>
             <UInput
-              v-model="filters['global'].value"
-              type="text"
+              v-model="view.search"
               icon="i-lucide-search"
               placeholder="Keyword Search"
               class="w-full"
             />
+            <TableFilterDrawer :active-count="view.activeFilterCount" @reset="view.resetFilters()">
+              <UFormField label="Category">
+                <UInput
+                  v-model="view.filters.category"
+                  placeholder="Search by category"
+                  class="w-full"
+                />
+              </UFormField>
+              <UFormField label="Subcategory">
+                <UInput
+                  v-model="view.filters.subcategory"
+                  placeholder="Search by subcategory"
+                  class="w-full"
+                />
+              </UFormField>
+              <UFormField label="Description">
+                <UInput
+                  v-model="view.filters.description"
+                  placeholder="Search by description"
+                  class="w-full"
+                />
+              </UFormField>
+            </TableFilterDrawer>
           </div>
 
-          <DataTable
-            v-model:filters="filters"
-            :value="items"
-            :globalFilterFields="['item_category.name', 'item_subcategory.name', 'description']"
-            dataKey="id"
-            filterDisplay="menu"
-            scrollable
-            scrollHeight="28rem"
-            selectionMode="single"
-            :metaKeySelection="false"
-            :row-class="() => 'cursor-pointer hover:bg-elevated'"
-            @row-click="({ data }) => { itemId = data.id; pickerVisible = false }"
+          <UTable
+            v-model:sorting="view.sorting"
+            :sorting-options="manualSorting"
+            :data="view.rows"
+            :columns="columns"
+            :get-row-id="(item: Item) => item.id"
+            empty="No items found."
+            sticky
+            class="max-h-112"
+            :ui="{ tr: 'cursor-pointer' }"
+            :on-select="pickItem"
           >
-            <template #empty>No items found.</template>
-            <Column
-              field="item_category.name"
-              header="Category"
-              sortable
-              :showFilterOperator="false"
-              :showAddButton="false"
-            >
-              <template #body="{ data }">{{ data.item_category?.name ?? 'Uncategorized' }}</template>
-              <template #filter="{ filterModel }">
-                <UInput v-model="filterModel.value" type="text" placeholder="Search by category" />
-              </template>
-            </Column>
-            <Column
-              field="item_subcategory.name"
-              header="Subcategory"
-              sortable
-              :showFilterOperator="false"
-              :showAddButton="false"
-            >
-              <template #body="{ data }">{{ data.item_subcategory?.name ?? '—' }}</template>
-              <template #filter="{ filterModel }">
-                <UInput v-model="filterModel.value" type="text" placeholder="Search by subcategory" />
-              </template>
-            </Column>
-            <Column
-              field="description"
-              header="Description"
-              sortable
-              :showFilterOperator="false"
-              :showAddButton="false"
-            >
-              <template #filter="{ filterModel }">
-                <UInput v-model="filterModel.value" type="text" placeholder="Search by description" />
-              </template>
-            </Column>
-          </DataTable>
+            <template #category-cell="{ row }">{{
+              row.original.item_category?.name ?? 'Uncategorized'
+            }}</template>
+            <template #subcategory-cell="{ row }">{{
+              row.original.item_subcategory?.name ?? '—'
+            }}</template>
+            <template #description-cell="{ row }">{{ row.original.description }}</template>
+          </UTable>
         </div>
       </template>
       <template #footer>

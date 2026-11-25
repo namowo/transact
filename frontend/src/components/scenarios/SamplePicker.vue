@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import DataTable from 'openvue/datatable'
-import Column from 'openvue/column'
-import { FilterMatchMode } from '@openvue/core/api'
 import { surfaceLabel, sampleSetLabel, extractionMethodLabel } from '@/components/data/sampleLabel'
 import type { Sample } from '@/api/types'
+import type { TableColumn, TableRow } from '@nuxt/ui'
+import { manualSorting, useTableView } from '@/composables/useTableView'
+import { sortHeader } from '@/composables/tableColumns'
 
 // Picking a sample by a bare id is meaningless once a study has more than
 // a handful, so this mirrors ItemSelect's filterable-table picker: a button
@@ -15,9 +15,7 @@ const props = defineProps<{ samples: Sample[]; error?: string }>()
 
 const sampleId = defineModel<string | null>({ default: null })
 
-const selectedSample = computed(
-  () => props.samples.find((r) => r.id === sampleId.value) ?? null,
-)
+const selectedSample = computed(() => props.samples.find((r) => r.id === sampleId.value) ?? null)
 
 function sampleButtonLabel(sample: Sample | null): string {
   if (!sample) return 'Select a sample'
@@ -25,18 +23,6 @@ function sampleButtonLabel(sample: Sample | null): string {
 }
 
 const pickerVisible = ref(false)
-
-function initFilters() {
-  return {
-    global: { value: null, matchMode: FilterMatchMode.CONTAINS },
-  }
-}
-
-const filters = ref(initFilters())
-
-function clearFilters() {
-  filters.value = initFilters()
-}
 
 interface SampleRow {
   sample: Sample
@@ -53,6 +39,22 @@ const rows = computed<SampleRow[]>(() =>
     extractionMethodLabel: extractionMethodLabel(sample.extraction_method),
   })),
 )
+
+const view = useTableView(rows, {
+  searchFields: ['surfaceLabel', 'sampleSetLabel', 'extractionMethodLabel'],
+})
+
+const columns: TableColumn<SampleRow>[] = [
+  { id: 'surfaceLabel', accessorKey: 'surfaceLabel', header: sortHeader('Surface') },
+  { id: 'sampleSetLabel', accessorKey: 'sampleSetLabel', header: sortHeader('Sample set') },
+  {
+    id: 'extractionMethodLabel',
+    accessorKey: 'extractionMethodLabel',
+    header: sortHeader('Extraction method'),
+  },
+  { id: 'elution_volume', accessorKey: 'elution_volume', header: 'Elution volume' },
+  { id: 'area', accessorKey: 'area', header: 'Area' },
+]
 
 function selectSample(sample: Sample) {
   sampleId.value = sample.id
@@ -89,53 +91,36 @@ function selectSample(sample: Sample) {
   >
     <template #body>
       <div class="flex flex-col gap-3">
-        <div class="flex items-center justify-between gap-3">
-          <UButton type="button" icon="i-lucide-filter-x" variant="outline" size="sm" @click="clearFilters()">
-            Clear Filters
-          </UButton>
-          <UInput
-            v-model="(filters['global'] as { value: string | null }).value"
-            type="text"
-            icon="i-lucide-search"
-            placeholder="Keyword Search"
-            class="w-full"
-          />
-        </div>
+        <UInput
+          v-model="view.search"
+          icon="i-lucide-search"
+          placeholder="Keyword Search"
+          class="w-full"
+        />
 
-        <DataTable
-          v-model:filters="filters"
-          :value="rows"
-          data-key="sample.id"
-          :global-filter-fields="['surfaceLabel', 'sampleSetLabel', 'extractionMethodLabel']"
-          filter-display="menu"
-          scrollable
-          scroll-height="24rem"
-          selection-mode="single"
-          :meta-key-selection="false"
-          :row-class="() => 'cursor-pointer hover:bg-elevated'"
-          @row-click="({ data }: { data: SampleRow }) => selectSample(data.sample)"
+        <UTable
+          v-model:sorting="view.sorting"
+          :sorting-options="manualSorting"
+          :data="view.rows"
+          :columns="columns"
+          :get-row-id="(row: SampleRow) => row.sample.id"
+          empty="No samples found."
+          sticky
+          class="max-h-96"
+          :ui="{ tr: 'cursor-pointer' }"
+          :on-select="(_e: Event, row: TableRow<SampleRow>) => selectSample(row.original.sample)"
         >
-          <template #empty>No samples found.</template>
-          <Column field="surfaceLabel" header="Surface" sortable>
-            <template #body="{ data }">{{ data.surfaceLabel }}</template>
-          </Column>
-          <Column field="sampleSetLabel" header="Sample set" sortable>
-            <template #body="{ data }">{{ data.sampleSetLabel }}</template>
-          </Column>
-          <Column field="extractionMethodLabel" header="Extraction method" sortable>
-            <template #body="{ data }">{{ data.extractionMethodLabel }}</template>
-          </Column>
-          <Column header="Elution volume">
-            <template #body="{ data }">
-              {{ data.sample.elution_volume != null ? `${data.sample.elution_volume} µL` : '—' }}
-            </template>
-          </Column>
-          <Column header="Area">
-            <template #body="{ data }">
-              {{ data.sample.area != null ? `${data.sample.area} cm²` : '—' }}
-            </template>
-          </Column>
-        </DataTable>
+          <template #elution_volume-cell="{ row }">
+            {{
+              row.original.sample.elution_volume != null
+                ? `${row.original.sample.elution_volume} µL`
+                : '—'
+            }}
+          </template>
+          <template #area-cell="{ row }">
+            {{ row.original.sample.area != null ? `${row.original.sample.area} cm²` : '—' }}
+          </template>
+        </UTable>
       </div>
     </template>
     <template #footer>

@@ -2,15 +2,15 @@
 import { computed, onMounted, ref } from 'vue'
 import { useForm } from 'vee-validate'
 import * as yup from 'yup'
-import DataTable from 'openvue/datatable'
-import Column from 'openvue/column'
-import { FilterMatchMode } from '@openvue/core/api'
 import { useConfirm } from '@/composables/useConfirm'
 import ItemCategoryFields from '@/components/scenarios/ItemCategoryFields.vue'
 import { itemCategoryApi, itemPartsCategoryApi, itemSubcategoryApi } from '@/api/categories'
 import { createItem, deleteItem, listItems, updateItem } from '@/api/items'
 import type { Item, ItemPartsCategory, ItemSubcategory, NamedCategory } from '@/api/types'
-import type { TabsItem } from '@nuxt/ui'
+import type { TableColumn, TabsItem } from '@nuxt/ui'
+import { manualSorting, useTableView } from '@/composables/useTableView'
+import { expandColumn, sortHeader } from '@/composables/tableColumns'
+import TableFilterDrawer from '@/components/ui/TableFilterDrawer.vue'
 
 const confirm = useConfirm()
 
@@ -111,32 +111,27 @@ function selectCategory(id: string) {
 // items are shown in an expansion row rather than as their own columns.
 const expandedSubcategoryRows = ref<Record<string, boolean>>({})
 
-function initSubcategoryFilters() {
-  return {
-    global: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    name: { value: null, matchMode: FilterMatchMode.CONTAINS },
-  }
-}
+const subcategoryView = useTableView(selectedCategorySubcategories, {
+  searchFields: ['name'],
+  filters: { name: { field: 'name' } },
+})
 
-const subcategoryFilters = ref(initSubcategoryFilters())
+const subcategoryColumns: TableColumn<ItemSubcategory>[] = [
+  expandColumn(),
+  { id: 'name', accessorKey: 'name', header: sortHeader('Name') },
+  { id: 'actions', header: '', meta: { class: { td: 'w-24' } } },
+]
 
-function clearSubcategoryFilters() {
-  subcategoryFilters.value = initSubcategoryFilters()
-}
+const partView = useTableView(selectedCategoryParts, {
+  searchFields: ['name', 'description'],
+  filters: { name: { field: 'name' }, description: { field: 'description' } },
+})
 
-function initPartFilters() {
-  return {
-    global: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    name: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    description: { value: null, matchMode: FilterMatchMode.CONTAINS },
-  }
-}
-
-const partFilters = ref(initPartFilters())
-
-function clearPartFilters() {
-  partFilters.value = initPartFilters()
-}
+const partColumns: TableColumn<ItemPartsCategory>[] = [
+  { id: 'name', accessorKey: 'name', header: sortHeader('Name') },
+  { id: 'description', accessorKey: 'description', header: sortHeader('Description') },
+  { id: 'actions', header: '', meta: { class: { td: 'w-24' } } },
+]
 
 const categoryTabItems = computed<TabsItem[]>(() => [
   {
@@ -159,7 +154,10 @@ const renameDescription = ref('')
 const renameError = ref('')
 const renameSaving = ref(false)
 
-function openRenameDialog(target: RenameTarget, item: { id: string; name?: string | null; description?: string | null }) {
+function openRenameDialog(
+  target: RenameTarget,
+  item: { id: string; name?: string | null; description?: string | null },
+) {
   renameTarget.value = target
   renameId.value = item.id
   renameName.value = item.name ?? ''
@@ -178,7 +176,10 @@ async function saveRename() {
   renameSaving.value = true
   renameError.value = ''
   try {
-    const payload = { name: renameName.value.trim(), description: renameDescription.value.trim() || null }
+    const payload = {
+      name: renameName.value.trim(),
+      description: renameDescription.value.trim() || null,
+    }
     if (renameTarget.value === 'category') {
       const updated = await itemCategoryApi.update(renameId.value, payload)
       categories.value = categories.value.map((c) => (c.id === updated.id ? updated : c))
@@ -463,7 +464,13 @@ function confirmDeleteItem(item: Item) {
       <div class="flex w-full flex-col gap-3 lg:w-72 lg:shrink-0">
         <div class="flex items-center justify-between">
           <h2 class="text-lg font-semibold text-surface-900 dark:text-surface-0">Categories</h2>
-          <UButton icon="i-lucide-plus" variant="ghost" size="sm" aria-label="Add category" @click="openAddCategoryDialog" />
+          <UButton
+            icon="i-lucide-plus"
+            variant="ghost"
+            size="sm"
+            aria-label="Add category"
+            @click="openAddCategoryDialog"
+          />
         </div>
         <UInput
           v-model="categoriesFilter"
@@ -471,7 +478,9 @@ function confirmDeleteItem(item: Item) {
           icon="i-lucide-search"
           placeholder="Search categories"
         />
-        <div class="flex flex-col overflow-hidden rounded-lg border border-surface-200 dark:border-surface-800">
+        <div
+          class="flex flex-col overflow-hidden rounded-lg border border-surface-200 dark:border-surface-800"
+        >
           <template v-if="categoriesLoading">
             <div class="p-4 text-sm text-surface-500">Loading…</div>
           </template>
@@ -491,7 +500,11 @@ function confirmDeleteItem(item: Item) {
             @click="selectCategory(category.id)"
           >
             <span class="truncate font-medium">{{ category.name ?? 'Unnamed' }}</span>
-            <UIcon v-if="category.id === selectedCategoryId" name="i-lucide-chevron-right" class="shrink-0" />
+            <UIcon
+              v-if="category.id === selectedCategoryId"
+              name="i-lucide-chevron-right"
+              class="shrink-0"
+            />
           </button>
         </div>
       </div>
@@ -499,12 +512,16 @@ function confirmDeleteItem(item: Item) {
       <!-- Detail panel: selected category -->
       <div v-if="selectedCategory" class="flex min-w-0 flex-1 flex-col gap-6">
         <!-- Category header -->
-        <div class="flex items-start justify-between gap-3 rounded-lg border border-surface-200 p-4 dark:border-surface-800">
+        <div
+          class="flex items-start justify-between gap-3 rounded-lg border border-surface-200 p-4 dark:border-surface-800"
+        >
           <div class="flex flex-col gap-1">
             <h2 class="text-lg font-semibold text-surface-900 dark:text-surface-0">
               {{ selectedCategory.name ?? 'Unnamed' }}
             </h2>
-            <p class="text-sm text-surface-500">{{ selectedCategory.description ?? 'No description' }}</p>
+            <p class="text-sm text-surface-500">
+              {{ selectedCategory.description ?? 'No description' }}
+            </p>
           </div>
           <div class="flex shrink-0 gap-1">
             <UButton
@@ -531,202 +548,221 @@ function confirmDeleteItem(item: Item) {
           <template #subcategories>
             <div class="flex flex-col gap-3">
               <div class="flex justify-end">
-                <UButton label="Add subcategory" icon="i-lucide-plus" variant="soft" size="xs" @click="openAddSubcategoryDialog" />
-              </div>
-              <div class="mb-3 flex items-center justify-between gap-3">
-                <UButton type="button" icon="i-lucide-filter-x" variant="outline" size="sm" @click="clearSubcategoryFilters()">
-                  Clear Filters
-                </UButton>
-                <UInput
-                  v-model="subcategoryFilters['global'].value"
-                  type="text"
-                  icon="i-lucide-search"
-                  placeholder="Keyword Search"
+                <UButton
+                  label="Add subcategory"
+                  icon="i-lucide-plus"
+                  variant="soft"
+                  size="xs"
+                  @click="openAddSubcategoryDialog"
                 />
               </div>
-              <div class="overflow-x-auto rounded-lg border border-surface-200 dark:border-surface-800">
-                <DataTable
-                  v-model:expanded-rows="expandedSubcategoryRows"
-                  v-model:filters="subcategoryFilters"
-                  :value="selectedCategorySubcategories"
-                  :loading="subcategoriesLoading"
-                  data-key="id"
-                  filterDisplay="menu"
-                  :globalFilterFields="['name']"
+              <div class="flex flex-wrap items-center justify-between gap-3">
+                <UInput
+                  v-model="subcategoryView.search"
+                  icon="i-lucide-search"
+                  placeholder="Keyword Search"
+                  class="w-full max-w-sm"
+                />
+                <TableFilterDrawer
+                  :active-count="subcategoryView.activeFilterCount"
+                  @reset="subcategoryView.resetFilters()"
                 >
-                  <template #empty>No subcategories in this category yet.</template>
-                  <Column expander style="width: 3rem" />
-                  <Column
-                    field="name"
-                    header="Name"
-                    sortable
-                    :showFilterOperator="false"
-                    :showAddButton="false"
-                  >
-                    <template #filter="{ filterModel }">
-                      <UInput v-model="filterModel.value" type="text" placeholder="Search by name" />
-                    </template>
-                  </Column>
-                  <Column header="" style="width: 6rem">
-                    <template #body="{ data }">
-                      <div class="flex justify-end gap-1">
-                        <UButton
-                          icon="i-lucide-pencil"
-                          variant="ghost"
-                          color="neutral"
-                          size="sm"
-                          aria-label="Edit subcategory"
-                          @click="openRenameDialog('subcategory', data)"
-                        />
-                        <UButton
-                          icon="i-lucide-trash-2"
-                          variant="ghost"
-                          color="error"
-                          size="sm"
-                          aria-label="Delete subcategory"
-                          @click="confirmDeleteSubcategory(data)"
-                        />
-                      </div>
-                    </template>
-                  </Column>
-                  <template #expansion="{ data }">
-                    <div class="flex flex-col gap-4 px-4 py-3">
-                      <div class="flex flex-col gap-1">
-                        <h4 class="text-xs font-semibold uppercase tracking-wide text-surface-400">Description</h4>
-                        <p class="text-sm text-surface-600 dark:text-surface-300">{{ data.description ?? 'No description' }}</p>
-                      </div>
-
-                      <div class="flex flex-col gap-2 border-t border-surface-200 pt-3 dark:border-surface-800">
-                        <div class="flex items-center justify-between">
-                          <h4 class="text-xs font-semibold uppercase tracking-wide text-surface-400">
-                            Items in this subcategory
-                          </h4>
-                          <UButton
-                            label="Add item"
-                            icon="i-lucide-plus"
-                            variant="soft"
-                            size="xs"
-                            @click="openAddItemDialog(data.id)"
-                          />
-                        </div>
-                        <UAlert v-if="itemsLoadError" color="error" variant="outline" :description="itemsLoadError" />
-                        <p v-else-if="itemsForSubcategory(data.id).length === 0" class="text-sm text-surface-500">
-                          No items in this subcategory yet.
-                        </p>
-                        <ul v-else class="flex flex-col divide-y divide-surface-200 rounded-md border border-surface-200 dark:divide-surface-800 dark:border-surface-800">
-                          <li
-                            v-for="item in itemsForSubcategory(data.id)"
-                            :key="item.id"
-                            class="flex items-center justify-between gap-2 px-3 py-2 text-sm"
-                          >
-                            <span class="truncate">{{ item.description ?? '—' }}</span>
-                            <div class="flex shrink-0 gap-1">
-                              <UButton
-                                icon="i-lucide-pencil"
-                                variant="ghost"
-                                color="neutral"
-                                size="sm"
-                                aria-label="Edit item"
-                                @click="openEditItemDialog(item)"
-                              />
-                              <UButton
-                                icon="i-lucide-trash-2"
-                                variant="ghost"
-                                color="error"
-                                size="sm"
-                                aria-label="Delete item"
-                                @click="confirmDeleteItem(item)"
-                              />
-                            </div>
-                          </li>
-                        </ul>
-                      </div>
-                    </div>
-                  </template>
-                </DataTable>
+                  <UFormField label="Name">
+                    <UInput
+                      v-model="subcategoryView.filters.name"
+                      placeholder="Search by name"
+                      class="w-full"
+                    />
+                  </UFormField>
+                </TableFilterDrawer>
               </div>
+              <UTable
+                v-model:expanded="expandedSubcategoryRows"
+                v-model:sorting="subcategoryView.sorting"
+                :sorting-options="manualSorting"
+                :data="subcategoryView.rows"
+                :columns="subcategoryColumns"
+                :loading="subcategoriesLoading"
+                :get-row-id="(sub: ItemSubcategory) => sub.id"
+                empty="No subcategories in this category yet."
+                class="rounded-lg border border-default"
+              >
+                <template #actions-cell="{ row: { original: data } }">
+                  <div class="flex justify-end gap-1">
+                    <UButton
+                      icon="i-lucide-pencil"
+                      variant="ghost"
+                      color="neutral"
+                      size="sm"
+                      aria-label="Edit subcategory"
+                      @click="openRenameDialog('subcategory', data)"
+                    />
+                    <UButton
+                      icon="i-lucide-trash-2"
+                      variant="ghost"
+                      color="error"
+                      size="sm"
+                      aria-label="Delete subcategory"
+                      @click="confirmDeleteSubcategory(data)"
+                    />
+                  </div>
+                </template>
+                <template #expanded="{ row: { original: data } }">
+                  <div class="flex flex-col gap-4 px-4 py-3">
+                    <div class="flex flex-col gap-1">
+                      <h4 class="text-xs font-semibold uppercase tracking-wide text-surface-400">
+                        Description
+                      </h4>
+                      <p class="text-sm text-surface-600 dark:text-surface-300">
+                        {{ data.description ?? 'No description' }}
+                      </p>
+                    </div>
+
+                    <div
+                      class="flex flex-col gap-2 border-t border-surface-200 pt-3 dark:border-surface-800"
+                    >
+                      <div class="flex items-center justify-between">
+                        <h4 class="text-xs font-semibold uppercase tracking-wide text-surface-400">
+                          Items in this subcategory
+                        </h4>
+                        <UButton
+                          label="Add item"
+                          icon="i-lucide-plus"
+                          variant="soft"
+                          size="xs"
+                          @click="openAddItemDialog(data.id)"
+                        />
+                      </div>
+                      <UAlert
+                        v-if="itemsLoadError"
+                        color="error"
+                        variant="outline"
+                        :description="itemsLoadError"
+                      />
+                      <p
+                        v-else-if="itemsForSubcategory(data.id).length === 0"
+                        class="text-sm text-surface-500"
+                      >
+                        No items in this subcategory yet.
+                      </p>
+                      <ul
+                        v-else
+                        class="flex flex-col divide-y divide-surface-200 rounded-md border border-surface-200 dark:divide-surface-800 dark:border-surface-800"
+                      >
+                        <li
+                          v-for="item in itemsForSubcategory(data.id)"
+                          :key="item.id"
+                          class="flex items-center justify-between gap-2 px-3 py-2 text-sm"
+                        >
+                          <span class="truncate">{{ item.description ?? '—' }}</span>
+                          <div class="flex shrink-0 gap-1">
+                            <UButton
+                              icon="i-lucide-pencil"
+                              variant="ghost"
+                              color="neutral"
+                              size="sm"
+                              aria-label="Edit item"
+                              @click="openEditItemDialog(item)"
+                            />
+                            <UButton
+                              icon="i-lucide-trash-2"
+                              variant="ghost"
+                              color="error"
+                              size="sm"
+                              aria-label="Delete item"
+                              @click="confirmDeleteItem(item)"
+                            />
+                          </div>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+                </template>
+              </UTable>
             </div>
           </template>
 
           <template #parts>
             <div class="flex flex-col gap-3">
               <div class="flex justify-end">
-                <UButton label="Add item part" icon="i-lucide-plus" variant="soft" size="xs" @click="openAddPartDialog" />
-              </div>
-              <div class="mb-3 flex items-center justify-between gap-3">
-                <UButton type="button" icon="i-lucide-filter-x" variant="outline" size="sm" @click="clearPartFilters()">
-                  Clear Filters
-                </UButton>
-                <UInput
-                  v-model="partFilters['global'].value"
-                  type="text"
-                  icon="i-lucide-search"
-                  placeholder="Keyword Search"
+                <UButton
+                  label="Add item part"
+                  icon="i-lucide-plus"
+                  variant="soft"
+                  size="xs"
+                  @click="openAddPartDialog"
                 />
               </div>
-              <div class="overflow-x-auto rounded-lg border border-surface-200 dark:border-surface-800">
-                <DataTable
-                  v-model:filters="partFilters"
-                  :value="selectedCategoryParts"
-                  :loading="partsLoading"
-                  data-key="id"
-                  filterDisplay="menu"
-                  :globalFilterFields="['name', 'description']"
+              <div class="flex flex-wrap items-center justify-between gap-3">
+                <UInput
+                  v-model="partView.search"
+                  icon="i-lucide-search"
+                  placeholder="Keyword Search"
+                  class="w-full max-w-sm"
+                />
+                <TableFilterDrawer
+                  :active-count="partView.activeFilterCount"
+                  @reset="partView.resetFilters()"
                 >
-                  <template #empty>No item parts in this category yet.</template>
-                  <Column
-                    field="name"
-                    header="Name"
-                    sortable
-                    :showFilterOperator="false"
-                    :showAddButton="false"
-                  >
-                    <template #filter="{ filterModel }">
-                      <UInput v-model="filterModel.value" type="text" placeholder="Search by name" />
-                    </template>
-                  </Column>
-                  <Column
-                    field="description"
-                    header="Description"
-                    sortable
-                    :showFilterOperator="false"
-                    :showAddButton="false"
-                  >
-                    <template #body="{ data }">{{ data.description ?? '—' }}</template>
-                    <template #filter="{ filterModel }">
-                      <UInput v-model="filterModel.value" type="text" placeholder="Search by description" />
-                    </template>
-                  </Column>
-                  <Column header="" style="width: 6rem">
-                    <template #body="{ data }">
-                      <div class="flex justify-end gap-1">
-                        <UButton
-                          icon="i-lucide-pencil"
-                          variant="ghost"
-                          color="neutral"
-                          size="sm"
-                          aria-label="Edit item part"
-                          @click="openRenameDialog('part', data)"
-                        />
-                        <UButton
-                          icon="i-lucide-trash-2"
-                          variant="ghost"
-                          color="error"
-                          size="sm"
-                          aria-label="Delete item part"
-                          @click="confirmDeletePart(data)"
-                        />
-                      </div>
-                    </template>
-                  </Column>
-                </DataTable>
+                  <UFormField label="Name">
+                    <UInput
+                      v-model="partView.filters.name"
+                      placeholder="Search by name"
+                      class="w-full"
+                    />
+                  </UFormField>
+                  <UFormField label="Description">
+                    <UInput
+                      v-model="partView.filters.description"
+                      placeholder="Search by description"
+                      class="w-full"
+                    />
+                  </UFormField>
+                </TableFilterDrawer>
               </div>
+              <UTable
+                v-model:sorting="partView.sorting"
+                :sorting-options="manualSorting"
+                :data="partView.rows"
+                :columns="partColumns"
+                :loading="partsLoading"
+                :get-row-id="(part: ItemPartsCategory) => part.id"
+                empty="No item parts in this category yet."
+                class="rounded-lg border border-default"
+              >
+                <template #description-cell="{ row }">{{
+                  row.original.description ?? '—'
+                }}</template>
+                <template #actions-cell="{ row: { original: data } }">
+                  <div class="flex justify-end gap-1">
+                    <UButton
+                      icon="i-lucide-pencil"
+                      variant="ghost"
+                      color="neutral"
+                      size="sm"
+                      aria-label="Edit item part"
+                      @click="openRenameDialog('part', data)"
+                    />
+                    <UButton
+                      icon="i-lucide-trash-2"
+                      variant="ghost"
+                      color="error"
+                      size="sm"
+                      aria-label="Delete item part"
+                      @click="confirmDeletePart(data)"
+                    />
+                  </div>
+                </template>
+              </UTable>
             </div>
           </template>
         </UTabs>
       </div>
 
-      <div v-else class="flex flex-1 items-center justify-center rounded-lg border border-dashed border-surface-300 p-12 text-sm text-surface-500 dark:border-surface-700">
+      <div
+        v-else
+        class="flex flex-1 items-center justify-center rounded-lg border border-dashed border-surface-300 p-12 text-sm text-surface-500 dark:border-surface-700"
+      >
         Select a category, or add one, to see its subcategories and item parts.
       </div>
     </div>
@@ -734,7 +770,13 @@ function confirmDeleteItem(item: Item) {
     <!-- Shared rename dialog -->
     <UModal
       v-model:open="renameDialogVisible"
-      :title="renameTarget === 'category' ? 'Edit category' : renameTarget === 'subcategory' ? 'Edit subcategory' : 'Edit item part'"
+      :title="
+        renameTarget === 'category'
+          ? 'Edit category'
+          : renameTarget === 'subcategory'
+            ? 'Edit subcategory'
+            : 'Edit item part'
+      "
       :ui="{ content: 'max-w-md', footer: 'justify-end' }"
     >
       <template #body>
@@ -749,7 +791,12 @@ function confirmDeleteItem(item: Item) {
         </div>
       </template>
       <template #footer>
-        <UButton label="Cancel" icon="i-lucide-x" variant="ghost" @click="renameDialogVisible = false" />
+        <UButton
+          label="Cancel"
+          icon="i-lucide-x"
+          variant="ghost"
+          @click="renameDialogVisible = false"
+        />
         <UButton label="Save" icon="i-lucide-save" :loading="renameSaving" @click="saveRename" />
       </template>
     </UModal>
@@ -768,12 +815,27 @@ function confirmDeleteItem(item: Item) {
           <UFormField label="Description" hint="Optional">
             <UTextarea v-model="addCategoryDescription" :rows="2" class="w-full" />
           </UFormField>
-          <UAlert v-if="addCategoryError" color="error" variant="subtle" :description="addCategoryError" />
+          <UAlert
+            v-if="addCategoryError"
+            color="error"
+            variant="subtle"
+            :description="addCategoryError"
+          />
         </div>
       </template>
       <template #footer>
-        <UButton label="Cancel" icon="i-lucide-x" variant="ghost" @click="addCategoryDialogVisible = false" />
-        <UButton label="Add" icon="i-lucide-plus" :loading="addCategorySaving" @click="saveAddCategory" />
+        <UButton
+          label="Cancel"
+          icon="i-lucide-x"
+          variant="ghost"
+          @click="addCategoryDialogVisible = false"
+        />
+        <UButton
+          label="Add"
+          icon="i-lucide-plus"
+          :loading="addCategorySaving"
+          @click="saveAddCategory"
+        />
       </template>
     </UModal>
 
@@ -786,7 +848,10 @@ function confirmDeleteItem(item: Item) {
       <template #body>
         <div class="flex flex-col gap-4">
           <p class="text-sm text-surface-500">
-            Category: <span class="font-medium text-surface-700 dark:text-surface-300">{{ selectedCategory?.name ?? 'Unnamed' }}</span>
+            Category:
+            <span class="font-medium text-surface-700 dark:text-surface-300">{{
+              selectedCategory?.name ?? 'Unnamed'
+            }}</span>
           </p>
           <UFormField label="Name">
             <UInput v-model="addSubcategoryName" class="w-full" autofocus />
@@ -794,12 +859,27 @@ function confirmDeleteItem(item: Item) {
           <UFormField label="Description" hint="Optional">
             <UTextarea v-model="addSubcategoryDescription" :rows="2" class="w-full" />
           </UFormField>
-          <UAlert v-if="addSubcategoryError" color="error" variant="subtle" :description="addSubcategoryError" />
+          <UAlert
+            v-if="addSubcategoryError"
+            color="error"
+            variant="subtle"
+            :description="addSubcategoryError"
+          />
         </div>
       </template>
       <template #footer>
-        <UButton label="Cancel" icon="i-lucide-x" variant="ghost" @click="addSubcategoryDialogVisible = false" />
-        <UButton label="Add" icon="i-lucide-plus" :loading="addSubcategorySaving" @click="saveAddSubcategory" />
+        <UButton
+          label="Cancel"
+          icon="i-lucide-x"
+          variant="ghost"
+          @click="addSubcategoryDialogVisible = false"
+        />
+        <UButton
+          label="Add"
+          icon="i-lucide-plus"
+          :loading="addSubcategorySaving"
+          @click="saveAddSubcategory"
+        />
       </template>
     </UModal>
 
@@ -812,7 +892,10 @@ function confirmDeleteItem(item: Item) {
       <template #body>
         <div class="flex flex-col gap-4">
           <p class="text-sm text-surface-500">
-            Category: <span class="font-medium text-surface-700 dark:text-surface-300">{{ selectedCategory?.name ?? 'Unnamed' }}</span>
+            Category:
+            <span class="font-medium text-surface-700 dark:text-surface-300">{{
+              selectedCategory?.name ?? 'Unnamed'
+            }}</span>
           </p>
           <UFormField label="Name">
             <UInput v-model="addPartName" class="w-full" autofocus />
@@ -824,7 +907,12 @@ function confirmDeleteItem(item: Item) {
         </div>
       </template>
       <template #footer>
-        <UButton label="Cancel" icon="i-lucide-x" variant="ghost" @click="addPartDialogVisible = false" />
+        <UButton
+          label="Cancel"
+          icon="i-lucide-x"
+          variant="ghost"
+          @click="addPartDialogVisible = false"
+        />
         <UButton label="Add" icon="i-lucide-plus" :loading="addPartSaving" @click="saveAddPart" />
       </template>
     </UModal>
@@ -845,12 +933,27 @@ function confirmDeleteItem(item: Item) {
             :subcategory-error="itemErrors.itemSubcategoryId"
             :description-error="itemErrors.description"
           />
-          <UAlert v-if="editItemError" color="error" variant="subtle" :description="editItemError" />
+          <UAlert
+            v-if="editItemError"
+            color="error"
+            variant="subtle"
+            :description="editItemError"
+          />
         </div>
       </template>
       <template #footer>
-        <UButton label="Cancel" icon="i-lucide-x" variant="ghost" @click="editItemDialogVisible = false" />
-        <UButton label="Save" icon="i-lucide-save" :loading="editItemSaving" @click="saveEditItem" />
+        <UButton
+          label="Cancel"
+          icon="i-lucide-x"
+          variant="ghost"
+          @click="editItemDialogVisible = false"
+        />
+        <UButton
+          label="Save"
+          icon="i-lucide-save"
+          :loading="editItemSaving"
+          @click="saveEditItem"
+        />
       </template>
     </UModal>
   </div>
