@@ -46,6 +46,7 @@ from app.services.data_export.query import (
 )
 from app.services.data_export.writers import (
     HeaderStyle,
+    attachment_headers,
     build_xlsx,
     export_filename,
     iter_file,
@@ -150,8 +151,7 @@ async def _download(
         stmt, columns = build_select(definition, user)
     except DefinitionError as error:
         raise _invalid(error) from None
-    filename = export_filename(name, format)
-    headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
+    headers = attachment_headers(name, format)
     if format == "csv":
         return StreamingResponse(
             stream_csv(db, stmt, columns, header),

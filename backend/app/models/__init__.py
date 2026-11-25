@@ -102,3 +102,5 @@ from .vacuum_device import VacuumDevice
 from .vacuum_method import VacuumMethod
 from .wetting_agent import WettingAgent
 from .polymer import Polymer
+from .planning_checklist import PlanningChecklist
+from .study_checklist_progress import StudyChecklistProgress

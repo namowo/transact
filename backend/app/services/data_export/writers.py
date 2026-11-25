@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import io
 import re
+from urllib.parse import quote
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from tempfile import SpooledTemporaryFile
@@ -53,6 +54,23 @@ def header(field: Field, style: HeaderStyle) -> str:
 def export_filename(name: str, extension: str) -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")[:60] or "data"
     return f"transact-{slug}-{date.today().isoformat()}.{extension}"
+
+
+def attachment_headers(name: str, extension: str) -> dict[str, str]:
+    """Content-Disposition for a download named after `name` (e.g. a study
+    title). The plain `filename` is an ASCII slug for old clients;
+    `filename*` keeps the name as typed (umlauts included), with
+    underscores for spaces."""
+    readable = re.sub(r'[\\/:*?"<>|\x00-\x1f]+', " ", name)
+    # No spaces: underscores keep the name one word in shells and links.
+    readable = "_".join(readable.split())[:100] or "data"
+    full = f"transact-{readable}-{date.today().isoformat()}.{extension}"
+    return {
+        "Content-Disposition": (
+            f'attachment; filename="{export_filename(name, extension)}"; '
+            f"filename*=UTF-8''{quote(full)}"
+        )
+    }
 
 
 def _csv_value(value: Any) -> Any:

@@ -332,12 +332,13 @@ const newStudy: TourDefinition = {
     },
     {
       id: 'checklist',
-      icon: 'i-lucide-printer',
+      icon: 'i-lucide-list-checks',
       target: target('planning-checklist'),
       side: 'bottom',
       route: planning,
       title: 'Planning checklist',
-      description: 'Print a checklist of the planned scenarios to take to the lab bench.',
+      description:
+        'Print the planning checklist, or download it as Excel to plan the individuals and items. Upload the Excel file again when you add data.',
     },
     {
       id: 'add-data',

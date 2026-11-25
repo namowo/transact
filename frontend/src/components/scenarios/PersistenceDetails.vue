@@ -43,10 +43,6 @@ function formatDuration(seconds: number | null | undefined): string | null {
       <div v-if="persistence.uv_irradiation != null">
         <span class="font-medium">UV irradiation:</span> {{ persistence.uv_irradiation }} mW/cm²
       </div>
-      <div v-if="persistence.duration_of_disturbance != null">
-        <span class="font-medium">Duration of disturbance:</span>
-        {{ formatDuration(persistence.duration_of_disturbance) }}
-      </div>
       <div v-if="persistence.indoors">Indoors</div>
       <div v-if="persistence.change_over_time">Changes over time</div>
       <div v-if="persistence.geographic_location_category">

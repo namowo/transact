@@ -10,6 +10,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useTourStore } from '@/stores/tour'
 import { canEditStudy, provideStudyReadOnly } from '@/composables/useStudyAccess'
 import ScenariosList from '@/components/scenarios/ScenariosList.vue'
+import PlanningChecklistModal from '@/components/studies/PlanningChecklistModal.vue'
 import DataEntryView from '@/views/data/DataEntryView.vue'
 import type { Study, StudyCreate, StudyUpdate } from '@/api/types'
 
@@ -160,6 +161,8 @@ const { defineField, errors, handleSubmit, setValues, submitCount } = useForm({
 })
 
 const [title, titleAttrs] = defineField('title')
+
+const checklistOpen = ref(false)
 const [doi, doiAttrs] = defineField('doi')
 const [journal, journalAttrs] = defineField('journal')
 const [year, yearAttrs] = defineField('year')
@@ -745,12 +748,13 @@ function confirmDeleteStudy() {
           <div v-if="editingId !== null" class="flex justify-end mb-2">
             <UButton
               data-tour="planning-checklist"
-              label="Print planning checklist"
-              icon="i-lucide-printer"
+              label="Planning checklist"
+              icon="i-lucide-list-checks"
               variant="outline"
               size="sm"
-              @click="router.push({ name: 'studies-checklist', params: { id: editingId } })"
+              @click="checklistOpen = true"
             />
+            <PlanningChecklistModal v-model:open="checklistOpen" :study-id="String(editingId)" :study-title="title" />
           </div>
           <ScenariosList v-if="editingId !== null" :study-id="editingId" />
           <div class="flex justify-between mt-4">

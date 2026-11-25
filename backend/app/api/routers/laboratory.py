@@ -21,6 +21,8 @@ from app.schemas.laboratory import (
     LaboratoryUpdate as UpdateSchema,
 )
 from app.schemas.user import UserRead
+from app.schemas.planning_checklist import PlanningChecklistRead, PlanningChecklistUpdate
+from app.services.planning_checklist import get_sections, reset_sections, save_sections
 
 router = APIRouter()
 
@@ -80,3 +82,35 @@ async def get_lab_users(
 ):
     assert_manages_laboratory(user, id)
     return await crud_user.list_by_laboratory(db, id)
+
+
+# --- Planning checklist -----------------------------------------------------
+# Lab admins replace the default planning checklist with their laboratory's
+# own; studies of the laboratory then show it (see GET /studies/{id}/planning-checklist).
+
+
+@router.put("/{id}/planning-checklist", response_model=PlanningChecklistRead)
+async def save_planning_checklist(
+    id: UUID,
+    obj_in: PlanningChecklistUpdate,
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_lab_admin),
+):
+    assert_manages_laboratory(user, id)
+    await crud.get(db, id)  # 404 for unknown laboratories
+    await save_sections(db, id, [section.model_dump() for section in obj_in.sections])
+    sections, is_default = await get_sections(db, id)
+    return PlanningChecklistRead(laboratory_id=id, sections=sections, is_default=is_default, can_edit=True)
+
+
+@router.delete("/{id}/planning-checklist", response_model=PlanningChecklistRead)
+async def reset_planning_checklist(
+    id: UUID,
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_lab_admin),
+):
+    """Go back to the default checklist."""
+    assert_manages_laboratory(user, id)
+    await reset_sections(db, id)
+    sections, is_default = await get_sections(db, id)
+    return PlanningChecklistRead(laboratory_id=id, sections=sections, is_default=is_default, can_edit=True)

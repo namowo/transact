@@ -23,7 +23,15 @@ import { canEditStudy, provideStudyReadOnly, useStudyReadOnly } from '@/composab
 import { useAuthStore } from '@/stores/auth'
 import { useTourStore } from '@/stores/tour'
 import { listScenarios } from '@/api/scenarios'
-import { getStudy } from '@/api/studies'
+import { useToast } from '@nuxt/ui/composables'
+import {
+  getStudy,
+  planningSheetErrors,
+  planningSheetConfirmation,
+  uploadPlanningSheet,
+  type PlanningSheetConfirmation,
+} from '@/api/studies'
+import { getErrorMessage } from '@/api/errors'
 import { listContacts, deleteContact, updateContact } from '@/api/contacts'
 import type { Contact, ContactTemplate, Sample, Scenario } from '@/api/types'
 
@@ -44,7 +52,12 @@ provideStudyReadOnly(readOnly)
 
 const studyId = computed(() => props.studyId)
 
-const { individuals, describeIndividual, individualName } = useIndividualOptions(props.studyId)
+const {
+  individuals,
+  describeIndividual,
+  individualName,
+  load: reloadIndividuals,
+} = useIndividualOptions(props.studyId)
 
 const loading = ref(false)
 const loadError = ref('')
@@ -84,6 +97,108 @@ async function load() {
     loadError.value = 'Could not load data for this study.'
   } finally {
     loading.value = false
+  }
+}
+
+// -- Planning sheet upload --
+// The Excel planning checklist has sheets for individuals and items; uploading
+// it creates/updates them here. The server checks every row first and rejects
+// the whole file if any row is invalid, listing the problems.
+const toast = useToast()
+const planningSheetVisible = ref(false)
+const planningSheetFile = ref<File | null>(null)
+const planningSheetUploading = ref(false)
+const planningSheetProblems = ref<string[]>([])
+const planningSheetError = ref('')
+// Set when the user has to decide something before the file is saved:
+// new item categories to confirm (checking for typos before they land in the
+// shared catalog) and/or scenarios for rows that have none - e.g. because the
+// sheet was filled in before the scenarios were planned.
+const pendingConfirmation = ref<PlanningSheetConfirmation | null>(null)
+const assignScenarioIds = ref<string[]>([])
+
+const pendingNewCategoryCount = computed(
+  () =>
+    (pendingConfirmation.value?.new_categories.length ?? 0) +
+    (pendingConfirmation.value?.new_subcategories.length ?? 0),
+)
+const pendingUnassigned = computed(() => {
+  const pending = pendingConfirmation.value
+  if (!pending) return null
+  const parts = []
+  if (pending.unassigned_individuals)
+    parts.push(`${pending.unassigned_individuals} individual${pending.unassigned_individuals === 1 ? '' : 's'}`)
+  if (pending.unassigned_items) parts.push(`${pending.unassigned_items} item${pending.unassigned_items === 1 ? '' : 's'}`)
+  return parts.length ? parts.join(' and ') : null
+})
+const scenarioAssignOptions = computed(() =>
+  studyScenarios.value.map((scenario) => ({ label: scenario.name, value: scenario.id })),
+)
+const uploadBlocked = computed(
+  () => !planningSheetFile.value || (!!pendingUnassigned.value && !assignScenarioIds.value.length),
+)
+// Bumped after an upload so the individuals and items panels load again.
+const panelsKey = ref(0)
+
+function openPlanningSheetUpload() {
+  planningSheetFile.value = null
+  planningSheetProblems.value = []
+  planningSheetError.value = ''
+  pendingConfirmation.value = null
+  assignScenarioIds.value = []
+  planningSheetVisible.value = true
+}
+
+watch(planningSheetFile, () => {
+  planningSheetProblems.value = []
+  planningSheetError.value = ''
+  pendingConfirmation.value = null
+  assignScenarioIds.value = []
+})
+
+function countText(created: number, updated: number, noun: string): string | null {
+  const parts = []
+  if (created) parts.push(`${created} added`)
+  if (updated) parts.push(`${updated} updated`)
+  return parts.length ? `${noun}: ${parts.join(', ')}` : null
+}
+
+async function runPlanningSheetUpload() {
+  const file = planningSheetFile.value
+  if (!file) return
+  const options = {
+    createCategories: pendingNewCategoryCount.value > 0,
+    scenarioIds: pendingUnassigned.value ? assignScenarioIds.value : undefined,
+  }
+  planningSheetUploading.value = true
+  planningSheetProblems.value = []
+  planningSheetError.value = ''
+  pendingConfirmation.value = null
+  try {
+    const result = await uploadPlanningSheet(props.studyId, file, options)
+    planningSheetVisible.value = false
+    individualCountOverride.value = null
+    panelsKey.value++
+    await Promise.all([reloadIndividuals(), load()])
+    const summary = [
+      countText(result.individuals_created, result.individuals_updated, 'Individuals'),
+      countText(result.items_created, result.items_updated, 'Items'),
+      countText(result.categories_created + result.subcategories_created, 0, 'New categories'),
+    ].filter(Boolean)
+    toast.add({
+      color: 'success',
+      title: 'Planning sheet uploaded',
+      description: summary.length ? summary.join(' · ') : 'The file had no individuals or items.',
+    })
+  } catch (err) {
+    pendingConfirmation.value = planningSheetConfirmation(err)
+    if (pendingConfirmation.value) return
+    planningSheetProblems.value = planningSheetErrors(err)
+    if (!planningSheetProblems.value.length) {
+      planningSheetError.value = getErrorMessage(err, 'Could not upload this file. Please try again.')
+    }
+  } finally {
+    planningSheetUploading.value = false
   }
 }
 
@@ -635,6 +750,15 @@ const activeTab = computed<string>({
   <div class="flex flex-col gap-6">
     <div class="flex items-center justify-between gap-3">
       <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-0">{{ readOnly ? 'Data' : 'Data entry' }}</h1>
+      <div class="flex items-center gap-2">
+      <UButton
+        v-if="!readOnly"
+        label="Upload planning sheet"
+        icon="i-lucide-file-up"
+        color="neutral"
+        variant="outline"
+        @click="openPlanningSheetUpload"
+      />
       <UButton
         v-if="!readOnly"
         label="Guide me"
@@ -643,7 +767,104 @@ const activeTab = computed<string>({
         variant="ghost"
         @click="tour.start('data-entry', { force: true })"
       />
+      </div>
     </div>
+
+    <UModal
+      v-model:open="planningSheetVisible"
+      title="Upload planning sheet"
+      :ui="{ content: 'max-w-lg', footer: 'justify-end' }"
+    >
+      <template #body>
+        <div class="flex flex-col gap-4">
+          <p class="text-sm text-surface-500 dark:text-surface-400">
+            Upload the Excel planning checklist with the individuals and items you filled in. Rows with an ID update
+            existing entries, rows without an ID are added. Rows you removed from the file are not deleted here.
+          </p>
+          <UFileUpload
+            v-model="planningSheetFile"
+            accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            label="Drop your planning sheet here"
+            description="or click to choose an .xlsx file"
+            icon="i-lucide-file-spreadsheet"
+            class="w-full min-h-32"
+          />
+          <UAlert v-if="planningSheetError" color="error" variant="subtle" :description="planningSheetError" />
+          <UAlert
+            v-if="pendingNewCategoryCount"
+            color="warning"
+            variant="subtle"
+            icon="i-lucide-folder-plus"
+            title="This file adds new item categories"
+          >
+            <template #description>
+              <p class="mb-2">
+                They will be added to the shared catalog for all studies. Check them for typos - if one should be an
+                existing category, fix it in the file and upload it again.
+              </p>
+              <ul class="list-disc pl-4 max-h-48 overflow-y-auto">
+                <li v-for="name in pendingConfirmation?.new_categories" :key="`c-${name}`">
+                  Category: <span class="font-medium">{{ name }}</span>
+                </li>
+                <li
+                  v-for="sub in pendingConfirmation?.new_subcategories"
+                  :key="`s-${sub.category}-${sub.name}`"
+                >
+                  Subcategory: <span class="font-medium">{{ sub.name }}</span> (in {{ sub.category }})
+                </li>
+              </ul>
+            </template>
+          </UAlert>
+          <template v-if="pendingUnassigned">
+            <UAlert
+              v-if="!studyScenarios.length"
+              color="warning"
+              variant="subtle"
+              icon="i-lucide-route"
+              title="Plan a scenario first"
+              :description="`${pendingUnassigned} in this file have no scenario, and this study has no scenarios yet. Plan at least one scenario in the planning step, then upload the file again.`"
+            />
+            <UFormField
+              v-else
+              label="Scenarios for rows without a scenario"
+              :description="`${pendingUnassigned} in this file have no scenario. Every individual and item needs one - choose which scenarios they belong to.`"
+              required
+            >
+              <USelectMenu
+                v-model="assignScenarioIds"
+                :items="scenarioAssignOptions"
+                value-key="value"
+                multiple
+                placeholder="Choose scenarios"
+                class="w-full"
+              />
+            </UFormField>
+          </template>
+          <UAlert
+            v-if="planningSheetProblems.length"
+            color="error"
+            variant="subtle"
+            title="Nothing was saved. Please fix these rows and upload the file again:"
+          >
+            <template #description>
+              <ul class="list-disc pl-4 max-h-48 overflow-y-auto">
+                <li v-for="problem in planningSheetProblems" :key="problem">{{ problem }}</li>
+              </ul>
+            </template>
+          </UAlert>
+        </div>
+      </template>
+      <template #footer>
+        <UButton label="Cancel" icon="i-lucide-x" variant="ghost" @click="planningSheetVisible = false" />
+        <UButton
+          :label="pendingConfirmation ? 'Confirm & upload' : 'Upload'"
+          :icon="pendingConfirmation ? 'i-lucide-check' : 'i-lucide-upload'"
+          :disabled="uploadBlocked"
+          :loading="planningSheetUploading"
+          @click="runPlanningSheetUpload"
+        />
+      </template>
+    </UModal>
 
     <div v-if="loading" class="flex justify-center py-12">
       <UProgress class="w-12" />
@@ -662,11 +883,11 @@ const activeTab = computed<string>({
 
     <UTabs v-if="!loading && !loadError" v-model="activeTab" data-tour="data-tabs" :items="tabItems" :unmount-on-hide="false" class="w-full">
       <template #individuals>
-        <IndividualsPanel :study-id="studyId" :scenarios="studyScenarios" :scenario-id="selectedScenarioId" @update:count="individualCountOverride = $event" />
+        <IndividualsPanel :key="`individuals-${panelsKey}`" :study-id="studyId" :scenarios="studyScenarios" :scenario-id="selectedScenarioId" @update:count="individualCountOverride = $event" />
       </template>
 
       <template #items>
-        <ItemsPanel :study-id="studyId" :contact-templates="visibleTemplates" :scenarios="studyScenarios" :scenario-id="selectedScenarioId" @update:count="itemCount = $event" />
+        <ItemsPanel :key="`items-${panelsKey}`" :study-id="studyId" :contact-templates="visibleTemplates" :scenarios="studyScenarios" :scenario-id="selectedScenarioId" @update:count="itemCount = $event" />
       </template>
 
       <template #contacts>
