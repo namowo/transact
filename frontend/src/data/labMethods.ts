@@ -29,7 +29,6 @@ import {
   lysisBufferComponentApi,
   ceDeviceApi,
   polymerApi,
-  dyeSetApi,
   typeOfFormamideApi,
   sizeStandardApi,
   genotypingSoftwareApi,
@@ -44,7 +43,7 @@ import {
   dyeChannelApi,
   modelledParameterApi,
 } from '@/api/categories'
-import type { NamedCategory, NamedCategoryInput, PCRMethod } from '@/api/types'
+import type { CEMethod, NamedCategory, NamedCategoryInput, PCRMethod } from '@/api/types'
 
 // PCR methods have no name of their own - identified by kit + thermocycler
 // + cycle count instead, mirroring the list view's own disambiguating
@@ -56,6 +55,71 @@ export function pcrMethodLabel(method: PCRMethod): string {
     method.no_of_cycles != null ? `${method.no_of_cycles} cycles` : null,
   ].filter(Boolean)
   return parts.length ? parts.join(' / ') : `#${method.id}`
+}
+
+function formatSeconds(value: number | string | null | undefined): string | null {
+  if (value === null || value === undefined || value === '') return null
+  const total = Number(value)
+  if (total < 60) return `${total} s`
+  const minutes = Math.floor(total / 60)
+  const seconds = Math.round(total % 60)
+  return seconds ? `${minutes} min ${seconds} s` : `${minutes} min`
+}
+
+function withUnit(value: number | null | undefined, unit: string): string | null {
+  return value === null || value === undefined ? null : `${value} ${unit}`
+}
+
+// Settings that can tell two CE methods on the same device apart.
+const ceMethodDescriptors: Array<(method: CEMethod) => string | null> = [
+  (m) => m.polymer?.name ?? null,
+  (m) => withUnit(m.capillary_length, 'cm'),
+  (m) => withUnit(m.oven_temperature, '°C'),
+  (m) => (m.injection_voltage != null ? `inj. ${m.injection_voltage} V` : null),
+  (m) => (m.injection_time != null ? `inj. ${formatSeconds(m.injection_time)}` : null),
+  (m) => (m.run_voltage != null ? `run ${m.run_voltage} V` : null),
+  (m) => (m.run_time != null ? `run ${formatSeconds(m.run_time)}` : null),
+  (m) => (m.pre_run_voltage != null ? `pre-run ${m.pre_run_voltage} V` : null),
+  (m) => (m.pre_run_time != null ? `pre-run ${formatSeconds(m.pre_run_time)}` : null),
+  (m) => m.type_of_formamide?.name ?? null,
+  (m) => (m.volume_formamide != null ? `formamide ${m.volume_formamide} µl` : null),
+  (m) => m.size_standard?.name ?? null,
+  (m) => (m.volume_size_standard != null ? `size std. ${m.volume_size_standard} µl` : null),
+  (m) => (m.input_volume_pcr_product != null ? `PCR product ${m.input_volume_pcr_product} µl` : null),
+]
+
+// CE methods have no name of their own. Label them by CE device and, where
+// several methods share a device, append only the settings that differ
+// between them - e.g. "3500 (inj. 1200 V, inj. 15 s)" vs. "3500 (inj. 1600 V)".
+export function ceMethodLabels(methods: CEMethod[]): Record<string, string> {
+  const groups = new Map<string, CEMethod[]>()
+  for (const method of methods) {
+    const base = method.ce_device?.name ?? 'CE method'
+    groups.set(base, [...(groups.get(base) ?? []), method])
+  }
+
+  const labels: Record<string, string> = {}
+  for (const [base, group] of groups) {
+    if (group.length === 1) {
+      labels[group[0]!.id] = base
+      continue
+    }
+    const values = group.map((method) => ceMethodDescriptors.map((describe) => describe(method)))
+    const differing = ceMethodDescriptors
+      .map((_, i) => i)
+      .filter((i) => new Set(values.map((row) => row[i])).size > 1)
+    const seen = new Map<string, number>()
+    group.forEach((method, index) => {
+      const details = differing.map((i) => values[index]![i]).filter(Boolean)
+      let label = details.length ? `${base} (${details.join(', ')})` : base
+      // Methods with identical settings still need distinct labels.
+      const count = (seen.get(label) ?? 0) + 1
+      seen.set(label, count)
+      if (count > 1) label = `${label} #${count}`
+      labels[method.id] = label
+    })
+  }
+  return labels
 }
 
 export type FieldType =
@@ -147,6 +211,11 @@ export interface MethodConfig {
   // they have no entry in `fields` to derive a label from) - e.g. a value
   // shown for reference only.
   listColumnLabels?: Record<string, string>
+  // Display label per row id, for methods without a name of their own whose
+  // label depends on the other rows (e.g. CE methods on the same device).
+  // Exposed to the list as a `label` column; list it in `listColumns`.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- entity shape varies per method
+  rowLabels?: (rows: any[]) => Record<string, string>
 }
 
 export const labMethods: MethodConfig[] = [
@@ -298,10 +367,9 @@ export const labMethods: MethodConfig[] = [
     entryLabel: 'CE method',
     api: ceMethodApi,
     laboratoryScoped: true,
-    listColumns: ['pcr_method', 'ce_device', 'dye_set'],
-    // Dye set depends on the PCR kit used and isn't editable here (see the
-    // field list below), but it's still shown for reference.
-    listColumnLabels: { dye_set: 'Dye set', pcr_method: 'PCR method' },
+    listColumns: ['label', 'pcr_method'],
+    listColumnLabels: { label: 'CE method', pcr_method: 'PCR method' },
+    rowLabels: ceMethodLabels,
     fields: [
       {
         key: 'pcr_method_id',
@@ -355,6 +423,7 @@ export const labMethods: MethodConfig[] = [
         label: 'Volume of size standard',
         type: 'number',
         unit: 'µl',
+        step: 0.01,
       },
       {
         key: 'input_volume_pcr_product',
@@ -368,14 +437,19 @@ export const labMethods: MethodConfig[] = [
         label: 'Final volume',
         type: 'number',
         unit: 'µl',
+        step: 0.01,
         hint: 'Calculated automatically as formamide + size standard + PCR product, for a double check against what was actually measured.',
         computed: (values) =>
           [values.volume_formamide, values.volume_size_standard, values.input_volume_pcr_product].every(
             (v) => v !== null && v !== undefined && v !== '',
           )
-            ? Number(values.volume_formamide) +
-              Number(values.volume_size_standard) +
-              Number(values.input_volume_pcr_product)
+            ? // Round to 2 decimals to avoid float noise like 10.299999999.
+              Math.round(
+                (Number(values.volume_formamide) +
+                  Number(values.volume_size_standard) +
+                  Number(values.input_volume_pcr_product)) *
+                  100,
+              ) / 100
             : null,
       },
     ],

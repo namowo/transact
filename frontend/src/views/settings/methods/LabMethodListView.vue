@@ -54,9 +54,13 @@ async function load() {
   filters.value = initFilters()
   try {
     const all = (await config.value.api.list()) as MethodRow[]
-    items.value = config.value.laboratoryScoped
+    const scoped = config.value.laboratoryScoped
       ? all.filter((item) => item.laboratory_id === laboratoryId.value)
       : all
+    // Display-only; the form builds its payload from `fields`, so this
+    // extra key never reaches the API.
+    const labels = config.value.rowLabels?.(scoped)
+    items.value = labels ? scoped.map((item) => ({ ...item, label: labels[item.id] })) : scoped
     syncModalFromQuery()
   } catch {
     loadError.value = 'Could not load this list. Please try again.'
