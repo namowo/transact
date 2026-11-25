@@ -67,6 +67,7 @@ const missing = computed(() => {
       value-key="value"
       multiple
       :loading="loading"
+      clear
       placeholder="Choose studies"
       :search-input="{ placeholder: 'Search studies…' }"
       class="w-full"

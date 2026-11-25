@@ -47,6 +47,7 @@ async function onCreate(name: string) {
       multiple
       create-item
       :placeholder="placeholder ?? 'Select options'"
+      clear
       :loading="loading"
       class="w-full"
       :ui="{

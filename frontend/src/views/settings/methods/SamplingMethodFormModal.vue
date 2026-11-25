@@ -285,10 +285,13 @@ async function onSubmit() {
                   "
                 />
 
-                <USelect
+                <USelectMenu
                   v-else-if="field.type === 'select'"
                   :model-value="fieldValue(config.key as typeof subMethodKeys[number], field.key)"
                   :items="field.options"
+                  value-key="value"
+                  :search-input="false"
+                  clear
                   class="w-full"
                   @update:model-value="
                     setFieldValue(config.key as typeof subMethodKeys[number], field.key, $event)
