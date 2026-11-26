@@ -1,5 +1,29 @@
 # Changelog
 
+## [2.0.0](https://github.com/namowo/transact/compare/v1.2.0...v2.0.0) (2026-11-26)
+
+
+### ⚠ BREAKING CHANGES
+
+* the user fields is_superuser, can_manage_lab_users and can_quality_check are replaced by groups and permissions, and the /users/{id}/grant-* and /revoke-* endpoints by PUT /users/{id}/groups.
+
+### Features
+
+* choose the studies to download on the data download page ([#42](https://github.com/namowo/transact/issues/42)) ([3bee12d](https://github.com/namowo/transact/commit/3bee12dc97c833c4e883bf6a808d5ea25589a722))
+* clearable optional selections and fixed shedding propensity reference dialog ([#38](https://github.com/namowo/transact/issues/38)) ([2c55af1](https://github.com/namowo/transact/commit/2c55af15d7aacd73267198e734d5e17ec1554c9a))
+* interactive planning checklist, planning sheet upload and scenario input fixes ([#36](https://github.com/namowo/transact/issues/36)) ([fe87c5e](https://github.com/namowo/transact/commit/fe87c5e47da2bea180a07152ad8c88ff210f3406))
+* numeric degradation index, average RFU, derived DNA input amount and working mixture proportions ([#40](https://github.com/namowo/transact/issues/40)) ([e147ae4](https://github.com/namowo/transact/commit/e147ae42b711e352204bcce186650ffaac0ea149))
+* Nuxt UI tables with filter drawer, editable laboratories ([#44](https://github.com/namowo/transact/issues/44)) ([c5c5dea](https://github.com/namowo/transact/commit/c5c5dea37e1a81b9e6b1215980aebbc54a8b09b3))
+* Nuxt UI tables, two-factor auth, invitations, study review, privacy policy versions ([#45](https://github.com/namowo/transact/issues/45)) ([dccb8d2](https://github.com/namowo/transact/commit/dccb8d243d8233502e33ccee1156683cef2c19cd))
+* user groups and permissions, admin data entry for laboratories ([#43](https://github.com/namowo/transact/issues/43)) ([c3ebaea](https://github.com/namowo/transact/commit/c3ebaeaf801f5133773cb489f95a69a322d45c9e))
+
+
+### Bug Fixes
+
+* clearer wording in the interactive guide texts ([#34](https://github.com/namowo/transact/issues/34)) ([c8c9b95](https://github.com/namowo/transact/commit/c8c9b9585cfed7ab8a7d6df9440b702b7288ee85))
+* decimal size standard volume and distinguishable CE method labels ([#41](https://github.com/namowo/transact/issues/41)) ([9c297f7](https://github.com/namowo/transact/commit/9c297f764260d7e2e836d19f482cf2a17e1e54da))
+* record thermoshaker speed in rpm and allow removing samples before creation ([#39](https://github.com/namowo/transact/issues/39)) ([67b2cdd](https://github.com/namowo/transact/commit/67b2cdd1a8b4e8d3ab3804957fa25a1291ca44e9))
+
 ## [1.2.0](https://github.com/namowo/transact/compare/v1.1.0...v1.2.0) (2026-11-18)
 
 
