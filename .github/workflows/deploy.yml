@@ -9,57 +9,100 @@ on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: 'Release tag being deployed (informational only)'
+        description: 'Release tag to deploy (e.g. v1.4.0). Leave empty to deploy the latest main.'
         required: false
         type: string
-        default: manual
+        default: ''
+
+# Never run two deploys against the same server at once.
+concurrency:
+  group: deploy-test
+  cancel-in-progress: false
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: test
     steps:
-      - name: Pull latest changes
+      - name: Deploy
         uses: appleboy/ssh-action@v1.2.0
+        env:
+          TAG_NAME: ${{ inputs.tag_name }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
+          envs: TAG_NAME
           script: |
-            set -e
-            cd ${{ secrets.DEPLOY_PATH }}
-            git checkout -- uv.lock
-            git pull origin main
-            git fetch --tags --force
-
-      - name: Deploy backend
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          script: |
-            set -e
+            set -euo pipefail
             export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
             cd ${{ secrets.DEPLOY_PATH }}
-            uv sync --frozen
+
+            # --- Preflight -------------------------------------------------
+            # .env is untracked and git-ignored, so the checkout below never
+            # touches it. Never add `git clean -x` here: it would delete it.
+            if [ ! -f .env ]; then
+              echo "::error::$PWD/.env is missing; the backend cannot start without it"
+              exit 1
+            fi
+
+            # uv must be able to replace files in the venv. Files owned by
+            # another user (e.g. __pycache__ written by the service) make
+            # `uv sync` fail halfway, so stop before touching anything.
+            if [ -d .venv ]; then
+              foreign=$(find .venv ! -user "$(id -u)" -print -quit)
+              if [ -n "$foreign" ]; then
+                echo "::error::.venv contains files not owned by $(whoami), e.g. $foreign"
+                echo "Fix once on the server: sudo chown -R $(whoami): $PWD/.venv"
+                exit 1
+              fi
+            fi
+
+            # --- Check out the exact release -------------------------------
+            git fetch origin --tags --force --prune
+            if [ -n "${TAG_NAME:-}" ]; then
+              ref="refs/tags/$TAG_NAME"
+            else
+              ref="origin/main"
+            fi
+            echo "Deploying $ref"
+            git checkout --force --detach "$ref"
+
+            # --- Backend dependencies --------------------------------------
+            # Compile bytecode now, as the deploy user, so the running service
+            # never needs to write __pycache__ into the venv.
+            uv sync --frozen --compile-bytecode
+
+            # --- Frontend build (into a staging dir, live dist untouched) ---
+            export NVM_DIR="$HOME/.nvm"
+            set +u; . "$NVM_DIR/nvm.sh"; nvm use default; set -u
+            cd frontend
+            rm -rf dist.new dist.old
+            npm ci
+            # Not `npm run build -- --outDir ...`: run-p drops the extra args
+            # and would build straight into the live dist.
+            npm run type-check
+            npx vite build --outDir dist.new --emptyOutDir
+            test -f dist.new/index.html
+            cd ..
+
+            # --- Database --------------------------------------------------
             uv run --directory backend alembic upgrade head
             # Seed lookup categories (sex, DNA shedding propensity, ...). Each
             # table is only filled when empty, so this is safe to run every deploy.
             uv run --directory backend python -m app.utils.init_data.categories
-            sudo systemctl restart transact
 
-      - name: Deploy frontend
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          script: |
-            set -e
-            export NVM_DIR="$HOME/.nvm"
-            . "$NVM_DIR/nvm.sh"
-            nvm use default
-            cd ${{ secrets.DEPLOY_PATH }}/frontend
-            npm ci
-            npm run build
+            # --- Switch over -----------------------------------------------
+            cd frontend
+            if [ -d dist ]; then mv dist dist.old; fi
+            mv dist.new dist
+            rm -rf dist.old
+            cd ..
+            sudo systemctl restart transact
+            sleep 3
+            systemctl is-active --quiet transact || {
+              echo "::error::transact service is not running after restart"
+              journalctl -u transact -n 50 --no-pager || true
+              exit 1
+            }
+            echo "Deployed $(git describe --tags --always)"

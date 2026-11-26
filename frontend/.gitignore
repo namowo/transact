@@ -41,3 +41,7 @@ __screenshots__/
 # Nuxt UI (generated types)
 auto-imports.d.ts
 components.d.ts
+
+# Staging dirs used by the deploy workflow
+dist.new
+dist.old
