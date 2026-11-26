@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.1](https://github.com/namowo/transact/compare/v2.0.0...v2.0.1) (2026-11-26)
+
+
+### Bug Fixes
+
+* make the test deployment fail-safe ([#46](https://github.com/namowo/transact/issues/46)) ([2e3870c](https://github.com/namowo/transact/commit/2e3870c3128b1573410c53801c2c7f741e6f7af6))
+
 ## [2.0.0](https://github.com/namowo/transact/compare/v1.2.0...v2.0.0) (2026-11-26)
 
 
