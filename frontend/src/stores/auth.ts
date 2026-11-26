@@ -10,11 +10,24 @@ import {
   type ChangePasswordPayload,
   type UpdateProfilePayload,
 } from '@/api/users'
-import type { Permission, RegisterPayload, SuperuserSetupPayload, User } from '@/api/types'
+import type {
+  AuthConfig,
+  Permission,
+  RegisterPayload,
+  SuperuserSetupPayload,
+  TwoFactorChallenge,
+  User,
+} from '@/api/types'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
   const needsSetup = ref(false)
+  // Sign-up and sign-in policy. Until it's loaded, assume the defaults.
+  const config = ref<AuthConfig>({
+    registration_enabled: true,
+    invitations_enabled: true,
+    two_factor_required: false,
+  })
 
   const isAuthenticated = computed(() => !!user.value)
 
@@ -44,20 +57,41 @@ export const useAuthStore = defineStore('auth', () => {
   // How numbers are typed and shown (BCP 47 tag from the user's profile).
   const locale = computed(() => user.value?.locale || 'en-US')
   const decimalSeparator = computed<'.' | ','>(() => {
-    const part = new Intl.NumberFormat(locale.value).formatToParts(1.1).find((p) => p.type === 'decimal')
+    const part = new Intl.NumberFormat(locale.value)
+      .formatToParts(1.1)
+      .find((p) => p.type === 'decimal')
     return part?.value === ',' ? ',' : '.'
   })
 
   // Formats a number for display in the user's locale (e.g. 0,1 in de-DE).
-  function formatNumber(value: number, options: Intl.NumberFormatOptions = { maximumFractionDigits: 6 }) {
+  function formatNumber(
+    value: number,
+    options: Intl.NumberFormatOptions = { maximumFractionDigits: 6 },
+  ) {
     return new Intl.NumberFormat(locale.value, options).format(value)
   }
 
   let userLoadedPromise: Promise<void> | null = null
   let setupStatusPromise: Promise<void> | null = null
 
-  async function login(email: string, password: string) {
-    user.value = await authApi.login(email, password)
+  // Returns the challenge when a second factor is needed to finish signing
+  // in (see `loginTwoFactor`), else signs in.
+  async function login(email: string, password: string): Promise<TwoFactorChallenge | null> {
+    const result = await authApi.login(email, password)
+    if ('two_factor_required' in result) return result
+    user.value = result
+    userLoadedPromise = Promise.resolve()
+    return null
+  }
+
+  async function loginTwoFactor(loginToken: string, code: string) {
+    user.value = await authApi.loginTwoFactor(loginToken, code)
+    userLoadedPromise = Promise.resolve()
+  }
+
+  async function acceptInvitation(token: string, password: string) {
+    user.value = await authApi.acceptInvitation(token, password)
+    userLoadedPromise = Promise.resolve()
   }
 
   function register(payload: RegisterPayload) {
@@ -84,11 +118,12 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function fetchSetupStatus() {
-    try {
-      needsSetup.value = (await authApi.fetchSetupStatus()).needs_setup
-    } catch {
-      needsSetup.value = false
-    }
+    const [status, authConfig] = await Promise.allSettled([
+      authApi.fetchSetupStatus(),
+      authApi.fetchAuthConfig(),
+    ])
+    needsSetup.value = status.status === 'fulfilled' ? status.value.needs_setup : false
+    if (authConfig.status === 'fulfilled') config.value = authConfig.value
   }
 
   // Memoized like ensureUserLoaded - the setup gate only needs to be
@@ -146,6 +181,7 @@ export const useAuthStore = defineStore('auth', () => {
   return {
     user,
     needsSetup,
+    config,
     isAuthenticated,
     can,
     canAny,
@@ -156,6 +192,8 @@ export const useAuthStore = defineStore('auth', () => {
     decimalSeparator,
     formatNumber,
     login,
+    loginTwoFactor,
+    acceptInvitation,
     register,
     fetchCurrentUser,
     ensureUserLoaded,

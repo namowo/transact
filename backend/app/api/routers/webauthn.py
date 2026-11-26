@@ -12,11 +12,12 @@ from webauthn.helpers.structs import (
     AuthenticatorSelectionCriteria,
     PublicKeyCredentialDescriptor,
     ResidentKeyRequirement,
+    UserVerificationRequirement,
 )
 
-from app.api.routers.auth import set_session_cookie
+from app.api.routers.auth import assert_not_locked, set_session_cookie
 from app.core.config import settings
-from app.core.deps import current_active_user, get_async_session
+from app.core.deps import current_active_user, current_session_user, get_async_session
 from app.crud.user import crud_user
 from app.crud.webauthn_challenge import crud_webauthn_challenge
 from app.crud.webauthn_credential import crud_webauthn_credential
@@ -50,9 +51,17 @@ def _client_data_challenge(credential: dict) -> Optional[str]:
     return bytes_to_base64url(client_data.challenge)
 
 
+def _user_verification() -> UserVerificationRequirement:
+    # A passkey is a second factor only if the device checked that it's the
+    # user (PIN, biometrics) - required when two-factor authentication is.
+    if settings.TWO_FACTOR_REQUIRED:
+        return UserVerificationRequirement.REQUIRED
+    return UserVerificationRequirement.PREFERRED
+
+
 @router.post("/register/options")
 async def register_options(
-    user: User = Depends(current_active_user),
+    user: User = Depends(current_session_user),
     db: AsyncSession = Depends(get_async_session),
 ):
     existing = await crud_webauthn_credential.list_for_user(db, user)
@@ -65,6 +74,7 @@ async def register_options(
         authenticator_selection=AuthenticatorSelectionCriteria(
             resident_key=ResidentKeyRequirement.REQUIRED,
             require_resident_key=True,
+            user_verification=_user_verification(),
         ),
         exclude_credentials=[
             PublicKeyCredentialDescriptor(id=base64url_to_bytes(credential.credential_id))
@@ -86,7 +96,8 @@ async def register_options(
 @router.post("/register/verify", response_model=WebAuthnCredentialRead)
 async def register_verify(
     obj_in: WebAuthnRegisterVerify,
-    user: User = Depends(current_active_user),
+    response: Response,
+    user: User = Depends(current_session_user),
     db: AsyncSession = Depends(get_async_session),
 ):
     challenge = await crud_webauthn_challenge.get_valid(db, user, REGISTER_PURPOSE)
@@ -102,6 +113,7 @@ async def register_verify(
             expected_challenge=base64url_to_bytes(challenge),
             expected_rp_id=settings.WEBAUTHN_RP_ID,
             expected_origin=settings.WEBAUTHN_ORIGIN,
+            require_user_verification=settings.TWO_FACTOR_REQUIRED,
         )
     except WebAuthnException:
         raise HTTPException(
@@ -117,6 +129,10 @@ async def register_verify(
         sign_count=verification.sign_count,
         device_name=obj_in.device_name,
     )
+    if user.two_factor_setup_required:
+        # Their first second factor: the session counts as a two-factor one
+        # from now on.
+        set_session_cookie(response, user, mfa=True)
     return credential
 
 
@@ -144,6 +160,7 @@ async def login_options(
     options = webauthn.generate_authentication_options(
         rp_id=settings.WEBAUTHN_RP_ID,
         allow_credentials=allow_credentials,
+        user_verification=_user_verification(),
     )
 
     await crud_webauthn_challenge.store(
@@ -208,6 +225,8 @@ async def login_verify(
                 detail="Could not verify this passkey.",
             )
 
+    assert_not_locked(user)
+
     try:
         verification = webauthn.verify_authentication_response(
             credential=obj_in.credential,
@@ -216,6 +235,7 @@ async def login_verify(
             expected_origin=settings.WEBAUTHN_ORIGIN,
             credential_public_key=credential.public_key,
             credential_current_sign_count=credential.sign_count,
+            require_user_verification=settings.TWO_FACTOR_REQUIRED,
         )
     except WebAuthnException:
         raise HTTPException(
@@ -227,7 +247,9 @@ async def login_verify(
         db, credential, verification.new_sign_count
     )
 
-    set_session_cookie(response, user)
+    # A passkey with user verification is two factors in one: the device
+    # and the PIN or biometrics that unlock it.
+    set_session_cookie(response, user, mfa=verification.user_verified)
     return user
 
 
@@ -245,6 +267,15 @@ async def delete_credential(
     user: User = Depends(current_active_user),
     db: AsyncSession = Depends(get_async_session),
 ):
+    if settings.TWO_FACTOR_REQUIRED and not user.totp_enabled:
+        credentials = await crud_webauthn_credential.list_for_user(db, user)
+        if [c.id for c in credentials] == [credential_id]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Two-factor authentication is required. Set up an "
+                "authenticator app or add another passkey before removing "
+                "your last one.",
+            )
     deleted = await crud_webauthn_credential.delete_for_user(db, user, credential_id)
     if not deleted:
         raise HTTPException(

@@ -41,7 +41,8 @@ const onboarding: TourDefinition = {
       target: '.tour-nav-quality',
       side: 'right',
       title: 'Quality check',
-      description: 'Studies waiting for your review before they become publicly accessible are listed here.',
+      description:
+        'Studies submitted for review are listed here. Open one to comment on it, see what changed since the last round, and request changes or pass it.',
       when: ({ auth }) => auth.canQualityCheck,
     },
     {
@@ -60,7 +61,8 @@ const onboarding: TourDefinition = {
       target: '.tour-nav-admin',
       side: 'right',
       title: 'Administration',
-      description: 'Manage users, groups and permissions, laboratories, the item catalog and the legal pages.',
+      description:
+        'Manage users, groups and permissions, laboratories, the item catalog and the legal pages.',
       when: ({ auth }) => auth.isAdmin,
     },
     {
@@ -69,7 +71,8 @@ const onboarding: TourDefinition = {
       target: target('nav-docs'),
       side: 'right',
       title: 'Documentation',
-      description: 'The introduction, a getting-started guide and the FAQ are always one click away.',
+      description:
+        'The introduction, a getting-started guide and the FAQ are always one click away.',
     },
     {
       id: 'notifications',
@@ -77,7 +80,8 @@ const onboarding: TourDefinition = {
       target: target('notifications'),
       side: 'bottom',
       title: 'Notifications',
-      description: 'Requests that need your attention, like laboratory membership requests, show up here.',
+      description:
+        'Requests that need your attention, like laboratory membership requests, show up here.',
       when: ({ auth }) => auth.isLabAdmin,
     },
     {
@@ -158,7 +162,8 @@ const newStudy: TourDefinition = {
       side: 'bottom',
       route: studyForm,
       title: 'Give it a title',
-      description: 'A short, descriptive title, e.g. the title of the publication. This is the only required text field.',
+      description:
+        'A short, descriptive title, e.g. the title of the publication. This is the only required text field.',
       hint: 'Type a title, then click Next.',
     },
     {
@@ -168,7 +173,8 @@ const newStudy: TourDefinition = {
       side: 'bottom',
       route: studyForm,
       title: 'Describe the study',
-      description: 'Optional: a few sentences on the aim and setup help others understand the data later.',
+      description:
+        'Optional: a few sentences on the aim and setup help others understand the data later.',
     },
     {
       id: 'authors',
@@ -187,7 +193,8 @@ const newStudy: TourDefinition = {
       side: 'top',
       route: studyForm,
       title: 'Publication details',
-      description: 'If the study is published, add the journal, year, DOI and abstract. All of them are optional.',
+      description:
+        'If the study is published, add the journal, year, DOI and abstract. All of them are optional.',
       when: isRepositoryStudy,
     },
     {
@@ -197,7 +204,8 @@ const newStudy: TourDefinition = {
       side: 'top',
       route: studyForm,
       title: 'Contact person',
-      description: 'Optionally pick one of the authors as the contact for questions about the data and add their email.',
+      description:
+        'Optionally pick one of the authors as the contact for questions about the data and add their email.',
     },
     {
       id: 'submit',
@@ -317,7 +325,8 @@ const newStudy: TourDefinition = {
       within: scenarioDialog,
       onClose: 'add-scenario',
       title: 'Save the scenario',
-      description: 'The scenario is added to this study. You can edit it, or add more scenarios, at any time.',
+      description:
+        'The scenario is added to this study. You can edit it, or add more scenarios, at any time.',
       hint: 'Click "Add scenario" to save it, or "Cancel" to skip it.',
       waitFor: { disappears: scenarioDialog },
     },
@@ -328,7 +337,8 @@ const newStudy: TourDefinition = {
       side: 'bottom',
       route: planning,
       title: 'Reuse existing scenarios',
-      description: 'Another study uses the same setup? Duplicate its scenario instead of starting from scratch.',
+      description:
+        'Another study uses the same setup? Duplicate its scenario instead of starting from scratch.',
     },
     {
       id: 'checklist',
@@ -462,7 +472,7 @@ const dataEntryTour: TourDefinition = {
       onClose: 'contacts-tab',
       title: 'The item catalog',
       description:
-        "Choose the scenarios the item belongs to, then search the catalog and click an item to add it. Not in the catalog? Use \"Create new item\".",
+        'Choose the scenarios the item belongs to, then search the catalog and click an item to add it. Not in the catalog? Use "Create new item".',
       hint: 'Click an item to add it, or "Close" to skip.',
       waitFor: { disappears: target('item-picker') },
     },

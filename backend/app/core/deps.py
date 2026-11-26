@@ -1,3 +1,4 @@
+import enum
 from datetime import datetime, timezone
 from typing import AsyncGenerator, Optional
 from uuid import UUID
@@ -11,6 +12,7 @@ from app.core.db import SessionLocal, async_session_maker
 from app.core.security import decode_access_token, hash_token
 from app.core.permission_catalog import Permission
 from app.crud.api_key import crud_api_key
+from app.crud.webauthn_credential import crud_webauthn_credential
 from app.models.user import User
 
 
@@ -33,22 +35,51 @@ credentials_exception = HTTPException(
 )
 
 
-async def _resolve_user(
+TWO_FACTOR_SETUP_REQUIRED = "Set up two-factor authentication to continue."
+
+two_factor_setup_exception = HTTPException(
+    status_code=status.HTTP_403_FORBIDDEN,
+    detail=TWO_FACTOR_SETUP_REQUIRED,
+)
+
+
+async def _resolve_session(
     token: Optional[str], db: AsyncSession
-) -> Optional[User]:
+) -> tuple[Optional[User], bool]:
+    """The user of a session token, and whether its sign-in used a second
+    factor."""
     if token is None:
-        return None
+        return None, False
     try:
         payload = decode_access_token(token)
         user_id = payload.get("sub")
     except jwt.PyJWTError:
-        return None
+        return None, False
     if user_id is None:
-        return None
+        return None, False
     try:
-        return await db.get(User, UUID(user_id))
+        user = await db.get(User, UUID(user_id))
     except ValueError:
-        return None
+        return None, False
+    return user, bool(payload.get("mfa"))
+
+
+class SessionAccess(enum.Enum):
+    FULL = "full"
+    # Two-factor authentication is required but the user has no second factor
+    # yet: they may only set one up.
+    SETUP_ONLY = "setup_only"
+    # Signed in without the second factor the user has (e.g. a session from
+    # before two-factor authentication was required): sign in again.
+    NONE = "none"
+
+
+async def session_access(db: AsyncSession, user: User, mfa: bool) -> SessionAccess:
+    if mfa or not settings.TWO_FACTOR_REQUIRED:
+        return SessionAccess.FULL
+    if user.totp_enabled or await crud_webauthn_credential.exists_for_user(db, user):
+        return SessionAccess.NONE
+    return SessionAccess.SETUP_ONLY
 
 
 def _cookie_token(
@@ -88,16 +119,44 @@ async def _resolve_user_from_api_key(
     return await db.get(User, api_key.user_id)
 
 
+async def _resolve(
+    cookie_token: Optional[str], bearer_token: Optional[str], db: AsyncSession
+) -> tuple[Optional[User], SessionAccess]:
+    user, mfa = await _resolve_session(cookie_token, db)
+    if user is not None:
+        return user, await session_access(db, user, mfa)
+    # API keys are created from a full session, so they count as one.
+    user = await _resolve_user_from_api_key(bearer_token, db)
+    return user, SessionAccess.FULL
+
+
 async def get_current_user(
     cookie_token: Optional[str] = Depends(_cookie_token),
     bearer_token: Optional[str] = Depends(_bearer_token),
     db: AsyncSession = Depends(get_async_session),
 ) -> User:
-    user = await _resolve_user(cookie_token, db)
-    if user is None:
-        user = await _resolve_user_from_api_key(bearer_token, db)
-    if user is None:
+    user, access = await _resolve(cookie_token, bearer_token, db)
+    if user is None or access is SessionAccess.NONE:
         raise credentials_exception
+    if access is SessionAccess.SETUP_ONLY:
+        raise two_factor_setup_exception
+    return user
+
+
+async def current_session_user(
+    cookie_token: Optional[str] = Depends(_cookie_token),
+    bearer_token: Optional[str] = Depends(_bearer_token),
+    db: AsyncSession = Depends(get_async_session),
+) -> User:
+    """Like `current_active_user`, but also lets a user in who still has to
+    set up a second factor (`user.two_factor_setup_required`). Only for
+    endpoints needed to do that."""
+    user, access = await _resolve(cookie_token, bearer_token, db)
+    if user is None or access is SessionAccess.NONE:
+        raise credentials_exception
+    if not user.is_active:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Inactive user")
+    user.two_factor_setup_required = access is SessionAccess.SETUP_ONLY
     return user
 
 
@@ -106,10 +165,8 @@ async def current_optional_user(
     bearer_token: Optional[str] = Depends(_bearer_token),
     db: AsyncSession = Depends(get_async_session),
 ) -> Optional[User]:
-    user = await _resolve_user(cookie_token, db)
-    if user is None:
-        user = await _resolve_user_from_api_key(bearer_token, db)
-    return user
+    user, access = await _resolve(cookie_token, bearer_token, db)
+    return user if access is SessionAccess.FULL else None
 
 
 async def current_active_user(user: User = Depends(get_current_user)) -> User:

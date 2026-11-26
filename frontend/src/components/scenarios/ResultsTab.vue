@@ -44,9 +44,12 @@ import { manualSorting, useTableView } from '@/composables/useTableView'
 import { expandColumn, sortHeader } from '@/composables/tableColumns'
 import TableFilterDrawer from '@/components/ui/TableFilterDrawer.vue'
 import TablePagination from '@/components/ui/TablePagination.vue'
+import TableLoadingSkeleton from '@/components/ui/TableLoadingSkeleton.vue'
 
 const props = defineProps<{
   samples: Sample[]
+  // While the samples are still loading, an empty list means nothing yet.
+  samplesLoading?: boolean
   studyId: string
   surfaceScenarios: Record<string, string[]>
   contacts?: Contact[]
@@ -543,7 +546,6 @@ const view = useTableView(resultRows, {
   searchFields: ['sampleLabel', 'sampleName', 'scenarioNames', 'dna_concentration'],
   filters: { scenario: { field: 'scenarioNames' } },
   sorting,
-  pageSize: 25,
 })
 
 const columns = computed<TableColumn<ResultRow>[]>(() => [
@@ -993,7 +995,7 @@ function onPcrContextMenu(result: Result, row: TableRow<PCR>) {
     </div>
 
     <UAlert
-      v-if="!samples.length && !readOnly"
+      v-if="!samplesLoading && !samples.length && !readOnly"
       color="info"
       variant="outline"
       description="Add a sample before recording results."
@@ -1067,6 +1069,9 @@ function onPcrContextMenu(result: Result, row: TableRow<PCR>) {
           empty="No results recorded yet."
           :on-contextmenu="onResultContextMenu"
         >
+          <template #loading>
+            <TableLoadingSkeleton />
+          </template>
           <template #sampleName-cell="{ row }">{{ row.original.sampleName || '—' }}</template>
           <template #scenarioNames-cell="{ row }">
             <ScenarioBadges
@@ -1174,7 +1179,6 @@ function onPcrContextMenu(result: Result, row: TableRow<PCR>) {
         v-model:page="view.page"
         v-model:page-size="view.pageSize"
         :total="view.total"
-        :page-sizes="[25, 50, 100, 200]"
       />
     </div>
 
@@ -1434,23 +1438,10 @@ function onPcrContextMenu(result: Result, row: TableRow<PCR>) {
                     <UBadge color="neutral" variant="outline" size="lg" label="µL" />
                   </UFieldGroup>
                 </UFormField>
-                <UFormField
-                  label="DNA input amount in PCR"
-                  :error="pcrErrors.dna_input_amount_in_pcr"
-                  :help="dnaInputAmountHelp"
-                >
-                  <UFieldGroup>
-                    <UInputNumber
-                      v-model="dnaInputAmountInPcr"
-                      :disabled="derivedDnaInputAmount !== null"
-                      :step="0.001"
-                      :step-snapping="false"
-                      :format-options="{ maximumFractionDigits: 6 }"
-                      orientation="vertical"
-                      class="w-full"
-                    />
-                    <UBadge color="neutral" variant="outline" size="lg" label="pg" />
-                  </UFieldGroup>
+                <UFormField label="DNA input amount in PCR" :help="dnaInputAmountHelp">
+                  <p class="py-1.5 text-sm tabular-nums">
+                    {{ dnaInputAmountInPcr != null ? `${auth.formatNumber(dnaInputAmountInPcr)} pg` : '—' }}
+                  </p>
                 </UFormField>
                 <UFormField label="No. of contributors" :error="pcrErrors.no_of_contributors">
                   <UInputNumber
@@ -1543,7 +1534,7 @@ function onPcrContextMenu(result: Result, row: TableRow<PCR>) {
     <UModal
       v-model:open="pcrDialogVisible"
       :title="editingPcrId === null ? 'Add genotyping result' : 'Edit genotyping result'"
-      :ui="{ content: 'max-w-xl', footer: 'justify-end' }"
+      :ui="{ content: 'max-w-3xl', footer: 'justify-end' }"
     >
       <template #body>
         <div class="flex flex-col gap-4">
@@ -1662,31 +1653,10 @@ function onPcrContextMenu(result: Result, row: TableRow<PCR>) {
                 <UBadge color="neutral" variant="outline" size="lg" label="µL" />
               </UFieldGroup>
             </UFormField>
-            <UFormField
-              label="DNA input amount in PCR"
-              :error="pcrErrors.dna_input_amount_in_pcr"
-              :help="dnaInputAmountHelp"
-            >
-              <UFieldGroup>
-                <UInputNumber
-                  v-model="dnaInputAmountInPcr"
-                  :disabled="derivedDnaInputAmount !== null"
-                  :step="0.001"
-                  :step-snapping="false"
-                  :format-options="{ maximumFractionDigits: 6 }"
-                  orientation="vertical"
-                  class="w-full"
-                />
-                <UBadge color="neutral" variant="outline" size="lg" label="pg" />
-              </UFieldGroup>
-            </UFormField>
-            <UFormField label="No. of contributors" :error="pcrErrors.no_of_contributors">
-              <UInputNumber
-                v-model="noOfContributors"
-                :min="0"
-                orientation="vertical"
-                class="w-full"
-              />
+            <UFormField label="DNA input amount in PCR" :help="dnaInputAmountHelp">
+              <p class="py-1.5 text-sm tabular-nums">
+                {{ dnaInputAmountInPcr != null ? `${auth.formatNumber(dnaInputAmountInPcr)} pg` : '—' }}
+              </p>
             </UFormField>
             <UFormField label="Average RFU" :error="pcrErrors.average_rfu">
               <UFieldGroup>
@@ -1707,46 +1677,61 @@ function onPcrContextMenu(result: Result, row: TableRow<PCR>) {
             </UFormField>
           </div>
 
-          <div v-if="pcrFormValues.contributors?.length" class="flex flex-col gap-2">
-            <label class="font-medium text-sm">Mixture proportions</label>
-            <div
-              v-for="(contributor, index) in pcrFormValues.contributors"
-              :key="index"
-              class="flex items-end gap-2"
+          <UCard variant="subtle" :ui="{ body: 'flex flex-col gap-4' }">
+            <UFormField
+              label="No. of contributors"
+              :error="pcrErrors.no_of_contributors"
+              class="sm:w-1/2 sm:pr-2"
             >
-              <UFormField :label="`Contributor ${index + 1}`" class="flex-1">
-                <USelectMenu
-                  :model-value="contributorKey(contributor)"
-                  :items="
-                    contributorOptionsFor(
-                      pcrDialogResult?.sample_id,
-                      pcrFormValues.contributors ?? [],
-                    )
-                  "
-                  value-key="id"
-                  placeholder="Select an individual or unknown person"
-                  clear
-                  class="w-full"
-                  @update:model-value="setContributorKey(index, $event)"
-                />
-              </UFormField>
-              <UFormField label="Mx" class="w-28">
-                <UInputNumber
-                  :model-value="contributor.mixture_proportion"
-                  @update:model-value="
-                    updateContributor(index, { mixture_proportion: $event ?? null })
-                  "
-                  :min="0"
-                  :max="1"
-                  :step="0.01"
-                  :step-snapping="false"
-                  :format-options="{ maximumFractionDigits: 6 }"
-                  orientation="vertical"
-                  class="w-full"
-                />
-              </UFormField>
+              <UInputNumber
+                v-model="noOfContributors"
+                :min="0"
+                orientation="vertical"
+                class="w-full"
+              />
+            </UFormField>
+
+            <div v-if="pcrFormValues.contributors?.length" class="flex flex-col gap-2">
+              <label class="font-medium text-sm">Mixture proportions</label>
+              <div
+                v-for="(contributor, index) in pcrFormValues.contributors"
+                :key="index"
+                class="flex items-end gap-2"
+              >
+                <UFormField :label="`Contributor ${index + 1}`" class="flex-1">
+                  <USelectMenu
+                    :model-value="contributorKey(contributor)"
+                    :items="
+                      contributorOptionsFor(
+                        pcrDialogResult?.sample_id,
+                        pcrFormValues.contributors ?? [],
+                      )
+                    "
+                    value-key="id"
+                    placeholder="Select an individual or unknown person"
+                    clear
+                    class="w-full"
+                    @update:model-value="setContributorKey(index, $event)"
+                  />
+                </UFormField>
+                <UFormField label="Mx" class="w-28">
+                  <UInputNumber
+                    :model-value="contributor.mixture_proportion"
+                    @update:model-value="
+                      updateContributor(index, { mixture_proportion: $event ?? null })
+                    "
+                    :min="0"
+                    :max="1"
+                    :step="0.01"
+                    :step-snapping="false"
+                    :format-options="{ maximumFractionDigits: 6 }"
+                    orientation="vertical"
+                    class="w-full"
+                  />
+                </UFormField>
+              </div>
             </div>
-          </div>
+          </UCard>
 
           <UAlert
             v-if="submitPcrError"

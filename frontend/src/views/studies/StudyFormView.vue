@@ -13,8 +13,11 @@ import { useTourStore } from '@/stores/tour'
 import { canEditStudy, canEnterStudyData, provideStudyReadOnly } from '@/composables/useStudyAccess'
 import ScenariosList from '@/components/scenarios/ScenariosList.vue'
 import PlanningChecklistModal from '@/components/studies/PlanningChecklistModal.vue'
+import StudyReviewPanel from '@/components/studies/review/StudyReviewPanel.vue'
+import { reviewStatusLabels } from '@/components/studies/review/reviewLabels'
+import { getStudyReview } from '@/api/studyReview'
 import DataEntryView from '@/views/data/DataEntryView.vue'
-import type { Laboratory, Study, StudyCreate, StudyUpdate } from '@/api/types'
+import type { Laboratory, Study, StudyCreate, StudyReview, StudyUpdate } from '@/api/types'
 
 const props = defineProps<{ id?: string }>()
 
@@ -31,7 +34,8 @@ const loadedStudy = ref<Study | null>(null)
 
 // Studies of other laboratories can be opened but not changed.
 const readOnly = computed(
-  () => editingId.value !== null && !!loadedStudy.value && !canEditStudy(loadedStudy.value, auth.user),
+  () =>
+    editingId.value !== null && !!loadedStudy.value && !canEditStudy(loadedStudy.value, auth.user),
 )
 // Admins with "Edit data of all laboratories" can create a study for
 // another laboratory (to prepare its data); everyone else creates studies
@@ -95,11 +99,18 @@ const activeStep = computed<string>({
   },
 })
 
+// Steps mount on their first visit and then stay mounted while the page is open.
+const visitedSteps = ref(new Set<string>())
+watch(activeStep, (step) => visitedSteps.value.add(step), { immediate: true })
+// Bumped when the planning step changes scenarios, so the kept-alive data
+// entry step reloads instead of showing the old ones.
+const dataEntryKey = ref(0)
+
 const stepItems = computed<StepperItem[]>(() => [
-  { value: '1', title: 'Study details', slot: '1' },
-  { value: '2', title: 'Planning', disabled: editingId.value === null, slot: '2' },
+  { value: '1', title: 'Study details' },
+  { value: '2', title: 'Planning', disabled: editingId.value === null },
   ...(purpose.value === 'repository'
-    ? [{ value: '3', title: 'Add data', disabled: editingId.value === null, slot: '3' }]
+    ? [{ value: '3', title: 'Add data', disabled: editingId.value === null }]
     : []),
 ])
 
@@ -307,12 +318,48 @@ onMounted(async () => {
           : null,
       quality_check_passed: !!study.quality_check_passed,
     })
+    loadReview()
   } catch {
     loadError.value = 'Could not load this study.'
   } finally {
     loadingStudy.value = false
   }
 })
+
+// Quality review: the laboratory submits the study, quality checkers comment
+// and decide. Only offered to those taking part (the endpoint refuses others).
+// ?review=1 opens the panel, e.g. from the notification mails.
+const review = ref<StudyReview | null>(null)
+const reviewOpen = computed<boolean>({
+  get: () => route.query.review === '1',
+  set: (value) => {
+    router.replace({ query: { ...route.query, review: value ? '1' : undefined } })
+  },
+})
+const reviewStatus = computed(() => (review.value ? reviewStatusLabels[review.value.status] : null))
+const unresolvedComments = computed(() =>
+  review.value ? review.value.progress.open + review.value.progress.addressed : 0,
+)
+
+async function loadReview() {
+  if (editingId.value === null) return
+  try {
+    review.value = await getStudyReview(editingId.value)
+  } catch {
+    review.value = null
+  }
+}
+
+function onReviewChanged(value: StudyReview) {
+  review.value = value
+  if (loadedStudy.value) {
+    loadedStudy.value = {
+      ...loadedStudy.value,
+      review_status: value.status,
+      quality_check_passed: value.status === 'passed' || loadedStudy.value.quality_check_passed,
+    }
+  }
+}
 
 const submitting = ref(false)
 const submitError = ref('')
@@ -367,7 +414,8 @@ const onSubmit = handleSubmit(async (values) => {
     }
 
     if (editingId.value === null) {
-      const laboratoryId = (canPickLaboratory.value && targetLaboratoryId.value) || auth.user!.laboratory_id!
+      const laboratoryId =
+        (canPickLaboratory.value && targetLaboratoryId.value) || auth.user!.laboratory_id!
       const payload: StudyCreate = { ...shared, laboratory_id: laboratoryId }
       const created = await createStudy(payload)
       router.push({ name: 'studies-edit', params: { id: created.id }, query: { step: 'planning' } })
@@ -481,8 +529,30 @@ function confirmDeleteStudy() {
 
     <!-- Existing study: restart the guide from the step that's open. The data
          entry step has its own guide and button. -->
-    <div v-if="editingId !== null && !readOnly && !loadingStudy && activeStep !== '3'" class="flex justify-end -mb-4">
+    <div
+      v-if="editingId !== null && !loadingStudy && (review || (!readOnly && activeStep !== '3'))"
+      class="flex flex-wrap items-center justify-end gap-2 -mb-4"
+    >
       <UButton
+        v-if="review && reviewStatus"
+        data-tour="study-review"
+        :icon="reviewStatus.icon"
+        :color="reviewStatus.color"
+        variant="outline"
+        @click="reviewOpen = true"
+      >
+        Quality review
+        <UBadge
+          v-if="unresolvedComments"
+          :label="String(unresolvedComments)"
+          :color="reviewStatus.color"
+          variant="solid"
+          size="sm"
+        />
+        <span v-else class="text-muted font-normal">· {{ reviewStatus.label }}</span>
+      </UButton>
+      <UButton
+        v-if="!readOnly && activeStep !== '3'"
         label="Guide me"
         icon="i-lucide-circle-help"
         color="neutral"
@@ -500,23 +570,73 @@ function confirmDeleteStudy() {
       :description="`This study belongs to ${loadedStudy?.laboratory?.laboratory_name ?? 'another laboratory'}. Only members of that laboratory can edit it.`"
     />
 
-    <div v-if="loadingStudy" class="flex justify-center py-12">
-      <UProgress class="w-12" />
+    <UAlert
+      v-if="review?.status === 'changes_requested' && review.can_respond"
+      color="warning"
+      variant="subtle"
+      icon="i-lucide-message-square-warning"
+      title="Changes requested"
+      :description="`A quality checker asks for changes to this study${
+        review.progress.open
+          ? ` (${review.progress.open} open comment${review.progress.open === 1 ? '' : 's'})`
+          : ''
+      }. Address them, then resubmit the study.`"
+      :actions="[
+        {
+          label: 'Open review',
+          icon: 'i-lucide-messages-square',
+          onClick: () => (reviewOpen = true),
+        },
+      ]"
+    />
+    <UAlert
+      v-else-if="review?.status === 'in_review' && review.can_review"
+      color="info"
+      variant="subtle"
+      icon="i-lucide-search-check"
+      title="Waiting for quality check"
+      :description="`Submitted for round ${review.rounds.at(-1)?.number ?? 1}. Comment on the study and compare what changed since the last round.`"
+      :actions="[
+        {
+          label: 'Open review',
+          icon: 'i-lucide-messages-square',
+          onClick: () => (reviewOpen = true),
+        },
+      ]"
+    />
+
+    <StudyReviewPanel
+      v-if="editingId !== null && review"
+      v-model:open="reviewOpen"
+      :study-id="String(editingId)"
+      :study-title="title"
+      @changed="onReviewChanged"
+    />
+
+    <div v-if="loadingStudy" class="flex flex-col gap-6" aria-busy="true">
+      <USkeleton class="h-8 w-full max-w-xl" />
+      <div v-for="n in 4" :key="n" class="flex flex-col gap-2">
+        <USkeleton class="h-4 w-32" />
+        <USkeleton class="h-10 w-full" />
+      </div>
     </div>
 
     <UAlert v-else-if="loadError" color="error" variant="outline" :description="loadError" />
 
-    <UStepper
-      v-else
-      v-model="activeStep"
-      data-tour="study-stepper"
-      :items="stepItems"
-      :linear="false"
-      class="bg-transparent!"
-    >
-        <template #1>
-          <form class="flex flex-col gap-4 max-w-2xl" @submit.prevent="onSubmit">
-            <fieldset :disabled="readOnly" class="contents">
+    <!-- The stepper only renders the header; the steps are rendered below so
+         each one stays mounted (keeping its loaded data) after its first
+         visit, instead of being rebuilt every time the user switches steps. -->
+    <div v-else class="flex flex-col gap-4">
+      <UStepper
+        v-model="activeStep"
+        data-tour="study-stepper"
+        :items="stepItems"
+        :linear="false"
+        class="bg-transparent!"
+      />
+      <div v-if="visitedSteps.has('1')" v-show="activeStep === '1'">
+        <form class="flex flex-col gap-4 max-w-2xl" @submit.prevent="onSubmit">
+          <fieldset :disabled="readOnly" class="contents">
             <UFormField
               v-if="canPickLaboratory"
               label="Laboratory"
@@ -554,7 +674,14 @@ function confirmDeleteStudy() {
             <div class="flex flex-col gap-2" data-tour="study-authors">
               <div class="flex items-center justify-between">
                 <label class="font-medium text-sm">Authors</label>
-                <UButton v-if="!readOnly" label="Add author" icon="i-lucide-plus" variant="ghost" size="sm" @click="addAuthor" />
+                <UButton
+                  v-if="!readOnly"
+                  label="Add author"
+                  icon="i-lucide-plus"
+                  variant="ghost"
+                  size="sm"
+                  @click="addAuthor"
+                />
               </div>
               <div
                 v-for="(field, index) in authorFields"
@@ -576,11 +703,7 @@ function confirmDeleteStudy() {
                   />
                 </UFormField>
                 <UFormField class="flex-1" :error="showAuthorError(index, 'last_name')">
-                  <UInput
-                    v-model="field.value.last_name"
-                    placeholder="Last name"
-                    class="w-full"
-                  />
+                  <UInput v-model="field.value.last_name" placeholder="Last name" class="w-full" />
                 </UFormField>
                 <UButton
                   v-if="!readOnly"
@@ -594,7 +717,11 @@ function confirmDeleteStudy() {
               </div>
             </div>
 
-            <div v-if="purpose === 'repository'" class="flex flex-col gap-4" data-tour="study-publication">
+            <div
+              v-if="purpose === 'repository'"
+              class="flex flex-col gap-4"
+              data-tour="study-publication"
+            >
               <UFormField label="Journal" hint="Optional">
                 <UInput id="study-journal" v-model="journal" v-bind="journalAttrs" class="w-full" />
               </UFormField>
@@ -635,59 +762,58 @@ function confirmDeleteStudy() {
             </div>
 
             <div class="flex flex-col gap-4" data-tour="study-contact">
-            <UFormField label="Corresponding author contact" hint="Optional">
-              <USelectMenu
-                id="study-contact-author"
-                v-model="correspondingAuthorIndex"
-                :items="correspondingAuthorOptions"
-                value-key="value"
-                :placeholder="
-                  correspondingAuthorOptions.length
-                    ? 'Select an author'
-                    : 'Add an author with a first and last name first'
-                "
-                :disabled="!correspondingAuthorOptions.length"
-                clear
-                class="w-full"
-                @update:model-value="onCorrespondingAuthorChange"
-              />
-            </UFormField>
+              <UFormField label="Corresponding author contact" hint="Optional">
+                <USelectMenu
+                  id="study-contact-author"
+                  v-model="correspondingAuthorIndex"
+                  :items="correspondingAuthorOptions"
+                  value-key="value"
+                  :placeholder="
+                    correspondingAuthorOptions.length
+                      ? 'Select an author'
+                      : 'Add an author with a first and last name first'
+                  "
+                  :disabled="!correspondingAuthorOptions.length"
+                  clear
+                  class="w-full"
+                  @update:model-value="onCorrespondingAuthorChange"
+                />
+              </UFormField>
 
-            <UFormField label="Email" hint="Optional" :error="errors.corresponding_author_email">
-              <UInput
-                id="study-contact-email"
-                v-model="correspondingEmail"
-                v-bind="correspondingEmailAttrs"
-                :disabled="correspondingAuthorIndex == null"
-                type="email"
-                class="w-full"
-              />
-            </UFormField>
+              <UFormField label="Email" hint="Optional" :error="errors.corresponding_author_email">
+                <UInput
+                  id="study-contact-email"
+                  v-model="correspondingEmail"
+                  v-bind="correspondingEmailAttrs"
+                  :disabled="correspondingAuthorIndex == null"
+                  type="email"
+                  class="w-full"
+                />
+              </UFormField>
             </div>
+          </fieldset>
 
-            </fieldset>
+          <UAlert v-if="submitError" color="error" variant="outline" :description="submitError" />
 
-            <UAlert v-if="submitError" color="error" variant="outline" :description="submitError" />
+          <div v-if="readOnly" class="flex gap-2 mt-4">
+            <UButton
+              label="Back to studies"
+              icon="i-lucide-arrow-left"
+              variant="ghost"
+              type="button"
+              @click="onCancel"
+            />
+            <UButton
+              label="Next step"
+              trailing-icon="i-lucide-arrow-right"
+              variant="ghost"
+              type="button"
+              class="ml-auto"
+              @click="activeStep = '2'"
+            />
+          </div>
 
-            <div v-if="readOnly" class="flex gap-2 mt-4">
-              <UButton
-                label="Back to studies"
-                icon="i-lucide-arrow-left"
-                variant="ghost"
-                type="button"
-                @click="onCancel"
-              />
-              <UButton
-                label="Next step"
-                trailing-icon="i-lucide-arrow-right"
-                variant="ghost"
-                type="button"
-                class="ml-auto"
-                @click="activeStep = '2'"
-              />
-            </div>
-
-            <template v-else>
+          <template v-else>
             <div v-if="editingId !== null" class="flex justify-end mt-2">
               <UButton
                 data-tour="study-save-continue"
@@ -717,108 +843,128 @@ function confirmDeleteStudy() {
                 @click="onCancel"
               />
             </div>
-            </template>
-          </form>
+          </template>
+        </form>
 
-          <template v-if="editingId !== null && !readOnly">
-            <div class="max-w-2xl pt-16">
-              <div class="flex items-center gap-2 mb-3">
-                <UIcon name="i-lucide-triangle-alert" class="text-error size-4" />
-                <h2 class="text-sm font-semibold text-error">Danger zone</h2>
+        <template v-if="editingId !== null && !readOnly">
+          <div class="max-w-2xl pt-16">
+            <div class="flex items-center gap-2 mb-3">
+              <UIcon name="i-lucide-triangle-alert" class="text-error size-4" />
+              <h2 class="text-sm font-semibold text-error">Danger zone</h2>
+            </div>
+
+            <div class="rounded-lg border border-error/30 divide-y divide-error/20">
+              <div class="flex items-center justify-between gap-4 p-4">
+                <div class="flex flex-col gap-1">
+                  <span class="font-medium text-sm">Switch study purpose</span>
+                  <p class="text-sm text-surface-500 dark:text-surface-400">
+                    Currently
+                    <span class="font-medium text-surface-700 dark:text-surface-200">{{
+                      purposeOptions.find((option) => option.value === purpose)?.label
+                    }}</span>. This affects how this study is used elsewhere.
+                  </p>
+                  <UAlert
+                    v-if="switchPurposeError"
+                    color="error"
+                    variant="subtle"
+                    :description="switchPurposeError"
+                    class="mt-1"
+                  />
+                </div>
+                <UButton
+                  v-if="otherPurposeOption"
+                  type="button"
+                  icon="i-lucide-repeat"
+                  :label="`Switch to: ${otherPurposeOption.label}`"
+                  color="neutral"
+                  variant="outline"
+                  class="shrink-0"
+                  :loading="switchingPurpose"
+                  @click="confirmSwitchPurpose(otherPurposeOption.value)"
+                />
               </div>
 
-              <div class="rounded-lg border border-error/30 divide-y divide-error/20">
-                <div class="flex items-center justify-between gap-4 p-4">
-                  <div class="flex flex-col gap-1">
-                    <span class="font-medium text-sm">Switch study purpose</span>
-                    <p class="text-sm text-surface-500 dark:text-surface-400">
-                      Currently
-                      <span class="font-medium text-surface-700 dark:text-surface-200">{{
-                        purposeOptions.find((option) => option.value === purpose)?.label
-                      }}</span>. This affects how this study is used elsewhere.
-                    </p>
-                    <UAlert
-                      v-if="switchPurposeError"
-                      color="error"
-                      variant="subtle"
-                      :description="switchPurposeError"
-                      class="mt-1"
-                    />
-                  </div>
-                  <UButton
-                    v-if="otherPurposeOption"
-                    type="button"
-                    icon="i-lucide-repeat"
-                    :label="`Switch to: ${otherPurposeOption.label}`"
-                    color="neutral"
-                    variant="outline"
-                    class="shrink-0"
-                    :loading="switchingPurpose"
-                    @click="confirmSwitchPurpose(otherPurposeOption.value)"
-                  />
-                </div>
-
-                <div class="flex items-center justify-between gap-4 p-4">
-                  <div class="flex flex-col gap-1">
-                    <span class="font-medium text-sm">Delete study</span>
-                    <p class="text-sm text-surface-500 dark:text-surface-400">
-                      This action is permanent and cannot be undone.
-                    </p>
-                    <UAlert
-                      v-if="deleteError"
-                      color="error"
-                      variant="subtle"
-                      :description="deleteError"
-                      class="mt-1"
-                    />
-                  </div>
-                  <UButton
-                    label="Delete"
-                    icon="i-lucide-trash-2"
+              <div class="flex items-center justify-between gap-4 p-4">
+                <div class="flex flex-col gap-1">
+                  <span class="font-medium text-sm">Delete study</span>
+                  <p class="text-sm text-surface-500 dark:text-surface-400">
+                    This action is permanent and cannot be undone.
+                  </p>
+                  <UAlert
+                    v-if="deleteError"
                     color="error"
-                    class="shrink-0"
-                    :loading="deleting"
-                    @click="confirmDeleteStudy"
+                    variant="subtle"
+                    :description="deleteError"
+                    class="mt-1"
                   />
                 </div>
+                <UButton
+                  label="Delete"
+                  icon="i-lucide-trash-2"
+                  color="error"
+                  class="shrink-0"
+                  :loading="deleting"
+                  @click="confirmDeleteStudy"
+                />
               </div>
             </div>
-          </template>
+          </div>
         </template>
+      </div>
 
-        <template #2>
-          <div v-if="editingId !== null" class="flex justify-end mb-2">
-            <UButton
-              data-tour="planning-checklist"
-              label="Planning checklist"
-              icon="i-lucide-list-checks"
-              variant="outline"
-              size="sm"
-              @click="checklistOpen = true"
-            />
-            <PlanningChecklistModal v-model:open="checklistOpen" :study-id="String(editingId)" :study-title="title" />
-          </div>
-          <ScenariosList v-if="editingId !== null" :study-id="editingId" />
-          <div class="flex justify-between mt-4">
-            <UButton label="Previous step" icon="i-lucide-arrow-left" variant="ghost" type="button" @click="activeStep = '1'" />
-            <UButton
-              v-if="purpose === 'repository'"
-              data-tour="study-add-data"
-              label="Next step"
-              trailing-icon="i-lucide-arrow-right"
-              variant="ghost"
-              type="button"
-              @click="activeStep = '3'"
-            />
-          </div>
-        </template>
+      <div v-if="visitedSteps.has('2')" v-show="activeStep === '2'">
+        <div v-if="editingId !== null" class="flex justify-end mb-2">
+          <UButton
+            data-tour="planning-checklist"
+            label="Planning checklist"
+            icon="i-lucide-list-checks"
+            variant="outline"
+            size="sm"
+            @click="checklistOpen = true"
+          />
+          <PlanningChecklistModal
+            v-model:open="checklistOpen"
+            :study-id="String(editingId)"
+            :study-title="title"
+          />
+        </div>
+        <ScenariosList v-if="editingId !== null" :study-id="editingId" @changed="dataEntryKey++" />
+        <div class="flex justify-between mt-4">
+          <UButton
+            label="Previous step"
+            icon="i-lucide-arrow-left"
+            variant="ghost"
+            type="button"
+            @click="activeStep = '1'"
+          />
+          <UButton
+            v-if="purpose === 'repository'"
+            data-tour="study-add-data"
+            label="Next step"
+            trailing-icon="i-lucide-arrow-right"
+            variant="ghost"
+            type="button"
+            @click="activeStep = '3'"
+          />
+        </div>
+      </div>
 
-        <template v-if="purpose === 'repository'" #3>
-          <DataEntryView v-if="editingId !== null" :study-id="String(editingId)" />
-          <div class="flex justify-start mt-4">
-            <UButton label="Previous step" icon="i-lucide-arrow-left" variant="ghost" type="button" @click="activeStep = '2'" />
-          </div>
-        </template>
-    </UStepper>
+      <div v-if="purpose === 'repository' && visitedSteps.has('3')" v-show="activeStep === '3'">
+        <DataEntryView
+          v-if="editingId !== null"
+          :key="dataEntryKey"
+          :study-id="String(editingId)"
+        />
+        <div class="flex justify-start mt-4">
+          <UButton
+            label="Previous step"
+            icon="i-lucide-arrow-left"
+            variant="ghost"
+            type="button"
+            @click="activeStep = '2'"
+          />
+        </div>
+      </div>
+    </div>
   </div>
 </template>

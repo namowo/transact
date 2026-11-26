@@ -5,6 +5,8 @@ import { expandColumn } from '@/composables/tableColumns'
 import { useIndividualOptions, groupIndividuals } from './individualOptions'
 import type { IndividualGroup } from './individualOptions'
 import type { Individual } from '@/api/types'
+import { usePagination } from '@/composables/useTableView'
+import TablePagination from '@/components/ui/TablePagination.vue'
 
 // Lets the user pick several individuals at once, e.g. to create one contact
 // per individual against a shared item surface. Individuals sharing the same
@@ -56,6 +58,8 @@ function toggleMember(individual: Individual) {
 
 const expandedRows = ref<Record<string, boolean>>({})
 
+const groupPages = usePagination(groups)
+
 const groupColumns: TableColumn<IndividualGroup>[] = [
   expandColumn(),
   { id: 'select', header: '', meta: { class: { td: 'w-10' } } },
@@ -82,7 +86,7 @@ const memberColumns: TableColumn<Individual>[] = [
     <div class="border border-default rounded-md overflow-hidden">
       <UTable
         v-model:expanded="expandedRows"
-        :data="groups"
+        :data="groupPages.rows"
         :columns="groupColumns"
         :get-row-id="(group: IndividualGroup) => group.key"
         :loading="loading"
@@ -163,6 +167,11 @@ const memberColumns: TableColumn<Individual>[] = [
         </template>
       </UTable>
     </div>
+    <TablePagination
+      v-model:page="groupPages.page"
+      v-model:page-size="groupPages.pageSize"
+      :total="groupPages.total"
+    />
     <p v-if="!loading && !groups.length" class="text-sm text-muted">
       {{ scenarioId ? 'No individuals in this scenario yet.' : 'No individuals yet.' }}
       Add some on the Individuals tab first.

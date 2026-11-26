@@ -5,11 +5,13 @@ import type { ContextMenuItem, TableColumn, TableRow } from '@nuxt/ui'
 import { listStudies } from '@/api/studies'
 import { useAuthStore } from '@/stores/auth'
 import { canEditStudy } from '@/composables/useStudyAccess'
-import type { Study } from '@/api/types'
+import type { ReviewStatus, Study } from '@/api/types'
+import { reviewStatusLabels, reviewStatusOf } from '@/components/studies/review/reviewLabels'
 import { manualSorting, useTableView } from '@/composables/useTableView'
 import { sortHeader } from '@/composables/tableColumns'
 import TableFilterDrawer from '@/components/ui/TableFilterDrawer.vue'
 import TablePagination from '@/components/ui/TablePagination.vue'
+import TableLoadingSkeleton from '@/components/ui/TableLoadingSkeleton.vue'
 
 const props = defineProps<{ scope: 'laboratory' | 'all' }>()
 
@@ -42,10 +44,10 @@ const scopedStudies = computed(() =>
     : studies.value,
 )
 
-const qcStatusOptions = [
-  { label: 'Passed', value: true },
-  { label: 'Not checked', value: false },
-]
+const qcStatusOptions = (Object.keys(reviewStatusLabels) as ReviewStatus[]).map((value) => ({
+  label: reviewStatusLabels[value].label,
+  value,
+}))
 
 const view = useTableView(scopedStudies, {
   searchFields: ['title', 'journal', 'doi', 'year', (study) => formatAuthors(study.authors)],
@@ -53,11 +55,10 @@ const view = useTableView(scopedStudies, {
     title: { field: 'title' },
     year: { field: 'year' },
     laboratory: { field: 'laboratory.laboratory_name' },
-    qc: { field: 'quality_check_passed', mode: 'equals' },
+    qc: { field: (study) => study.review_status ?? 'draft', mode: 'equals' },
   },
   sorting: [{ id: 'created_at', desc: true }],
   sortAccessors: { laboratory: 'laboratory.laboratory_name' },
-  pageSize: 10,
 })
 
 const columns = computed<TableColumn<Study>[]>(() => [
@@ -219,6 +220,9 @@ function onRowSelect(_event: Event, row: TableRow<Study>) {
           :on-contextmenu="onRowContextMenu"
           :ui="{ tr: canOpen() ? 'cursor-pointer' : '' }"
         >
+          <template #loading>
+            <TableLoadingSkeleton />
+          </template>
           <template #title-cell="{ row }">
             <span v-if="row.original.title" class="font-medium whitespace-normal">{{
               row.original.title
@@ -261,9 +265,9 @@ function onRowSelect(_event: Event, row: TableRow<Study>) {
 
           <template #qc-cell="{ row }">
             <UBadge
-              :label="row.original.quality_check_passed ? 'Passed' : 'Not checked'"
-              :color="row.original.quality_check_passed ? 'info' : 'neutral'"
-              :variant="row.original.quality_check_passed ? 'solid' : 'subtle'"
+              :label="reviewStatusOf(row.original.review_status).label"
+              :color="reviewStatusOf(row.original.review_status).color"
+              :variant="row.original.review_status === 'passed' ? 'solid' : 'subtle'"
               size="sm"
             />
           </template>

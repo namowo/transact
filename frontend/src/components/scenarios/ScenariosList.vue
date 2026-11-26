@@ -9,11 +9,15 @@ import { listScenarios, getScenario, deleteScenario, updateScenario } from '@/ap
 import { listStudies } from '@/api/studies'
 import type { Scenario, Study } from '@/api/types'
 import type { ContextMenuItem, TableColumn, TableRow } from '@nuxt/ui'
-import { manualSorting, searchRows, useTableView } from '@/composables/useTableView'
+import { manualSorting, searchRows, usePagination, useTableView } from '@/composables/useTableView'
 import { sortHeader } from '@/composables/tableColumns'
 import TableFilterDrawer from '@/components/ui/TableFilterDrawer.vue'
+import TableLoadingSkeleton from '@/components/ui/TableLoadingSkeleton.vue'
+import TablePagination from '@/components/ui/TablePagination.vue'
 
 const props = defineProps<{ studyId: string }>()
+// Fired after the study's scenarios were added, edited, deleted or unlinked.
+const emit = defineEmits<{ changed: [] }>()
 
 const confirm = useConfirm()
 const readOnly = useStudyReadOnly()
@@ -66,6 +70,12 @@ onMounted(() => {
 async function onDelete(scenario: Scenario) {
   await deleteScenario(scenario.id)
   allScenarios.value = allScenarios.value.filter((s) => s.id !== scenario.id)
+  emit('changed')
+}
+
+function onSaved() {
+  load()
+  emit('changed')
 }
 
 function confirmDelete(scenario: Scenario) {
@@ -257,6 +267,7 @@ async function unlinkScenario(scenario: Scenario) {
   const studyIds = scenario.studies.map((s) => s.id).filter((id) => id !== props.studyId)
   const updated = await updateScenario(scenario.id, { study_ids: studyIds })
   allScenarios.value = allScenarios.value.map((s) => (s.id === updated.id ? updated : s))
+  emit('changed')
 }
 
 // Duplicating a scenario from another study is browsed like a folder tree:
@@ -286,6 +297,8 @@ const visibleBrowsableStudies = computed(() =>
 const visibleBrowsedScenarios = computed(() =>
   searchRows(browsedStudyScenarios.value, ['name', 'scenario_category.name'], browseFilter.value),
 )
+const studyPages = usePagination(visibleBrowsableStudies, undefined, [browseFilter])
+const browseScenarioPages = usePagination(visibleBrowsedScenarios, undefined, [browseFilter])
 const studyColumns: TableColumn<Study>[] = [{ id: 'study', header: 'Study' }]
 const browseScenarioColumns: TableColumn<Scenario>[] = [{ id: 'scenario', header: 'Scenario' }]
 
@@ -373,11 +386,7 @@ defineExpose({ load })
       />
     </div>
 
-    <div v-if="loading" class="flex justify-center py-12">
-      <UProgress class="w-12" />
-    </div>
-
-    <div v-else class="flex flex-col gap-3">
+    <div class="flex flex-col gap-3">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <UInput
           v-model="view.search"
@@ -415,11 +424,16 @@ defineExpose({ load })
           :sorting-options="manualSorting"
           :data="view.rows"
           :columns="columns"
+          :loading="loading"
           :get-row-id="(scenario: Scenario) => scenario.id"
           :on-select="onRowSelect"
           :on-contextmenu="onRowContextMenu"
           :ui="{ tr: 'cursor-pointer' }"
         >
+          <template #loading>
+            <TableLoadingSkeleton />
+          </template>
+
           <template #empty>
             <div class="text-center text-surface-500 dark:text-surface-400 py-8">
               No scenarios yet.
@@ -478,6 +492,11 @@ defineExpose({ load })
           </template>
         </UTable>
       </UContextMenu>
+      <TablePagination
+        v-model:page="view.page"
+        v-model:page-size="view.pageSize"
+        :total="view.total"
+      />
     </div>
 
     <ScenarioViewDialog
@@ -491,7 +510,7 @@ defineExpose({ load })
       :study-id="props.studyId"
       :id="formDialogScenarioId"
       :duplicate-from-id="formDialogDuplicateFromId"
-      @saved="load"
+      @saved="onSaved"
     />
 
     <UModal
@@ -511,48 +530,63 @@ defineExpose({ load })
           />
 
           <div style="height: 28rem">
-            <UTable
-              v-if="browseLevel === 'studies'"
-              :data="visibleBrowsableStudies"
-              :columns="studyColumns"
-              :get-row-id="(study: Study) => study.id"
-              empty="No other studies found."
-              sticky
-              class="h-full"
-            >
-              <template #study-cell="{ row }">
-                <button
-                  type="button"
-                  class="flex items-center gap-2 text-left w-full whitespace-normal hover:underline"
-                  @click="openStudyFolder(row.original)"
-                >
-                  <UIcon name="i-lucide-folder" class="size-4 shrink-0 text-dimmed" />
-                  <span>{{ citeStudy(row.original) }}</span>
-                </button>
-              </template>
-            </UTable>
-
-            <div v-else class="flex gap-4 h-full">
+            <div v-if="browseLevel === 'studies'" class="flex h-full flex-col">
               <UTable
-                :data="visibleBrowsedScenarios"
-                :columns="browseScenarioColumns"
-                :get-row-id="(scenario: Scenario) => scenario.id"
-                empty="No scenarios in this study."
+                :data="studyPages.rows"
+                :columns="studyColumns"
+                :get-row-id="(study: Study) => study.id"
+                empty="No other studies found."
                 sticky
-                class="w-64 shrink-0 h-full"
+                class="min-h-0 flex-1"
               >
-                <template #scenario-cell="{ row }">
+                <template #study-cell="{ row }">
                   <button
                     type="button"
-                    class="flex items-center gap-2 text-left w-full hover:underline"
-                    :class="{ 'font-medium text-primary': previewedScenarioId === row.original.id }"
-                    @click="previewSourceScenario(row.original)"
+                    class="flex items-center gap-2 text-left w-full whitespace-normal hover:underline"
+                    @click="openStudyFolder(row.original)"
                   >
-                    <UIcon name="i-lucide-file" class="size-4 shrink-0 text-dimmed" />
-                    <span>{{ scenarioLabel(row.original) }}</span>
+                    <UIcon name="i-lucide-folder" class="size-4 shrink-0 text-dimmed" />
+                    <span>{{ citeStudy(row.original) }}</span>
                   </button>
                 </template>
               </UTable>
+              <TablePagination
+                v-model:page="studyPages.page"
+                v-model:page-size="studyPages.pageSize"
+                :total="studyPages.total"
+              />
+            </div>
+
+            <div v-else class="flex gap-4 h-full">
+              <div class="flex h-full w-64 shrink-0 flex-col">
+                <UTable
+                  :data="browseScenarioPages.rows"
+                  :columns="browseScenarioColumns"
+                  :get-row-id="(scenario: Scenario) => scenario.id"
+                  empty="No scenarios in this study."
+                  sticky
+                  class="min-h-0 flex-1"
+                >
+                  <template #scenario-cell="{ row }">
+                    <button
+                      type="button"
+                      class="flex items-center gap-2 text-left w-full hover:underline"
+                      :class="{
+                        'font-medium text-primary': previewedScenarioId === row.original.id,
+                      }"
+                      @click="previewSourceScenario(row.original)"
+                    >
+                      <UIcon name="i-lucide-file" class="size-4 shrink-0 text-dimmed" />
+                      <span>{{ scenarioLabel(row.original) }}</span>
+                    </button>
+                  </template>
+                </UTable>
+                <TablePagination
+                  v-model:page="browseScenarioPages.page"
+                  v-model:page-size="browseScenarioPages.pageSize"
+                  :total="browseScenarioPages.total"
+                />
+              </div>
 
               <div
                 class="flex-1 min-w-0 border-l border-surface-200 dark:border-surface-700 pl-4 overflow-y-auto h-full"

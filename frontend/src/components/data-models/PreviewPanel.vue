@@ -3,6 +3,9 @@ import { computed } from 'vue'
 import type { TableColumn } from '@nuxt/ui'
 import type { DataModelPreview } from '@/api/types'
 import { fieldLabel, formatCell } from './fieldLabel'
+import TableLoadingSkeleton from '@/components/ui/TableLoadingSkeleton.vue'
+import { usePagination } from '@/composables/useTableView'
+import TablePagination from '@/components/ui/TablePagination.vue'
 
 const props = defineProps<{
   preview: DataModelPreview | null
@@ -43,6 +46,8 @@ const data = computed<Row[]>(() => {
     ),
   )
 })
+
+const dataPages = usePagination(data)
 
 const summary = computed(() => {
   const preview = props.preview
@@ -125,15 +130,25 @@ function show() {
         variant="naked"
         size="sm"
       />
-      <UTable
-        v-else
-        :data="data"
-        :columns="columns"
-        :loading="loading && !preview"
-        sticky
-        class="max-h-[40vh] rounded-md border border-default"
-        :ui="{ td: 'py-2 text-sm whitespace-nowrap', th: 'whitespace-nowrap' }"
-      />
+      <template v-else>
+        <UTable
+          :data="dataPages.rows"
+          :columns="columns"
+          :loading="loading && !preview"
+          sticky
+          class="max-h-[40vh] rounded-md border border-default"
+          :ui="{ td: 'py-2 text-sm whitespace-nowrap', th: 'whitespace-nowrap' }"
+        >
+          <template #loading>
+            <TableLoadingSkeleton />
+          </template>
+        </UTable>
+        <TablePagination
+          v-model:page="dataPages.page"
+          v-model:page-size="dataPages.pageSize"
+          :total="dataPages.total"
+        />
+      </template>
     </div>
   </section>
 </template>

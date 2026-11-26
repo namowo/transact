@@ -2,6 +2,9 @@
 import { computed, h, ref, resolveComponent, watch } from 'vue'
 import type { TableColumn, TableRow } from '@nuxt/ui'
 import type { DownloadableStudy } from '@/api/types'
+import TableLoadingSkeleton from '@/components/ui/TableLoadingSkeleton.vue'
+import { manualSorting, useTableView } from '@/composables/useTableView'
+import TablePagination from '@/components/ui/TablePagination.vue'
 
 const props = defineProps<{
   studies: DownloadableStudy[]
@@ -78,6 +81,16 @@ const filtered = computed(() => {
     return terms.every((term) => haystack.includes(term))
   })
 })
+
+// Sorted, then one page at a time; a new search or filter starts on page 1.
+const view = useTableView(filtered, {
+  sorting,
+  sortAccessors: {
+    year: (s) => (s.year ? Number.parseInt(s.year, 10) || undefined : undefined),
+    laboratory: 'laboratory_name',
+  },
+})
+watch([search, laboratories, status, selectedOnly], () => (view.page = 1))
 
 const visibleDraftCount = computed(() => props.studies.filter((s) => draft.value.has(s.id)).length)
 
@@ -222,8 +235,9 @@ function apply() {
       </div>
 
       <UTable
-        v-model:sorting="sorting"
-        :data="filtered"
+        v-model:sorting="view.sorting"
+        :sorting-options="manualSorting"
+        :data="view.rows"
         :columns="columns"
         :loading="loading"
         :get-row-id="(s: DownloadableStudy) => s.id"
@@ -233,6 +247,9 @@ function apply() {
         :ui="{ tr: 'cursor-pointer', td: 'py-2 align-top text-sm' }"
         @select="onRowSelect"
       >
+        <template #loading>
+          <TableLoadingSkeleton />
+        </template>
         <template #select-header>
           <UCheckbox
             :model-value="headerChecked"
@@ -275,6 +292,11 @@ function apply() {
           <span class="whitespace-normal">{{ row.original.laboratory_name ?? '–' }}</span>
         </template>
       </UTable>
+      <TablePagination
+        v-model:page="view.page"
+        v-model:page-size="view.pageSize"
+        :total="view.total"
+      />
 
       <p class="text-xs text-muted">
         Click a row or its checkbox to select it. The checkbox in the header selects or clears all

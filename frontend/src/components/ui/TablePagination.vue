@@ -4,7 +4,7 @@ import { computed } from 'vue'
 // Page controls under a table: which rows are shown, how many per page, and
 // the page buttons.
 const props = withDefaults(defineProps<{ total: number; pageSizes?: number[] }>(), {
-  pageSizes: () => [10, 25, 50],
+  pageSizes: () => [25, 50, 100, 200],
 })
 
 const page = defineModel<number>('page', { required: true })
@@ -19,10 +19,9 @@ const range = computed(() => {
 </script>
 
 <template>
-  <div
-    v-if="total > Math.min(...pageSizes)"
-    class="flex flex-wrap items-center justify-between gap-3 pt-3"
-  >
+  <!-- Shown whenever there are rows, even if they fit on one page, so the
+       row count and page size are always at hand. -->
+  <div v-if="total > 0" class="flex flex-wrap items-center justify-between gap-3 pt-3">
     <div class="flex items-center gap-2 text-sm text-muted">
       <span class="tabular-nums">{{ range }}</span>
       <span aria-hidden="true">·</span>

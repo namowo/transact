@@ -5,6 +5,8 @@ import { getErrorMessage } from '@/api/errors'
 import type { TableColumn } from '@nuxt/ui'
 import type { Permission, PermissionInfo, UserGroup } from '@/api/types'
 import { useAuthStore } from '@/stores/auth'
+import { usePagination } from '@/composables/useTableView'
+import TablePagination from '@/components/ui/TablePagination.vue'
 
 // Creates or edits a group. Without `group` a new one is created - for the
 // laboratory `laboratoryId`, or platform-wide when that is null.
@@ -42,10 +44,9 @@ const locked = computed<Permission[]>(() =>
 
 // Platform permissions first, then the laboratory ones.
 const rows = computed(() =>
-  [...available.value].sort((a, b) =>
-    a.scope === b.scope ? 0 : a.scope === 'global' ? -1 : 1,
-  ),
+  [...available.value].sort((a, b) => (a.scope === b.scope ? 0 : a.scope === 'global' ? -1 : 1)),
 )
+const rowPages = usePagination(rows)
 
 const columns: TableColumn<PermissionInfo>[] = [
   { id: 'permission', header: 'Permission' },
@@ -129,7 +130,11 @@ async function save() {
       <form class="flex flex-col gap-4" @submit.prevent="save">
         <UAlert v-if="error" color="error" variant="subtle" :description="error" />
 
-        <UFormField label="Name" required :hint="isBuiltIn ? 'Built-in groups keep their name' : undefined">
+        <UFormField
+          label="Name"
+          required
+          :hint="isBuiltIn ? 'Built-in groups keep their name' : undefined"
+        >
           <UInput v-model="name" class="w-full" :disabled="isBuiltIn" autofocus />
         </UFormField>
 
@@ -143,7 +148,7 @@ async function save() {
             <span class="text-xs text-muted">{{ grantedCount }} of {{ rows.length }} granted</span>
           </div>
           <UTable
-            :data="rows"
+            :data="rowPages.rows"
             :columns="columns"
             :get-row-id="(permission: PermissionInfo) => permission.key"
             sticky
@@ -165,7 +170,10 @@ async function save() {
               />
             </template>
             <template #granted-cell="{ row }">
-              <UTooltip :text="lockReason(row.original.key) ?? undefined" :disabled="!lockReason(row.original.key)">
+              <UTooltip
+                :text="lockReason(row.original.key) ?? undefined"
+                :disabled="!lockReason(row.original.key)"
+              >
                 <USwitch
                   :model-value="selected.includes(row.original.key)"
                   :disabled="!!lockReason(row.original.key)"
@@ -175,8 +183,12 @@ async function save() {
               </UTooltip>
             </template>
           </UTable>
+          <TablePagination
+            v-model:page="rowPages.page"
+            v-model:page-size="rowPages.pageSize"
+            :total="rowPages.total"
+          />
         </div>
-
       </form>
     </template>
     <template #footer>

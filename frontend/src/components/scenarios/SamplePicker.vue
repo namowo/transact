@@ -5,6 +5,7 @@ import type { Sample } from '@/api/types'
 import type { TableColumn, TableRow } from '@nuxt/ui'
 import { manualSorting, useTableView } from '@/composables/useTableView'
 import { sortHeader } from '@/composables/tableColumns'
+import TablePagination from '@/components/ui/TablePagination.vue'
 
 // Picking a sample by a bare id is meaningless once a study has more than
 // a handful, so this mirrors ItemSelect's filterable-table picker: a button
@@ -121,6 +122,11 @@ function selectSample(sample: Sample) {
             {{ row.original.sample.area != null ? `${row.original.sample.area} cm²` : '—' }}
           </template>
         </UTable>
+        <TablePagination
+          v-model:page="view.page"
+          v-model:page-size="view.pageSize"
+          :total="view.total"
+        />
       </div>
     </template>
     <template #footer>

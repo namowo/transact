@@ -9,6 +9,7 @@ import { manualSorting, useTableView } from '@/composables/useTableView'
 import { sortHeader } from '@/composables/tableColumns'
 import TableFilterDrawer from '@/components/ui/TableFilterDrawer.vue'
 import TablePagination from '@/components/ui/TablePagination.vue'
+import TableLoadingSkeleton from '@/components/ui/TableLoadingSkeleton.vue'
 
 const props = defineProps<{ methodKey: string }>()
 
@@ -51,7 +52,6 @@ const view = useTableView(columnFilteredItems, {
     const value = columnValue(row, key)
     return value === '—' ? null : value
   },
-  pageSize: 10,
 })
 
 function columnLabel(key: string) {
@@ -219,6 +219,9 @@ function columnValue(row: MethodRow, key: string) {
         :get-row-id="(row: MethodRow) => row.id"
         empty="No entries found."
       >
+        <template #loading>
+          <TableLoadingSkeleton />
+        </template>
         <template v-for="colKey in config.listColumns" :key="colKey" #[`${colKey}-cell`]="{ row }">
           {{ columnValue(row.original, colKey) }}
         </template>

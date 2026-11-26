@@ -1,0 +1,9 @@
+{% extends "layout/base.html" %}
+{% from "layout/macros.html" import button, note, highlight %}
+{% block title %}Study submitted for quality check{% endblock %}
+{% block content %}
+<p style="margin: 0 0 16px;">Dear {{ first_name }},</p>
+<p style="margin: 0 0 16px;">{% if laboratory_name %}{{ laboratory_name }}{% else %}A laboratory{% endif %} {% if round_number > 1 %}resubmitted{% else %}submitted{% endif %} the study {{ highlight(study_title) }} for quality check{% if round_number > 1 %} (round {{ round_number }}){% endif %}.</p>
+{{ button(url, "Open review") }}
+{% call note() %}You get these emails because you check the quality of studies. You can turn them off under <a href="{{ frontend_url }}/profile/notifications" style="color: #7c7c67;">Notifications</a> in your profile.{% endcall %}
+{% endblock %}

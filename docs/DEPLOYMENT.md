@@ -55,6 +55,13 @@ The result is placed in `frontend/dist` and can either be served by the backend 
 | `WEBAUTHN_RP_NAME` | no | `TransAct` | Display name of the relying party |
 | `WEBAUTHN_ORIGIN` | no | `http://localhost:5173` | Expected origin for WebAuthn requests |
 | `WEBAUTHN_CHALLENGE_TTL_SECONDS` | no | `300` | Validity period of a WebAuthn challenge |
+| `REGISTRATION_ENABLED` | no | `true` | Whether people may sign up on the registration page. Set to `false` (with invitations on) for an invite-only instance |
+| `INVITATIONS_ENABLED` | no | `true` | Whether admins and lab admins may invite people by email. When `false`, pending invitation links stop working too |
+| `TWO_FACTOR_REQUIRED` | no | `false` | Require two-factor authentication: password + one-time code from an authenticator app, or a passkey (with fingerprint, face or PIN). Users without a second factor must set one up right after signing in |
+| `TOTP_ISSUER` | no | `TransAct` | Name shown for the account in authenticator apps |
+| `TWO_FACTOR_LOGIN_TTL_SECONDS` | no | `300` | How long the one-time code step may take after a correct password |
+| `TWO_FACTOR_ENCRYPTION_KEY` | recommended | `JWT_SECRET_KEY` | Encrypts the authenticator app secrets in the database (any long random string). Changing it makes the stored secrets unreadable: affected users can still sign in with a recovery code, or need a two-factor reset |
+| `MAX_FAILED_LOGIN_ATTEMPTS` | no | `10` | Wrong passwords in a row before the account is locked. An admin has to unlock it. `0` turns locking off |
 | `HOST_URL` | no | `http://localhost:8000` | Publicly reachable URL of the backend |
 | `FRONTEND_URL` | no | `http://localhost:5173` | URL of the frontend (used e.g. for links in emails) |
 | `FRONTEND_DIR` | no | `../frontend/dist` | Path to the built frontend, if served by the backend |
@@ -68,6 +75,31 @@ The result is placed in `frontend/dist` and can either be served by the backend 
 | `SMTP_USE_TLS` | no | `true` | Whether to use TLS for the SMTP connection |
 | `SMTP_FROM_EMAIL` | no | `no-reply@transact.local` | Sender email address |
 | `SMTP_FROM_NAME` | no | `TransAct Repository` | Sender display name |
+
+#### Sign-up and two-factor authentication
+
+| Setup | `REGISTRATION_ENABLED` | `INVITATIONS_ENABLED` |
+|-------|------------------------|-----------------------|
+| Open sign-up and invitations (default) | `true` | `true` |
+| Invite only | `false` | `true` |
+| Open sign-up, no invitations | `true` | `false` |
+| Closed (existing accounts only) | `false` | `false` |
+
+The first administrator can always be created on the setup page of a fresh instance.
+
+With `TWO_FACTOR_REQUIRED=true`, a sign-in only counts once a second factor was used. Sessions
+from before it was turned on have to set one up (users without one) or sign in again (users who
+have one). Users who lost their authenticator app and recovery codes can be reset by an admin
+under *Settings → Admin → Users → Reset two-factor*. API keys are unaffected.
+
+Accounts locked after `MAX_FAILED_LOGIN_ATTEMPTS` wrong passwords are unlocked under
+*Settings → Admin → Users → Unlock account*. Existing sessions of a locked account keep working;
+only new sign-ins are refused. If no admin can sign in any more, unlock one on the server:
+
+```sh
+cd backend
+python -m app.unlock_user admin@example.com            # add --reset-two-factor if needed
+```
 
 ### Frontend
 

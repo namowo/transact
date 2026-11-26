@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from typing import List, Optional
 from uuid import UUID
 
+from sqlalchemy import exists
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -25,6 +26,12 @@ class CRUDWebAuthnCredential:
         )
         result = await db.execute(statement)
         return list(result.scalars().all())
+
+    async def exists_for_user(self, db: AsyncSession, user: User) -> bool:
+        statement = select(
+            exists().where(WebAuthnCredential.user_id == user.id)
+        )
+        return bool(await db.scalar(statement))
 
     async def get_by_credential_id(
         self, db: AsyncSession, credential_id: str

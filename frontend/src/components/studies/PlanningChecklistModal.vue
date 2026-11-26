@@ -64,7 +64,9 @@ const openNotes = ref(new Set<string>())
 const progressState = ref<'idle' | 'saving' | 'saved' | 'error'>('idle')
 
 const allItemIds = computed(() =>
-  sections.value.flatMap((section) => section.items.map((item) => item.id).filter((id): id is string => !!id)),
+  sections.value.flatMap((section) =>
+    section.items.map((item) => item.id).filter((id): id is string => !!id),
+  ),
 )
 const doneCount = computed(() => allItemIds.value.filter((id) => checked.value.has(id)).length)
 
@@ -163,9 +165,18 @@ async function save() {
   saveError.value = ''
   try {
     const saved = await savePlanningChecklist(laboratoryId, draft.value)
-    checklist.value = { ...saved, checked: [...checked.value], notes: notes.value, can_check: checklist.value!.can_check }
+    checklist.value = {
+      ...saved,
+      checked: [...checked.value],
+      notes: notes.value,
+      can_check: checklist.value!.can_check,
+    }
     editing.value = false
-    toast.add({ color: 'success', title: 'Checklist saved', description: "All of your laboratory's studies use it now." })
+    toast.add({
+      color: 'success',
+      title: 'Checklist saved',
+      description: "All of your laboratory's studies use it now.",
+    })
   } catch (err) {
     saveError.value = getErrorMessage(err, 'Could not save the checklist. Please try again.')
   } finally {
@@ -178,14 +189,20 @@ function confirmReset() {
   if (!laboratoryId) return
   confirm.require({
     header: 'Reset to default checklist',
-    message: "Replace your laboratory's checklist with the default one? Your own sections and items are lost.",
+    message:
+      "Replace your laboratory's checklist with the default one? Your own sections and items are lost.",
     rejectLabel: 'Cancel',
     acceptLabel: 'Reset',
     acceptColor: 'error',
     accept: async () => {
       try {
         const reset = await resetPlanningChecklist(laboratoryId)
-        checklist.value = { ...reset, checked: [...checked.value], notes: notes.value, can_check: checklist.value!.can_check }
+        checklist.value = {
+          ...reset,
+          checked: [...checked.value],
+          notes: notes.value,
+          can_check: checklist.value!.can_check,
+        }
         editing.value = false
         toast.add({ color: 'success', title: 'Default checklist restored' })
       } catch (err) {
@@ -223,13 +240,18 @@ function onPrint() {
   <UModal
     v-model:open="open"
     :title="editing ? 'Edit planning checklist' : 'Planning checklist'"
-    :description="editing ? 'Changes apply to all studies of your laboratory.' : props.studyTitle || undefined"
+    :description="
+      editing ? 'Changes apply to all studies of your laboratory.' : props.studyTitle || undefined
+    "
     :dismissible="!editing"
     :ui="{ content: 'max-w-3xl', footer: 'justify-between' }"
   >
     <template #body>
-      <div v-if="loading" class="flex justify-center py-8">
-        <UProgress class="w-12" />
+      <div v-if="loading" class="flex flex-col gap-3" aria-busy="true">
+        <div v-for="n in 6" :key="n" class="flex items-center gap-3">
+          <USkeleton class="size-5 shrink-0 rounded" />
+          <USkeleton class="h-4 flex-1" />
+        </div>
       </div>
 
       <UAlert v-else-if="loadError" color="error" variant="subtle" :description="loadError" />
@@ -244,7 +266,11 @@ function onPrint() {
           <div class="flex items-start gap-2">
             <UFormField
               class="flex-1"
-              :error="showTitleErrors && !section.title.trim() ? 'Please give this section a title.' : undefined"
+              :error="
+                showTitleErrors && !section.title.trim()
+                  ? 'Please give this section a title.'
+                  : undefined
+              "
             >
               <UInput
                 v-model="section.title"
@@ -281,7 +307,11 @@ function onPrint() {
           </div>
 
           <ul class="flex flex-col gap-2 pl-4">
-            <li v-for="(_, itemIndex) in section.items" :key="itemIndex" class="flex items-center gap-2">
+            <li
+              v-for="(_, itemIndex) in section.items"
+              :key="itemIndex"
+              class="flex items-center gap-2"
+            >
               <span class="size-4 shrink-0 rounded-sm border-2 border-accented" />
               <UInput
                 v-model="section.items[itemIndex]!.text"
@@ -353,7 +383,9 @@ function onPrint() {
             <span class="font-medium">{{ doneCount }} of {{ allItemIds.length }} done</span>
             <span v-if="progressState === 'saving'" class="text-muted">Saving…</span>
             <span v-else-if="progressState === 'saved'" class="text-muted">Saved</span>
-            <span v-else-if="progressState === 'error'" class="text-error">Could not save. Please try again.</span>
+            <span v-else-if="progressState === 'error'" class="text-error"
+              >Could not save. Please try again.</span
+            >
           </div>
           <UProgress :model-value="doneCount" :max="allItemIds.length" size="sm" />
         </div>
@@ -362,7 +394,11 @@ function onPrint() {
         <div v-for="section in sections" :key="section.title" class="flex flex-col gap-2">
           <h3 class="font-semibold text-highlighted">{{ section.title }}</h3>
           <ul class="flex flex-col gap-2">
-            <li v-for="(item, itemIndex) in section.items" :key="item.id ?? itemIndex" class="flex flex-col gap-1">
+            <li
+              v-for="(item, itemIndex) in section.items"
+              :key="item.id ?? itemIndex"
+              class="flex flex-col gap-1"
+            >
               <div class="flex items-start gap-2">
                 <UCheckbox
                   :model-value="!!item.id && checked.has(item.id)"
@@ -370,7 +406,10 @@ function onPrint() {
                   :disabled="!checklist?.can_check"
                   class="flex-1"
                   :ui="{
-                    label: !!item.id && checked.has(item.id) ? 'line-through text-muted font-normal' : 'text-toned font-normal',
+                    label:
+                      !!item.id && checked.has(item.id)
+                        ? 'line-through text-muted font-normal'
+                        : 'text-toned font-normal',
                   }"
                   @update:model-value="setChecked(item.id, $event)"
                 />
@@ -394,7 +433,10 @@ function onPrint() {
                 class="ml-6"
                 @update:model-value="setNote(item.id, String($event))"
               />
-              <p v-else-if="item.id && notes[item.id]" class="ml-6 text-sm text-muted whitespace-pre-line">
+              <p
+                v-else-if="item.id && notes[item.id]"
+                class="ml-6 text-sm text-muted whitespace-pre-line"
+              >
                 {{ notes[item.id] }}
               </p>
             </li>
@@ -416,7 +458,13 @@ function onPrint() {
         />
         <span v-else />
         <div class="flex gap-2">
-          <UButton label="Cancel" color="neutral" variant="ghost" :disabled="saving" @click="cancelEditing" />
+          <UButton
+            label="Cancel"
+            color="neutral"
+            variant="ghost"
+            :disabled="saving"
+            @click="cancelEditing"
+          />
           <UButton label="Save checklist" icon="i-lucide-save" :loading="saving" @click="save" />
         </div>
       </template>
@@ -447,7 +495,12 @@ function onPrint() {
             :loading="downloading"
             @click="onDownloadExcel"
           />
-          <UButton label="Print" icon="i-lucide-printer" :disabled="!sections.length" @click="onPrint" />
+          <UButton
+            label="Print"
+            icon="i-lucide-printer"
+            :disabled="!sections.length"
+            @click="onPrint"
+          />
         </div>
       </template>
     </template>
@@ -460,31 +513,40 @@ function onPrint() {
     <!-- The wrapper keeps #print-area from being hidden by the print rule
          that hides every body child not containing it. -->
     <div class="hidden print:block">
-    <div id="print-area" class="flex flex-col gap-6 text-black print:static!">
-      <div class="flex flex-col gap-1">
-        <h1 class="text-2xl font-bold">Planning checklist</h1>
-        <p v-if="props.studyTitle">{{ props.studyTitle }}</p>
+      <div id="print-area" class="flex flex-col gap-6 text-black print:static!">
+        <div class="flex flex-col gap-1">
+          <h1 class="text-2xl font-bold">Planning checklist</h1>
+          <p v-if="props.studyTitle">{{ props.studyTitle }}</p>
+        </div>
+        <div v-for="section in sections" :key="section.title" class="flex flex-col gap-2">
+          <h2 class="text-lg font-semibold">{{ section.title }}</h2>
+          <ul class="flex flex-col gap-3">
+            <li
+              v-for="(item, itemIndex) in section.items"
+              :key="item.id ?? itemIndex"
+              class="flex items-start gap-3 text-sm"
+            >
+              <span
+                class="mt-0.5 size-4 shrink-0 rounded-sm border-2 border-black flex items-center justify-center text-xs leading-none"
+                >{{ item.id && checked.has(item.id) ? '✓' : '' }}</span
+              >
+              <span class="flex-1">
+                {{ item.text }}
+                <span
+                  v-if="item.id && notes[item.id]"
+                  class="block mt-1 italic whitespace-pre-line"
+                  >{{ notes[item.id] }}</span
+                >
+                <span v-else class="block mt-1 border-b border-dashed border-black w-full h-5" />
+              </span>
+            </li>
+          </ul>
+        </div>
+        <div class="flex flex-col gap-2">
+          <h2 class="text-lg font-semibold">Notes</h2>
+          <div v-for="n in 4" :key="n" class="border-b border-dashed border-black h-7" />
+        </div>
       </div>
-      <div v-for="section in sections" :key="section.title" class="flex flex-col gap-2">
-        <h2 class="text-lg font-semibold">{{ section.title }}</h2>
-        <ul class="flex flex-col gap-3">
-          <li v-for="(item, itemIndex) in section.items" :key="item.id ?? itemIndex" class="flex items-start gap-3 text-sm">
-            <span
-              class="mt-0.5 size-4 shrink-0 rounded-sm border-2 border-black flex items-center justify-center text-xs leading-none"
-            >{{ item.id && checked.has(item.id) ? '✓' : '' }}</span>
-            <span class="flex-1">
-              {{ item.text }}
-              <span v-if="item.id && notes[item.id]" class="block mt-1 italic whitespace-pre-line">{{ notes[item.id] }}</span>
-              <span v-else class="block mt-1 border-b border-dashed border-black w-full h-5" />
-            </span>
-          </li>
-        </ul>
-      </div>
-      <div class="flex flex-col gap-2">
-        <h2 class="text-lg font-semibold">Notes</h2>
-        <div v-for="n in 4" :key="n" class="border-b border-dashed border-black h-7" />
-      </div>
-    </div>
     </div>
   </Teleport>
 </template>

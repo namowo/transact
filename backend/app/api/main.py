@@ -6,6 +6,7 @@ from app.api.routers import api_keys
 from app.api.routers import users
 from app.api.routers import user_groups
 from app.api.routers import webauthn
+from app.api.routers import two_factor
 
 # TransAct routers
 from app.api.routers import activity_category
@@ -72,6 +73,7 @@ from app.api.routers import skin_disease_category
 from app.api.routers import source_of_dna_category
 from app.api.routers import statistical_software
 from app.api.routers import study
+from app.api.routers import study_review
 from app.api.routers import supplier
 from app.api.routers import surface
 from app.api.routers import surface_material_category
@@ -91,6 +93,7 @@ from app.api.routers import picking_device
 from app.api.routers import type_of_tape
 from app.api.routers import friction_applied_estimate
 from app.api.routers import site_settings
+from app.api.routers import privacy_policy
 from app.api.routers import pressure_estimate
 from app.api.routers import experience_level
 from app.api.routers import wetting_agent
@@ -100,6 +103,7 @@ api_router = APIRouter()
 
 api_router.include_router(auth.router, prefix="/auth", tags=["Auth"])
 api_router.include_router(webauthn.router, prefix="/auth/webauthn", tags=["Auth"])
+api_router.include_router(two_factor.router, prefix="/auth/two-factor", tags=["Auth"])
 api_router.include_router(api_keys.router, prefix="/auth/api-keys", tags=["Auth"])
 api_router.include_router(users.router, prefix="/users", tags=["Users"])
 api_router.include_router(user_groups.router, prefix="/user-groups", tags=["User groups"])
@@ -191,8 +195,11 @@ api_router.include_router(cutting_device.router, prefix="/cutting-devices", tags
 api_router.include_router(vacuum_device.router, prefix="/vacuum-devices", tags=["Devices"])
 api_router.include_router(picking_device.router, prefix="/picking-devices", tags=["Devices"])
 api_router.include_router(site_settings.router, prefix="/site-settings", tags=["Site Settings"])
+api_router.include_router(privacy_policy.router, prefix="/privacy-policy", tags=["Privacy Policy"])
 
 # Studies
+# Before the study router, whose /{id} would swallow /review-queue.
+api_router.include_router(study_review.router, prefix="/studies", tags=["Study review"])
 api_router.include_router(study.router, prefix="/studies", tags=["Studies"])
 
 # Individuals

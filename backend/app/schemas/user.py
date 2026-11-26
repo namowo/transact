@@ -2,6 +2,11 @@ from datetime import datetime
 from typing import Dict, List, Literal, Optional
 from uuid import UUID
 
+from app.core.notification_catalog import (
+    NOTIFICATION_TYPE_INFO,
+    Channel,
+    NotificationType,
+)
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 # Data tables whose column sort is saved on the user.
@@ -22,6 +27,9 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str = Field(min_length=8)
+    # The privacy policy version the user agreed to while signing up; must
+    # be the active one, if there is one.
+    privacy_policy_id: Optional[int] = None
 
 
 class SetupStatus(BaseModel):
@@ -41,6 +49,8 @@ class UserUpdate(BaseModel):
     locale: Optional[str] = Field(
         default=None, pattern=r"^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$", max_length=35
     )
+    # Partial: only the given types and channels change.
+    notification_settings: Optional[Dict[NotificationType, Dict[Channel, bool]]] = None
     # No laboratory_id: users join a laboratory through a membership request
     # (or an admin moves them), never by editing their own profile.
     table_sorts: Optional[Dict[SortableTable, List[TableSortMeta]]] = None
@@ -54,6 +64,35 @@ class UserUpdate(BaseModel):
             if len({meta.field for meta in metas}) != len(metas):
                 raise ValueError("Each column may only be sorted once.")
         return value
+
+    @field_validator("notification_settings")
+    @classmethod
+    def supported_channels(cls, value):
+        for type, channels in (value or {}).items():
+            supported = NOTIFICATION_TYPE_INFO[type].defaults
+            for channel in channels:
+                if channel not in supported:
+                    raise ValueError(
+                        f"{type.value} notifications can't be sent by {channel}."
+                    )
+        return value
+
+
+class NotificationTypeRead(BaseModel):
+    key: NotificationType
+    label: str
+    description: str
+    channels: List[Channel]
+
+
+class UserInvite(BaseModel):
+    email: EmailStr
+    first_name: str = Field(min_length=1)
+    last_name: str = Field(min_length=1)
+    # Lab admins can only invite to their own laboratory, which is used when
+    # this is left out.
+    laboratory_id: Optional[UUID] = None
+    group_ids: List[UUID] = []
 
 
 class LaboratoryAssignment(BaseModel):
@@ -79,12 +118,27 @@ class UserRead(BaseModel):
     last_name: str
     is_active: bool
     is_verified: bool
+    # Too many wrong passwords; an admin has to unlock the account.
+    is_locked: bool = False
+    invitation_pending: bool = False
     groups: List["UserGroupBrief"] = []
     # Union of the groups' permissions (see app.core.permission_catalog).
     permissions: List[str] = []
     passkey_prompt_dismissed: bool
+    totp_enabled: bool = False
+    recovery_codes_remaining: int = 0
+    # Only on the signed-in user: they must set up a second factor before
+    # they can use the app.
+    two_factor_setup_required: bool = False
     completed_tours: List[str] = []
+    # Privacy policy versions (ids) the user agreed to. Once a newer version
+    # is published, they have to agree to it before using the app.
+    accepted_privacy_policy_ids: List[int] = []
     locale: str = "en-US"
+    # Every type's channels, with defaults filled in.
+    notification_settings: Dict[str, Dict[str, bool]] = Field(
+        default={}, validation_alias="resolved_notification_settings"
+    )
     table_sorts: Optional[Dict[str, List[TableSortMeta]]] = None
     laboratory_id: Optional[UUID] = None
     laboratory: Optional["LaboratoryRead"] = None

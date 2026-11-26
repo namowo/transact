@@ -1,5 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { startGlobalLoading } from '@/composables/useGlobalLoading'
+import { usePrivacyPolicyStore } from '@/stores/privacyPolicy'
 import type { Permission } from '@/api/types'
 
 declare module 'vue-router' {
@@ -150,73 +152,82 @@ const router = createRouter({
                   children: [
                     { path: '', redirect: { name: 'settings-methods-extraction' } },
                     {
-                  path: 'extraction',
-                  name: 'settings-methods-extraction',
-                  component: () => import('@/views/settings/methods/LabMethodListView.vue'),
-                  props: { methodKey: 'extraction' },
-                  meta: { requiresAuth: true, breadcrumb: 'Extraction' },
+                      path: 'extraction',
+                      name: 'settings-methods-extraction',
+                      component: () => import('@/views/settings/methods/LabMethodListView.vue'),
+                      props: { methodKey: 'extraction' },
+                      meta: { requiresAuth: true, breadcrumb: 'Extraction' },
+                    },
+                    {
+                      path: 'pcr',
+                      name: 'settings-methods-pcr',
+                      component: () => import('@/views/settings/methods/LabMethodListView.vue'),
+                      props: { methodKey: 'pcr' },
+                      meta: { requiresAuth: true, breadcrumb: 'PCR' },
+                    },
+                    {
+                      path: 'ce',
+                      name: 'settings-methods-ce',
+                      component: () => import('@/views/settings/methods/LabMethodListView.vue'),
+                      props: { methodKey: 'ce' },
+                      meta: { requiresAuth: true, breadcrumb: 'CE' },
+                    },
+                    {
+                      path: 'quantification',
+                      name: 'settings-methods-quantification',
+                      component: () => import('@/views/settings/methods/LabMethodListView.vue'),
+                      props: { methodKey: 'quantification' },
+                      meta: { requiresAuth: true, breadcrumb: 'Quantification' },
+                    },
+                    {
+                      path: 'epg-analysis',
+                      name: 'settings-methods-epg-analysis',
+                      component: () => import('@/views/settings/methods/LabMethodListView.vue'),
+                      props: { methodKey: 'epg-analysis' },
+                      meta: { requiresAuth: true, breadcrumb: 'EPG Analysis' },
+                    },
+                    {
+                      path: 'epg-interpretation',
+                      name: 'settings-methods-epg-interpretation',
+                      component: () => import('@/views/settings/methods/LabMethodListView.vue'),
+                      props: { methodKey: 'epg-interpretation' },
+                      meta: { requiresAuth: true, breadcrumb: 'EPG Interpretation' },
+                    },
+                    {
+                      path: 'post-pcr-treatment',
+                      name: 'settings-methods-post-pcr-treatment',
+                      component: () => import('@/views/settings/methods/LabMethodListView.vue'),
+                      props: { methodKey: 'post-pcr-treatment' },
+                      meta: { requiresAuth: true, breadcrumb: 'Post-PCR Treatment' },
+                    },
+                    {
+                      path: 'sampling',
+                      name: 'settings-methods-sampling',
+                      component: () =>
+                        import('@/views/settings/methods/SamplingMethodListView.vue'),
+                      meta: { requiresAuth: true, breadcrumb: 'Sampling' },
+                    },
+                  ],
                 },
-                {
-                  path: 'pcr',
-                  name: 'settings-methods-pcr',
-                  component: () => import('@/views/settings/methods/LabMethodListView.vue'),
-                  props: { methodKey: 'pcr' },
-                  meta: { requiresAuth: true, breadcrumb: 'PCR' },
-                },
-                {
-                  path: 'ce',
-                  name: 'settings-methods-ce',
-                  component: () => import('@/views/settings/methods/LabMethodListView.vue'),
-                  props: { methodKey: 'ce' },
-                  meta: { requiresAuth: true, breadcrumb: 'CE' },
-                },
-                {
-                  path: 'quantification',
-                  name: 'settings-methods-quantification',
-                  component: () => import('@/views/settings/methods/LabMethodListView.vue'),
-                  props: { methodKey: 'quantification' },
-                  meta: { requiresAuth: true, breadcrumb: 'Quantification' },
-                },
-                {
-                  path: 'epg-analysis',
-                  name: 'settings-methods-epg-analysis',
-                  component: () => import('@/views/settings/methods/LabMethodListView.vue'),
-                  props: { methodKey: 'epg-analysis' },
-                  meta: { requiresAuth: true, breadcrumb: 'EPG Analysis' },
-                },
-                {
-                  path: 'epg-interpretation',
-                  name: 'settings-methods-epg-interpretation',
-                  component: () => import('@/views/settings/methods/LabMethodListView.vue'),
-                  props: { methodKey: 'epg-interpretation' },
-                  meta: { requiresAuth: true, breadcrumb: 'EPG Interpretation' },
-                },
-                {
-                  path: 'post-pcr-treatment',
-                  name: 'settings-methods-post-pcr-treatment',
-                  component: () => import('@/views/settings/methods/LabMethodListView.vue'),
-                  props: { methodKey: 'post-pcr-treatment' },
-                  meta: { requiresAuth: true, breadcrumb: 'Post-PCR Treatment' },
-                },
-                {
-                  path: 'sampling',
-                  name: 'settings-methods-sampling',
-                  component: () => import('@/views/settings/methods/SamplingMethodListView.vue'),
-                  meta: { requiresAuth: true, breadcrumb: 'Sampling' },
-                },
-              ],
-            },
                 {
                   path: 'users',
                   name: 'lab-users',
                   component: () => import('@/views/settings/laboratory/UsersView.vue'),
-                  meta: { requiresAuth: true, requiresPermission: 'lab.manage_members', breadcrumb: 'Users' },
+                  meta: {
+                    requiresAuth: true,
+                    requiresPermission: 'lab.manage_members',
+                    breadcrumb: 'Users',
+                  },
                 },
                 {
                   path: 'groups',
                   name: 'lab-groups',
                   component: () => import('@/views/settings/laboratory/GroupsView.vue'),
-                  meta: { requiresAuth: true, requiresPermission: 'lab.manage_groups', breadcrumb: 'Groups' },
+                  meta: {
+                    requiresAuth: true,
+                    requiresPermission: 'lab.manage_groups',
+                    breadcrumb: 'Groups',
+                  },
                 },
                 {
                   path: 'settings',
@@ -242,7 +253,8 @@ const router = createRouter({
                     if (auth.can('users.manage')) return { name: 'admin-users' }
                     if (auth.can('groups.manage')) return { name: 'admin-groups' }
                     if (auth.can('laboratories.manage')) return { name: 'laboratories' }
-                    if (auth.canAny('catalog.edit', 'catalog.delete')) return { name: 'admin-item-catalog' }
+                    if (auth.canAny('catalog.edit', 'catalog.delete'))
+                      return { name: 'admin-item-catalog' }
                     return { name: 'admin-legal' }
                   },
                 },
@@ -302,9 +314,46 @@ const router = createRouter({
         },
         {
           path: 'profile',
-          name: 'profile',
-          component: () => import('@/views/ProfileView.vue'),
-          meta: { requiresAuth: true, breadcrumb: 'Edit profile' },
+          component: () => import('@/views/profile/ProfileLayoutView.vue'),
+          meta: { requiresAuth: true, breadcrumb: 'Profile' },
+          children: [
+            {
+              path: '',
+              name: 'profile',
+              component: () => import('@/views/profile/ProfileGeneralView.vue'),
+              meta: { requiresAuth: true },
+            },
+            {
+              path: 'sign-in',
+              name: 'profile-sign-in',
+              component: () => import('@/views/profile/ProfileSignInView.vue'),
+              meta: { requiresAuth: true, breadcrumb: 'Email & password' },
+            },
+            {
+              path: 'two-factor',
+              name: 'profile-two-factor',
+              component: () => import('@/views/profile/ProfileTwoFactorView.vue'),
+              meta: { requiresAuth: true, breadcrumb: 'Two-factor authentication' },
+            },
+            {
+              path: 'passkeys',
+              name: 'profile-passkeys',
+              component: () => import('@/views/profile/ProfilePasskeysView.vue'),
+              meta: { requiresAuth: true, breadcrumb: 'Passkeys' },
+            },
+            {
+              path: 'api-keys',
+              name: 'profile-api-keys',
+              component: () => import('@/views/profile/ProfileApiKeysView.vue'),
+              meta: { requiresAuth: true, breadcrumb: 'API keys' },
+            },
+            {
+              path: 'notifications',
+              name: 'profile-notifications',
+              component: () => import('@/views/profile/ProfileNotificationsView.vue'),
+              meta: { requiresAuth: true, breadcrumb: 'Notifications' },
+            },
+          ],
         },
         {
           path: 'docs/:slug?',
@@ -347,6 +396,11 @@ const router = createRouter({
           component: () => import('@/views/auth/ResetPasswordView.vue'),
         },
         {
+          path: 'accept-invitation',
+          name: 'accept-invitation',
+          component: () => import('@/views/auth/AcceptInvitationView.vue'),
+        },
+        {
           path: 'setup',
           name: 'setup',
           component: () => import('@/views/auth/SetupView.vue'),
@@ -355,6 +409,18 @@ const router = createRouter({
           path: 'select-laboratory',
           name: 'select-laboratory',
           component: () => import('@/views/auth/SelectLaboratoryView.vue'),
+          meta: { requiresAuth: true },
+        },
+        {
+          path: 'two-factor-setup',
+          name: 'two-factor-setup',
+          component: () => import('@/views/auth/TwoFactorSetupView.vue'),
+          meta: { requiresAuth: true },
+        },
+        {
+          path: 'privacy-policy-consent',
+          name: 'privacy-policy-consent',
+          component: () => import('@/views/auth/PrivacyPolicyConsentView.vue'),
           meta: { requiresAuth: true },
         },
         {
@@ -383,6 +449,21 @@ const router = createRouter({
     },
   ],
 })
+
+// Open while the user still has to set up a second factor.
+const TWO_FACTOR_SETUP_ROUTES = ['two-factor-setup', 'site-print', 'privacy-policy']
+// Open while the user still has to agree to the privacy policy in force.
+const PRIVACY_POLICY_CONSENT_ROUTES = ['privacy-policy-consent', 'site-print', 'privacy-policy']
+
+// Show the global progress bar while a navigation resolves (lazy-loaded
+// view chunks, async guards). Registered first so it wraps the other guards.
+let stopNavigationLoading: (() => void) | undefined
+router.beforeEach(() => {
+  stopNavigationLoading?.()
+  stopNavigationLoading = startGlobalLoading()
+})
+router.afterEach(() => stopNavigationLoading?.())
+router.onError(() => stopNavigationLoading?.())
 
 router.beforeEach(async (to) => {
   const auth = useAuthStore()
@@ -414,6 +495,38 @@ router.beforeEach(async (to) => {
 
   if (to.meta.guestOnly && auth.isAuthenticated) {
     return { name: 'dashboard' }
+  }
+
+  // Two-factor authentication is required and the user has no second
+  // factor yet: the session is only good for setting one up.
+  if (auth.user?.two_factor_setup_required) {
+    if (!TWO_FACTOR_SETUP_ROUTES.includes(to.name as string)) {
+      return { name: 'two-factor-setup', query: { redirect: to.fullPath } }
+    }
+    return
+  }
+  if (to.name === 'two-factor-setup') {
+    return { name: 'dashboard' }
+  }
+
+  // A privacy policy was published the user hasn't agreed to yet (e.g. a
+  // new version): they have to agree before using the app.
+  if (auth.user) {
+    const privacyPolicy = usePrivacyPolicyStore()
+    await privacyPolicy.load()
+    if (privacyPolicy.needsConsent(auth.user)) {
+      if (!PRIVACY_POLICY_CONSENT_ROUTES.includes(to.name as string)) {
+        return { name: 'privacy-policy-consent', query: { redirect: to.fullPath } }
+      }
+      return
+    }
+  }
+  if (to.name === 'privacy-policy-consent') {
+    return { name: 'dashboard' }
+  }
+
+  if (to.name === 'register' && !auth.config.registration_enabled) {
+    return { name: 'login' }
   }
 
   if (

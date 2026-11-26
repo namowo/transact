@@ -8,6 +8,7 @@ import type { TableColumn } from '@nuxt/ui'
 import { manualSorting, useTableView } from '@/composables/useTableView'
 import { sortHeader } from '@/composables/tableColumns'
 import TableFilterDrawer from '@/components/ui/TableFilterDrawer.vue'
+import TablePagination from '@/components/ui/TablePagination.vue'
 
 // Lets the user pick several surfaces at once when recording samples, one
 // checkbox for the donor surface and one for the recipient surface per
@@ -221,5 +222,10 @@ const columns: TableColumn<ContactRow>[] = [
         </template>
       </UTable>
     </div>
+    <TablePagination
+      v-model:page="view.page"
+      v-model:page-size="view.pageSize"
+      :total="view.total"
+    />
   </div>
 </template>

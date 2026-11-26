@@ -50,6 +50,8 @@ class Study(Base):
         lazy="selectin", foreign_keys=[quality_checked_by_id]
     )
     quality_checked_at: Mapped[Optional[datetime]]
+    # See app.models.study_review.ReviewStatus.
+    review_status: Mapped[str] = mapped_column(server_default="draft")
     corresponding_author_name: Mapped[Optional[str]]
     corresponding_author_email: Mapped[Optional[str]]
     corresponding_author_phone: Mapped[Optional[str]]

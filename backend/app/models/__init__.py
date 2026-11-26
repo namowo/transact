@@ -4,6 +4,8 @@ from .api_key import ApiKey
 from .user import User
 from .user_group import UserGroup, user_group_member
 from .user_token import UserToken
+from .privacy_policy import PrivacyPolicyConsent, PrivacyPolicyVersion
+from .site_settings import SiteSettings
 from .webauthn_credential import WebAuthnCredential
 from .webauthn_challenge import WebAuthnChallenge
 
@@ -104,3 +106,4 @@ from .wetting_agent import WettingAgent
 from .polymer import Polymer
 from .planning_checklist import PlanningChecklist
 from .study_checklist_progress import StudyChecklistProgress
+from .study_review import StudyReviewComment, StudyReviewRound

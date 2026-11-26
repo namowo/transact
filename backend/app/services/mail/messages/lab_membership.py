@@ -1,11 +1,15 @@
 import logging
 
+from app.core.config import settings
+from app.core.notification_catalog import NotificationType
 from app.services.mail import send_mail
 
 logger = logging.getLogger(__name__)
 
 
 async def send_new_membership_request_mail(lab_admin, requester, laboratory):
+    if not lab_admin.wants_notification(NotificationType.LAB_MEMBERSHIP_REQUEST, "email"):
+        return
     try:
         await send_mail(
             subject="New laboratory membership request",
@@ -17,6 +21,7 @@ async def send_new_membership_request_mail(lab_admin, requester, laboratory):
                 "requester_first_name": requester.first_name,
                 "requester_last_name": requester.last_name,
                 "requester_email": requester.email,
+                "url": f"{settings.FRONTEND_URL}/settings/laboratory/users",
             },
         )
     except Exception:

@@ -1,0 +1,9 @@
+{% extends "layout/base.html" %}
+{% from "layout/macros.html" import button, note, highlight %}
+{% block title %}Study passed quality check{% endblock %}
+{% block content %}
+<p style="margin: 0 0 16px;">Dear {{ first_name }},</p>
+<p style="margin: 0 0 16px;">Your laboratory's study {{ highlight(study_title) }} passed its quality check and is now published on the TransAct Repository.</p>
+{{ button(url, "View studies") }}
+{% call note() %}You get these emails because you enter data for your laboratory. You can turn them off under <a href="{{ frontend_url }}/profile/notifications" style="color: #7c7c67;">Notifications</a> in your profile.{% endcall %}
+{% endblock %}

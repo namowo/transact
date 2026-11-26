@@ -117,7 +117,8 @@ interface ScenarioFormValues {
 // field needs this transform before its other checks run - otherwise
 // clearing the field makes yup's nullable() type check fail with a
 // confusing "must be a number" error on a field the user left empty.
-const nanToNull = (value: unknown) => (typeof value === 'number' && Number.isNaN(value) ? null : value)
+const nanToNull = (value: unknown) =>
+  typeof value === 'number' && Number.isNaN(value) ? null : value
 
 const persistenceSchema = yup.object({
   intervalOfPersistence: yup
@@ -149,7 +150,11 @@ const schema = yup.object({
   persistencies: yup.array().of(persistenceSchema),
   contactTemplates: yup.array().of(
     yup.object({
-      duration: yup.number().transform(nanToNull).nullable().min(0, 'Duration must be zero or greater.'),
+      duration: yup
+        .number()
+        .transform(nanToNull)
+        .nullable()
+        .min(0, 'Duration must be zero or greater.'),
       contactArea: yup
         .number()
         .transform(nanToNull)
@@ -268,8 +273,9 @@ onMounted(async () => {
   loading.value = true
   try {
     const scenario = await getScenario(duplicateFromId.value)
-    const persistencies = scenario.persistencies
-      .map((p) => clonePersistenceDraftForDuplication(persistenceDraftFromPersistence(p)))
+    const persistencies = scenario.persistencies.map((p) =>
+      clonePersistenceDraftForDuplication(persistenceDraftFromPersistence(p)),
+    )
     const contactTemplates = scenario.contact_templates.length
       ? cloneContactTemplateDraftsForDuplication(
           scenario.contact_templates.map(contactTemplateDraftFromContactTemplate),
@@ -319,12 +325,20 @@ function addContactTemplate() {
 }
 
 function moveInChain(payload: { uid: string; slot: ChainSlot }) {
-  moveContactTemplateInChain(contactTemplateFields.value.map((f) => f.value), payload.uid, payload.slot)
+  moveContactTemplateInChain(
+    contactTemplateFields.value.map((f) => f.value),
+    payload.uid,
+    payload.slot,
+  )
 }
 
 function removeContactTemplate(index: number) {
   const removed = contactTemplateFields.value[index]?.value
-  if (removed) unlinkContactTemplateDraft(contactTemplateFields.value.map((f) => f.value), removed.uid)
+  if (removed)
+    unlinkContactTemplateDraft(
+      contactTemplateFields.value.map((f) => f.value),
+      removed.uid,
+    )
   removeContactTemplateField(index)
   collapsedContactTemplates.value.splice(index, 1)
 }
@@ -374,7 +388,12 @@ const onSubmit = handleSubmit(async (formValues) => {
   const incomplete = firstIncompleteStep()
   if (incomplete) {
     activeStep.value = stepToPanel[incomplete.step]
-    toast.add({ color: 'warning', title: 'Scenario incomplete', description: incomplete.message, duration: 5000 })
+    toast.add({
+      color: 'warning',
+      title: 'Scenario incomplete',
+      description: incomplete.message,
+      duration: 5000,
+    })
     return
   }
 
@@ -443,7 +462,13 @@ function onCancel() {
         @click="onCancel"
       />
       <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-0">
-        {{ editingId !== null ? 'Edit scenario' : duplicateFromId !== null ? 'Duplicate scenario' : 'Add scenario' }}
+        {{
+          editingId !== null
+            ? 'Edit scenario'
+            : duplicateFromId !== null
+              ? 'Duplicate scenario'
+              : 'Add scenario'
+        }}
       </h1>
     </div>
 
@@ -454,8 +479,12 @@ function onCancel() {
       description="Review and adjust the duplicated data below, then save to create it as a new scenario in this study."
     />
 
-    <div v-if="loading" class="flex justify-center py-12">
-      <UProgress class="w-12" />
+    <div v-if="loading" class="flex flex-col gap-6" aria-busy="true">
+      <USkeleton class="h-8 w-full max-w-xl" />
+      <div v-for="n in 4" :key="n" class="flex flex-col gap-2">
+        <USkeleton class="h-4 w-32" />
+        <USkeleton class="h-10 w-full" />
+      </div>
     </div>
 
     <UAlert v-else-if="loadError" color="error" variant="outline" :description="loadError" />
@@ -468,12 +497,7 @@ function onCancel() {
     />
 
     <form v-else class="flex flex-col gap-4" @submit.prevent="onSubmit">
-      <UStepper
-        v-model="activeStep"
-        :items="stepItems"
-        :linear="false"
-        class="bg-transparent!"
-      >
+      <UStepper v-model="activeStep" :items="stepItems" :linear="false" class="bg-transparent!">
         <template #1>
           <div class="flex flex-col gap-4 max-w-2xl">
             <div class="flex flex-col gap-2">
@@ -497,7 +521,11 @@ function onCancel() {
             </div>
 
             <div class="flex justify-end mt-2">
-              <UButton label="Continue" trailing-icon="i-lucide-arrow-right" @click="activeStep = '2'" />
+              <UButton
+                label="Continue"
+                trailing-icon="i-lucide-arrow-right"
+                @click="activeStep = '2'"
+              />
             </div>
           </div>
         </template>
@@ -548,7 +576,12 @@ function onCancel() {
             />
 
             <div class="flex justify-between mt-2">
-              <UButton label="Back" icon="i-lucide-arrow-left" variant="ghost" @click="activeStep = '1'" />
+              <UButton
+                label="Back"
+                icon="i-lucide-arrow-left"
+                variant="ghost"
+                @click="activeStep = '1'"
+              />
               <UButton
                 label="Continue"
                 trailing-icon="i-lucide-arrow-right"
@@ -581,14 +614,19 @@ function onCancel() {
               @click="addContactTemplate"
             />
 
-              <ContactTemplateChainEditor
-                v-if="contactTemplateFields.length > 0"
-                :drafts="contactTemplateFields.map((f) => f.value)"
-                @move="moveInChain"
-              />
+            <ContactTemplateChainEditor
+              v-if="contactTemplateFields.length > 0"
+              :drafts="contactTemplateFields.map((f) => f.value)"
+              @move="moveInChain"
+            />
 
             <div class="flex justify-start mt-2">
-              <UButton label="Back" icon="i-lucide-arrow-left" variant="ghost" @click="activeStep = '2'" />
+              <UButton
+                label="Back"
+                icon="i-lucide-arrow-left"
+                variant="ghost"
+                @click="activeStep = '2'"
+              />
             </div>
           </div>
         </template>

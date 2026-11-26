@@ -9,6 +9,7 @@ import type { TableColumn, TableRow } from '@nuxt/ui'
 import { manualSorting, useTableView } from '@/composables/useTableView'
 import { sortHeader } from '@/composables/tableColumns'
 import TableFilterDrawer from '@/components/ui/TableFilterDrawer.vue'
+import TablePagination from '@/components/ui/TablePagination.vue'
 
 // Selecting an item here just picks which Item row a surface points at;
 // category, subcategory and description are edited entirely through this
@@ -259,6 +260,11 @@ const saveItem = handleSubmit(async (values) => {
             }}</template>
             <template #description-cell="{ row }">{{ row.original.description }}</template>
           </UTable>
+          <TablePagination
+            v-model:page="view.page"
+            v-model:page-size="view.pageSize"
+            :total="view.total"
+          />
         </div>
       </template>
       <template #footer>

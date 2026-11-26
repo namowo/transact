@@ -14,6 +14,4 @@ class SiteSettings(Base):
     site_print_text: Mapped[Optional[str]]
     site_print_url: Mapped[Optional[str]]
 
-    privacy_policy_mode: Mapped[str] = mapped_column(default="text", server_default="text")
-    privacy_policy_text: Mapped[Optional[str]]
-    privacy_policy_url: Mapped[Optional[str]]
+    # The privacy policy is versioned, see app.models.privacy_policy.

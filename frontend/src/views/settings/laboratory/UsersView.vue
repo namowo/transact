@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import type { DropdownMenuItem, TableColumn } from '@nuxt/ui'
+import { useToast } from '@nuxt/ui/composables'
 import { useConfirm } from '@/composables/useConfirm'
-import { listLabUsers, removeFromLaboratory } from '@/api/users'
+import { deleteUser, listLabUsers, removeFromLaboratory, resendInvitation } from '@/api/users'
+import { getErrorMessage } from '@/api/errors'
+import InviteUserModal from '@/components/users/InviteUserModal.vue'
 import { listUserGroups } from '@/api/userGroups'
 import UserGroupsModal from '@/components/groups/UserGroupsModal.vue'
 import UserGroupBadges from '@/components/groups/UserGroupBadges.vue'
@@ -17,15 +20,19 @@ import { manualSorting, useTableView } from '@/composables/useTableView'
 import { sortHeader } from '@/composables/tableColumns'
 import TableFilterDrawer from '@/components/ui/TableFilterDrawer.vue'
 import TablePagination from '@/components/ui/TablePagination.vue'
+import TableLoadingSkeleton from '@/components/ui/TableLoadingSkeleton.vue'
 
 const auth = useAuthStore()
 const confirm = useConfirm()
+const toast = useToast()
 const users = ref<User[]>([])
 const loading = ref(false)
 const loadError = ref('')
 const actionError = ref('')
 
 const groups = ref<UserGroup[]>([])
+const inviteDialogVisible = ref(false)
+
 const groupsDialogVisible = ref(false)
 const groupsDialogUser = ref<User | null>(null)
 
@@ -43,7 +50,6 @@ const view = useTableView(users, {
     last_name: { field: 'last_name' },
     email: { field: 'email' },
   },
-  pageSize: 10,
 })
 
 const columns: TableColumn<User>[] = [
@@ -120,7 +126,24 @@ function rowMenuItems(user: User): DropdownMenuItem[] {
       onSelect: () => openGroupsDialog(user),
     },
   ]
-  if (canRemove(user)) {
+  if (user.invitation_pending && auth.config.invitations_enabled) {
+    items.push({
+      label: 'Resend invitation',
+      icon: 'i-lucide-send',
+      onSelect: () => resendInvitationTo(user),
+    })
+  }
+  if (user.invitation_pending) {
+    items.push(
+      { type: 'separator' },
+      {
+        label: 'Withdraw invitation',
+        icon: 'i-lucide-user-x',
+        color: 'error',
+        onSelect: () => confirmWithdrawInvitation(user),
+      },
+    )
+  } else if (canRemove(user)) {
     items.push(
       { type: 'separator' },
       {
@@ -132,6 +155,50 @@ function rowMenuItems(user: User): DropdownMenuItem[] {
     )
   }
   return items
+}
+
+async function resendInvitationTo(user: User) {
+  actionError.value = ''
+  try {
+    applyUpdate(await resendInvitation(user.id))
+    toast.add({
+      color: 'success',
+      title: 'Invitation sent',
+      description: `We emailed a new link to ${user.email}.`,
+    })
+  } catch (err) {
+    actionError.value = getErrorMessage(err, 'Could not resend the invitation. Please try again.')
+  }
+}
+
+function confirmWithdrawInvitation(user: User) {
+  confirm.require({
+    message: `Withdraw the invitation for ${user.first_name} ${user.last_name} (${user.email})? Their invitation link stops working.`,
+    header: 'Withdraw invitation',
+    rejectLabel: 'Cancel',
+    acceptLabel: 'Withdraw',
+    acceptColor: 'error',
+    accept: () => withdrawInvitation(user),
+  })
+}
+
+async function withdrawInvitation(user: User) {
+  actionError.value = ''
+  try {
+    await deleteUser(user.id)
+    users.value = users.value.filter((u) => u.id !== user.id)
+  } catch (err) {
+    actionError.value = getErrorMessage(err, 'Could not withdraw the invitation. Please try again.')
+  }
+}
+
+function onInvited(user: User) {
+  users.value = [...users.value, user]
+  toast.add({
+    color: 'success',
+    title: 'Invitation sent',
+    description: `${user.first_name} ${user.last_name} gets an email to activate their account.`,
+  })
 }
 
 async function removeUser(user: User) {
@@ -185,7 +252,15 @@ async function deny(request: LabMembershipRequest) {
 
 <template>
   <div class="flex flex-col gap-6">
-    <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-0">Manage Lab Users</h1>
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-0">Manage Lab Users</h1>
+      <UButton
+        v-if="auth.config.invitations_enabled"
+        label="Invite user"
+        icon="i-lucide-user-plus"
+        @click="inviteDialogVisible = true"
+      />
+    </div>
 
     <div v-if="requests.length || requestsLoading" class="flex flex-col gap-3">
       <h2 class="text-lg font-semibold text-surface-900 dark:text-surface-0">Pending requests</h2>
@@ -209,6 +284,9 @@ async function deny(request: LabMembershipRequest) {
         :loading="requestsLoading"
         :get-row-id="(request: LabMembershipRequest) => request.id"
       >
+        <template #loading>
+          <TableLoadingSkeleton />
+        </template>
         <template #requester-cell="{ row }">
           {{ row.original.user.first_name }} {{ row.original.user.last_name }}
         </template>
@@ -282,6 +360,21 @@ async function deny(request: LabMembershipRequest) {
         :get-row-id="(user: User) => user.id"
         empty="No users found."
       >
+        <template #loading>
+          <TableLoadingSkeleton />
+        </template>
+        <template #email-cell="{ row }">
+          <div class="flex items-center gap-2">
+            <span>{{ row.original.email }}</span>
+            <UBadge
+              v-if="row.original.invitation_pending"
+              label="Invited"
+              color="warning"
+              variant="subtle"
+              size="sm"
+            />
+          </div>
+        </template>
         <template #groups-cell="{ row }">
           <UserGroupBadges :user="row.original" />
         </template>
@@ -305,6 +398,13 @@ async function deny(request: LabMembershipRequest) {
         :total="view.total"
       />
     </div>
+
+    <InviteUserModal
+      v-model:open="inviteDialogVisible"
+      :groups="groups"
+      :laboratory-id="auth.user?.laboratory_id"
+      @invited="onInvited"
+    />
 
     <UserGroupsModal
       v-model:open="groupsDialogVisible"

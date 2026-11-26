@@ -1,4 +1,14 @@
-import { computed, reactive, ref, toValue, watch, type MaybeRefOrGetter, type Ref } from 'vue'
+import {
+  computed,
+  reactive,
+  ref,
+  toRef,
+  toValue,
+  watch,
+  type MaybeRefOrGetter,
+  type Ref,
+  type WatchSource,
+} from 'vue'
 import type { TableSortMeta } from '@/api/types'
 import { resolveField, sortRows } from './sortRows'
 
@@ -35,7 +45,7 @@ export interface TableViewOptions<T, F extends string> {
   sortAccessors?: Record<string, Accessor<T>>
   // Reads any other sort column's value; by default its id is a field path.
   sortValue?: (row: T, id: string) => unknown
-  // Rows per page; leave out to show every row.
+  // Rows per page to start with (default 10).
   pageSize?: number
 }
 
@@ -126,23 +136,7 @@ export function useTableView<T, F extends string = never>(
     return sortRows(filteredRows.value, toSortMeta(sorting.value), accessors)
   })
 
-  const page = ref(1)
-  const pageSize = ref(options.pageSize ?? 0)
-  const total = computed(() => sortedRows.value.length)
-
-  // A new search or filter starts over on the first page.
-  watch([search, () => ({ ...filters }), pageSize], () => (page.value = 1))
-  // Stay on a page that exists when rows go away.
-  watch(total, (count) => {
-    const last = Math.max(1, Math.ceil(count / (pageSize.value || count || 1)))
-    if (page.value > last) page.value = last
-  })
-
-  const rows = computed(() => {
-    if (!pageSize.value) return sortedRows.value
-    const start = (page.value - 1) * pageSize.value
-    return sortedRows.value.slice(start, start + pageSize.value)
-  })
+  const pagination = usePagination(sortedRows, options.pageSize, [search, () => ({ ...filters })])
 
   return reactive({
     search,
@@ -153,11 +147,40 @@ export function useTableView<T, F extends string = never>(
     sorting,
     filteredRows,
     sortedRows,
-    rows,
-    page,
-    pageSize,
-    total,
+    rows: computed(() => pagination.rows),
+    page: toRef(pagination, 'page'),
+    pageSize: toRef(pagination, 'pageSize'),
+    total: computed(() => pagination.total),
   })
+}
+
+export const DEFAULT_PAGE_SIZE = 25
+
+// One page of `source` at a time, for a table and its TablePagination.
+// Changes to `resetOn` (a search, a filter) go back to the first page.
+export function usePagination<T>(
+  source: MaybeRefOrGetter<readonly T[] | null | undefined>,
+  initialPageSize = DEFAULT_PAGE_SIZE,
+  resetOn: WatchSource[] = [],
+) {
+  const page = ref(1)
+  const pageSize = ref(initialPageSize)
+  const all = computed(() => toValue(source) ?? [])
+  const total = computed(() => all.value.length)
+
+  watch([...resetOn, pageSize], () => (page.value = 1))
+  // Stay on a page that exists when rows go away.
+  watch(total, (count) => {
+    const last = Math.max(1, Math.ceil(count / pageSize.value))
+    if (page.value > last) page.value = last
+  })
+
+  const rows = computed(() => {
+    const start = (page.value - 1) * pageSize.value
+    return all.value.slice(start, start + pageSize.value)
+  })
+
+  return reactive({ page, pageSize, total, rows })
 }
 
 // UTable sorts nothing itself; useTableView hands it sorted rows.

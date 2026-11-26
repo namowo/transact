@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import type { TableColumn } from '@nuxt/ui'
-import { searchRows } from '@/composables/useTableView'
+import { searchRows, usePagination } from '@/composables/useTableView'
 import PersistenceDetails from './PersistenceDetails.vue'
 import { persistenceLabel } from './persistenceDraft'
 import type { Persistence, Scenario } from '@/api/types'
+import TablePagination from '@/components/ui/TablePagination.vue'
 
 const props = defineProps<{
   scenarios: Scenario[]
@@ -70,6 +71,9 @@ const visiblePersistencies = computed(() =>
   ),
 )
 
+const scenarioPages = usePagination(visibleScenarios, undefined, [filter])
+const persistencePages = usePagination(visiblePersistencies, undefined, [filter])
+
 const scenarioColumns: TableColumn<Scenario>[] = [{ id: 'scenario', header: 'Scenario' }]
 const persistenceColumns: TableColumn<Persistence>[] = [
   { id: 'persistence', header: 'Persistence' },
@@ -102,48 +106,61 @@ function confirmSelection() {
         />
 
         <div style="height: 28rem">
-          <UTable
-            v-if="level === 'scenarios'"
-            :data="visibleScenarios"
-            :columns="scenarioColumns"
-            :get-row-id="(scenario: Scenario) => scenario.id"
-            empty="No scenarios in this study yet."
-            sticky
-            class="h-full"
-          >
-            <template #scenario-cell="{ row }">
-              <button
-                type="button"
-                class="flex items-center gap-2 text-left w-full hover:underline"
-                @click="openScenarioFolder(row.original)"
-              >
-                <UIcon name="i-lucide-folder" class="size-4 shrink-0 text-dimmed" />
-                <span>{{ scenarioLabel(row.original) }}</span>
-              </button>
-            </template>
-          </UTable>
-
-          <div v-else class="flex gap-4 h-full">
+          <div v-if="level === 'scenarios'" class="flex h-full flex-col">
             <UTable
-              :data="visiblePersistencies"
-              :columns="persistenceColumns"
-              :get-row-id="(persistence: Persistence) => persistence.id"
-              empty="No persistencies on this scenario."
+              :data="scenarioPages.rows"
+              :columns="scenarioColumns"
+              :get-row-id="(scenario: Scenario) => scenario.id"
+              empty="No scenarios in this study yet."
               sticky
-              class="w-72 shrink-0 h-full"
+              class="min-h-0 flex-1"
             >
-              <template #persistence-cell="{ row }">
+              <template #scenario-cell="{ row }">
                 <button
                   type="button"
                   class="flex items-center gap-2 text-left w-full hover:underline"
-                  :class="{ 'font-medium text-primary': previewedId === row.original.id }"
-                  @click="previewedId = row.original.id"
+                  @click="openScenarioFolder(row.original)"
                 >
-                  <UIcon name="i-lucide-file" class="size-4 shrink-0 text-dimmed" />
-                  <span>{{ persistenceLabel(row.original) }}</span>
+                  <UIcon name="i-lucide-folder" class="size-4 shrink-0 text-dimmed" />
+                  <span>{{ scenarioLabel(row.original) }}</span>
                 </button>
               </template>
             </UTable>
+            <TablePagination
+              v-model:page="scenarioPages.page"
+              v-model:page-size="scenarioPages.pageSize"
+              :total="scenarioPages.total"
+            />
+          </div>
+
+          <div v-else class="flex gap-4 h-full">
+            <div class="flex h-full w-72 shrink-0 flex-col">
+              <UTable
+                :data="persistencePages.rows"
+                :columns="persistenceColumns"
+                :get-row-id="(persistence: Persistence) => persistence.id"
+                empty="No persistencies on this scenario."
+                sticky
+                class="min-h-0 flex-1"
+              >
+                <template #persistence-cell="{ row }">
+                  <button
+                    type="button"
+                    class="flex items-center gap-2 text-left w-full hover:underline"
+                    :class="{ 'font-medium text-primary': previewedId === row.original.id }"
+                    @click="previewedId = row.original.id"
+                  >
+                    <UIcon name="i-lucide-file" class="size-4 shrink-0 text-dimmed" />
+                    <span>{{ persistenceLabel(row.original) }}</span>
+                  </button>
+                </template>
+              </UTable>
+              <TablePagination
+                v-model:page="persistencePages.page"
+                v-model:page-size="persistencePages.pageSize"
+                :total="persistencePages.total"
+              />
+            </div>
 
             <div
               class="flex-1 min-w-0 border-l border-surface-200 dark:border-surface-700 pl-4 overflow-y-auto h-full"

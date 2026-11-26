@@ -1,3 +1,4 @@
+import type { ReviewStatus } from './studyReview'
 import type { Laboratory } from './laboratory'
 import type { User } from './auth'
 
@@ -36,6 +37,7 @@ export interface Study {
   quality_checked_by_id?: string | null
   quality_checked_by?: User | null
   quality_checked_at?: string | null
+  review_status?: ReviewStatus
 }
 
 export interface StudyCreate {

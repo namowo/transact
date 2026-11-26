@@ -1,23 +1,10 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Confirm your email address</title>
-</head>
-<body>
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <p>Hello {{ first_name }} {{ last_name }},</p>
-
-        <p>Please confirm your email address by clicking the link below:</p>
-        <p><a href="{{ url }}" style="color: #1a73e8;">Confirm email address</a></p>
-
-        <p>If the link doesn't work, copy and paste this URL into your browser:</p>
-        <p><a href="{{ url }}" style="color: #1a73e8;">{{ url }}</a></p>
-
-        <p>See you soon!</p>
-
-        <p>The TransAct Team</p>
-    </div>
-</body>
-</html>
+{% extends "layout/base.html" %}
+{% from "layout/macros.html" import button, fallback_link, note, highlight %}
+{% block title %}Confirm your email address{% endblock %}
+{% block content %}
+<p style="margin: 0 0 16px;">Hello {{ first_name }} {{ last_name }},</p>
+<p style="margin: 0 0 16px;">Please confirm your email address by clicking the button below:</p>
+{{ button(url, "Confirm email address") }}
+{{ fallback_link(url) }}
+<p style="margin: 0 0 16px;">See you soon!</p>
+{% endblock %}
