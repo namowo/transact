@@ -24,6 +24,9 @@ from app.core.permissions import (
 from app.crud.laboratory import crud_laboratory
 from app.crud.exceptions import NotFoundError
 from app.crud.study import crud_study as crud
+from app.crud.user import crud_user
+from app.services import study_review
+from app.services.mail.messages import send_study_quality_checked_mail
 from app.models.user import User
 from app.services.data_export.writers import attachment_headers, iter_file
 from app.schemas.planning_checklist import PlanningChecklistProgress, PlanningChecklistRead
@@ -150,7 +153,18 @@ async def pass_quality_check(
     user: User = Depends(current_quality_checker),
 ):
     study = await crud.get(db, id)
-    return await crud.pass_quality_check(db, study, user)
+    already_passed = study.quality_check_passed
+    # Every comment of the review has to be resolved first.
+    await study_review.assert_can_pass(db, study)
+    await study_review.mark_passed(db, study, user)
+    study = await crud.pass_quality_check(db, study, user)
+
+    if not already_passed and study.laboratory_id is not None:
+        for member in await crud_user.list_by_laboratory(db, study.laboratory_id):
+            if member.id != user.id and member.is_active and not member.invitation_pending:
+                await send_study_quality_checked_mail(member, study)
+
+    return study
 
 
 # 10 MB is far more than a planning sheet with a few hundred rows needs.

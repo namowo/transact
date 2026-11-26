@@ -256,6 +256,15 @@ export default defineConfig(({ mode }) => {
               // Highlight the data row under the pointer in every table
               // (not the expanded detail row or the empty-state row).
               tbody: '[&>tr[data-expanded]]:transition-colors [&>tr[data-expanded]]:hover:bg-elevated/50',
+              // Skeleton rows (see TableLoadingSkeleton) replace the loading text.
+              loading: 'py-3',
+            },
+            variants: {
+              loading: {
+                // The global progress bar under the header shows that data is
+                // loading; hide the table's own line in the header.
+                true: { thead: 'after:hidden' },
+              },
             },
           },
         },

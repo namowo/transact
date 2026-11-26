@@ -74,6 +74,17 @@ def can_view_study(study: Study, user: Optional[User]) -> bool:
         user.can(Permission.VIEW_ALL_STUDIES)
         or _is_member(user, study.laboratory_id)
         or acts_for_laboratory(user, study.laboratory)
+        or can_review_study(study, user)
+    )
+
+
+def can_review_study(study: Study, user: Optional[User]) -> bool:
+    """Whether `user` may review the study as a quality checker: once its
+    laboratory submitted it (it isn't a draft any more)."""
+    return (
+        user is not None
+        and user.can(Permission.QUALITY_CHECK)
+        and (study.review_status or "draft") != "draft"
     )
 
 

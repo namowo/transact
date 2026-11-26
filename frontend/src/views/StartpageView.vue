@@ -51,28 +51,31 @@ const features = [
       <div class="relative flex flex-col items-center text-center gap-5 max-w-2xl mx-auto">
         <div class="flex items-center gap-3">
           <img src="/transact_logo_dark.png" alt="TransAct" class="size-10 dark:hidden" />
-          <img
-            src="/transact_logo_light.png"
-            alt="TransAct"
-            class="size-10 hidden dark:block"
-          />
+          <img src="/transact_logo_light.png" alt="TransAct" class="size-10 hidden dark:block" />
           <span class="text-lg font-bold tracking-tight text-surface-900 dark:text-surface-0"
             >TransAct</span
           >
         </div>
 
-        <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-surface-900 dark:text-surface-0">
+        <h1
+          class="text-3xl sm:text-4xl font-extrabold tracking-tight text-surface-900 dark:text-surface-0"
+        >
           The open data platform for forensic nucleic acid transfer research
         </h1>
 
         <p class="text-surface-600 dark:text-surface-300 text-base sm:text-lg">
-          TransAct helps forensic molecular biology laboratories record, standardize, and share
-          raw DNA/RNA transfer data — building the evidence base for activity-level crime scene
+          TransAct helps forensic molecular biology laboratories record, standardize, and share raw
+          DNA/RNA transfer data — building the evidence base for activity-level crime scene
           reconstruction.
         </p>
 
         <div class="flex flex-wrap items-center justify-center gap-3 mt-1">
-          <UButton label="Create an account" icon="i-lucide-user-plus" size="lg" :to="{ name: 'register' }" />
+          <UButton
+            label="Create an account"
+            icon="i-lucide-user-plus"
+            size="lg"
+            :to="{ name: 'register' }"
+          />
           <UButton
             label="Log in"
             icon="i-lucide-log-in"
@@ -111,8 +114,9 @@ const features = [
             <UIcon :name="stat.icon" class="size-6" />
           </div>
           <div class="min-w-0">
-            <p class="text-2xl font-bold text-surface-900 dark:text-surface-0">
-              {{ statsLoading ? '–' : stat.value }}
+            <USkeleton v-if="statsLoading" class="h-8 w-12 mb-0.5" />
+            <p v-else class="text-2xl font-bold text-surface-900 dark:text-surface-0">
+              {{ stat.value }}
             </p>
             <p class="text-sm text-surface-500 truncate">{{ stat.label }}</p>
           </div>

@@ -1,5 +1,18 @@
 import apiClient from './client'
-import type { RegisterPayload, SetupStatus, SuperuserSetupPayload, User } from './types'
+import type {
+  AuthConfig,
+  RecoveryCodes,
+  RegisterPayload,
+  SetupStatus,
+  SuperuserSetupPayload,
+  TotpSetup,
+  TwoFactorChallenge,
+  User,
+} from './types'
+
+export function fetchAuthConfig() {
+  return apiClient.get<AuthConfig>('/auth/config').then((r) => r.data)
+}
 
 export function register(payload: RegisterPayload) {
   return apiClient.post<User>('/auth/register', payload).then((r) => r.data)
@@ -18,9 +31,37 @@ export function login(email: string, password: string) {
   form.set('username', email)
   form.set('password', password)
   return apiClient
-    .post<User>('/auth/login', form, {
+    .post<User | TwoFactorChallenge>('/auth/login', form, {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     })
+    .then((r) => r.data)
+}
+
+// Finishes a password login with a code from the authenticator app, or a
+// recovery code.
+export function loginTwoFactor(loginToken: string, code: string) {
+  return apiClient
+    .post<User>('/auth/login/two-factor', { login_token: loginToken, code })
+    .then((r) => r.data)
+}
+
+export function startTotpSetup() {
+  return apiClient.post<TotpSetup>('/auth/two-factor/totp/setup').then((r) => r.data)
+}
+
+export function enableTotp(code: string) {
+  return apiClient.post<RecoveryCodes>('/auth/two-factor/totp/enable', { code }).then((r) => r.data)
+}
+
+export function disableTotp(currentPassword: string, code: string) {
+  return apiClient
+    .post('/auth/two-factor/totp/disable', { current_password: currentPassword, code })
+    .then(() => undefined)
+}
+
+export function regenerateRecoveryCodes(code: string) {
+  return apiClient
+    .post<RecoveryCodes>('/auth/two-factor/recovery-codes', { code })
     .then((r) => r.data)
 }
 
@@ -53,4 +94,9 @@ export function resetPassword(token: string, newPassword: string) {
 
 export function fetchMe() {
   return apiClient.get<User>('/users/me').then((r) => r.data)
+}
+
+// Sets the invited user's password and logs them in.
+export function acceptInvitation(token: string, password: string) {
+  return apiClient.post<User>('/auth/accept-invitation', { token, password }).then((r) => r.data)
 }

@@ -1,0 +1,10 @@
+{% extends "layout/base.html" %}
+{% from "layout/macros.html" import button, fallback_link, note %}
+{% block title %}We updated our privacy policy{% endblock %}
+{% block content %}
+<p style="margin: 0 0 16px;">Dear {{ first_name }} {{ last_name }},</p>
+<p style="margin: 0 0 16px;">We have updated the privacy policy of the TransAct Repository. Please read the new version. The next time you sign in, you will be asked to agree to it before you can continue using the repository.</p>
+{{ button(url, "Read the privacy policy") }}
+{{ fallback_link(url) }}
+{% call note() %}You get this email because you have an account on the TransAct Repository. Changes to the privacy policy are always announced by email.{% endcall %}
+{% endblock %}

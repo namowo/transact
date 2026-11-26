@@ -1,0 +1,9 @@
+{% extends "layout/base.html" %}
+{% from "layout/macros.html" import button, note, highlight %}
+{% block title %}Changes requested on your study{% endblock %}
+{% block content %}
+<p style="margin: 0 0 16px;">Dear {{ first_name }},</p>
+<p style="margin: 0 0 16px;">A quality checker reviewed your laboratory's study {{ highlight(study_title) }} and asks for changes{% if open_comments %} ({{ open_comments }} open comment{% if open_comments != 1 %}s{% endif %}){% endif %}. Please address the comments and resubmit the study for quality check.</p>
+{{ button(url, "Open review") }}
+{% call note() %}You get these emails because you enter data for your laboratory. You can turn them off under <a href="{{ frontend_url }}/profile/notifications" style="color: #7c7c67;">Notifications</a> in your profile.{% endcall %}
+{% endblock %}

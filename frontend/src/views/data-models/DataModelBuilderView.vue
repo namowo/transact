@@ -575,8 +575,8 @@ onBeforeRouteLeave((to) => {
             <p class="text-xs text-muted">
               Fetch the latest data on every run - from R, Python or the command line. Create an API
               key in your
-              <ULink :to="{ name: 'profile' }" class="text-primary">profile</ULink>; without one,
-              only published, quality-checked data is returned.
+              <ULink :to="{ name: 'profile-api-keys' }" class="text-primary">profile</ULink>;
+              without one, only published, quality-checked data is returned.
             </p>
           </template>
           <div class="flex flex-col gap-2">

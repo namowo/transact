@@ -55,6 +55,8 @@ class StudyReadNested(StudyBase):
     quality_checked_by_id: Optional[UUID] = None
     quality_checked_by: Optional["UserRead"] = None
     quality_checked_at: Optional[datetime] = None
+    # draft | in_review | changes_requested | passed (app.models.study_review)
+    review_status: str = "draft"
 
 
 class StudyRead(StudyReadNested):

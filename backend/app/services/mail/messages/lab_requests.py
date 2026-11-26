@@ -1,11 +1,15 @@
 import logging
 
+from app.core.config import settings
+from app.core.notification_catalog import NotificationType
 from app.services.mail import send_mail
 
 logger = logging.getLogger(__name__)
 
 
 async def send_new_lab_requested_mail(superuser, laboratory, requester):
+    if not superuser.wants_notification(NotificationType.LABORATORY_REQUEST, "email"):
+        return
     try:
         await send_mail(
             subject="New laboratory request awaiting approval",
@@ -17,6 +21,7 @@ async def send_new_lab_requested_mail(superuser, laboratory, requester):
                 "requester_first_name": requester.first_name,
                 "requester_last_name": requester.last_name,
                 "requester_email": requester.email,
+                "url": f"{settings.FRONTEND_URL}/settings/admin/laboratories",
             },
         )
     except Exception:

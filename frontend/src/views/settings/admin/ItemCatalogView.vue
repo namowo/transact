@@ -11,6 +11,8 @@ import type { TableColumn, TabsItem } from '@nuxt/ui'
 import { manualSorting, useTableView } from '@/composables/useTableView'
 import { expandColumn, sortHeader } from '@/composables/tableColumns'
 import TableFilterDrawer from '@/components/ui/TableFilterDrawer.vue'
+import TableLoadingSkeleton from '@/components/ui/TableLoadingSkeleton.vue'
+import TablePagination from '@/components/ui/TablePagination.vue'
 
 const confirm = useConfirm()
 
@@ -482,7 +484,9 @@ function confirmDeleteItem(item: Item) {
           class="flex flex-col overflow-hidden rounded-lg border border-surface-200 dark:border-surface-800"
         >
           <template v-if="categoriesLoading">
-            <div class="p-4 text-sm text-surface-500">Loading…</div>
+            <div class="flex flex-col gap-2 p-3" aria-busy="true">
+              <USkeleton v-for="n in 6" :key="n" class="h-8 w-full" />
+            </div>
           </template>
           <template v-else-if="filteredCategories.length === 0">
             <div class="p-4 text-sm text-surface-500">No item categories found.</div>
@@ -587,6 +591,9 @@ function confirmDeleteItem(item: Item) {
                 empty="No subcategories in this category yet."
                 class="rounded-lg border border-default"
               >
+                <template #loading>
+                  <TableLoadingSkeleton />
+                </template>
                 <template #actions-cell="{ row: { original: data } }">
                   <div class="flex justify-end gap-1">
                     <UButton
@@ -679,6 +686,11 @@ function confirmDeleteItem(item: Item) {
                   </div>
                 </template>
               </UTable>
+              <TablePagination
+                v-model:page="subcategoryView.page"
+                v-model:page-size="subcategoryView.pageSize"
+                :total="subcategoryView.total"
+              />
             </div>
           </template>
 
@@ -730,6 +742,9 @@ function confirmDeleteItem(item: Item) {
                 empty="No item parts in this category yet."
                 class="rounded-lg border border-default"
               >
+                <template #loading>
+                  <TableLoadingSkeleton />
+                </template>
                 <template #description-cell="{ row }">{{
                   row.original.description ?? '—'
                 }}</template>
@@ -754,6 +769,11 @@ function confirmDeleteItem(item: Item) {
                   </div>
                 </template>
               </UTable>
+              <TablePagination
+                v-model:page="partView.page"
+                v-model:page-size="partView.pageSize"
+                :total="partView.total"
+              />
             </div>
           </template>
         </UTabs>

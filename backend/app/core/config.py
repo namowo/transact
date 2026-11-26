@@ -50,9 +50,32 @@ class Settings(BaseSettings):
 
     EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS: int = 48
     PASSWORD_RESET_TOKEN_EXPIRE_HOURS: int = 2
+    INVITATION_TOKEN_EXPIRE_HOURS: int = 168
 
     WEBAUTHN_RP_NAME: str = "TransAct"
     WEBAUTHN_CHALLENGE_TTL_SECONDS: int = 300
+
+    # Sign-up and sign-in policy.
+    # Self sign-up on the registration page. Turn off (and leave invitations
+    # on) for an invite-only instance.
+    REGISTRATION_ENABLED: bool = True
+    # Admins and lab admins may invite people by email.
+    INVITATIONS_ENABLED: bool = True
+    # Every user needs a second factor: password + one-time code from an
+    # authenticator app, or a passkey. Users without one are asked to set
+    # one up right after signing in, before they can use the app.
+    TWO_FACTOR_REQUIRED: bool = False
+    # Shown as the account's issuer in authenticator apps.
+    TOTP_ISSUER: str = "TransAct"
+    # How long the one-time code step after a correct password may take.
+    TWO_FACTOR_LOGIN_TTL_SECONDS: int = 300
+    # Encrypts the authenticator app secrets in the database. Any long random
+    # string; falls back to JWT_SECRET_KEY. Changing it makes the stored
+    # secrets unreadable: affected users then need a two-factor reset.
+    TWO_FACTOR_ENCRYPTION_KEY: Optional[str] = None
+    # Wrong passwords in a row before the account is locked; an admin has to
+    # unlock it. 0 turns locking off.
+    MAX_FAILED_LOGIN_ATTEMPTS: int = 10
 
     # FastAPI Settings
     # Schemeless host (e.g. "transact.namowo.de"); ignored when ENVIRONMENT is "local".

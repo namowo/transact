@@ -4,6 +4,7 @@ import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import type { NavigationMenuItem } from '@nuxt/ui'
 import NotificationCenter from '@/components/NotificationCenter.vue'
 import ThemeToggle from '@/components/ThemeToggle.vue'
+import GlobalProgressBar from '@/components/GlobalProgressBar.vue'
 import TourGuide from '@/components/tour/TourGuide.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useTourStore } from '@/stores/tour'
@@ -79,7 +80,9 @@ const navGroups = computed<NavigationMenuItem[][]>(() =>
                     },
                   ]
                 : []),
-              ...(auth.can('lab.manage_groups') ? [{ label: 'Groups', to: { name: 'lab-groups' } }] : []),
+              ...(auth.can('lab.manage_groups')
+                ? [{ label: 'Groups', to: { name: 'lab-groups' } }]
+                : []),
               ...(auth.can('lab.manage_settings')
                 ? [{ label: 'Settings', to: { name: 'lab-settings' } }]
                 : []),
@@ -100,7 +103,9 @@ const navGroups = computed<NavigationMenuItem[][]>(() =>
                     route.name === 'admin-legal',
                   badge: newLabRequestCount.value > 0 ? newLabRequestCount.value : undefined,
                   children: [
-                    ...(auth.can('users.manage') ? [{ label: 'Users', to: { name: 'admin-users' } }] : []),
+                    ...(auth.can('users.manage')
+                      ? [{ label: 'Users', to: { name: 'admin-users' } }]
+                      : []),
                     ...(auth.can('groups.manage')
                       ? [{ label: 'Groups & Permissions', to: { name: 'admin-groups' } }]
                       : []),
@@ -109,7 +114,8 @@ const navGroups = computed<NavigationMenuItem[][]>(() =>
                           {
                             label: 'Laboratories',
                             to: { name: 'laboratories' },
-                            badge: newLabRequestCount.value > 0 ? newLabRequestCount.value : undefined,
+                            badge:
+                              newLabRequestCount.value > 0 ? newLabRequestCount.value : undefined,
                           },
                         ]
                       : []),
@@ -125,10 +131,10 @@ const navGroups = computed<NavigationMenuItem[][]>(() =>
             : []),
         ],
         docPages.map((page) => ({
-            label: page.title,
-            icon: 'i-lucide-file-text',
-            to: { name: 'docs', params: { slug: page.slug } },
-          })),
+          label: page.title,
+          icon: 'i-lucide-file-text',
+          to: { name: 'docs', params: { slug: page.slug } },
+        })),
       ]
     : [
         [
@@ -136,10 +142,10 @@ const navGroups = computed<NavigationMenuItem[][]>(() =>
           { label: 'Data download', icon: 'i-lucide-download', to: { name: 'data-models' } },
         ],
         docPages.map((page) => ({
-            label: page.title,
-            icon: 'i-lucide-file-text',
-            to: { name: 'docs', params: { slug: page.slug } },
-          })),
+          label: page.title,
+          icon: 'i-lucide-file-text',
+          to: { name: 'docs', params: { slug: page.slug } },
+        })),
       ],
 )
 
@@ -196,6 +202,9 @@ const breadcrumbItems = computed(() => {
   ]
 })
 
+// The breadcrumb is hidden below `lg` (navbar center slot), so show at least the page title there.
+const pageTitle = computed(() => breadcrumbItems.value.at(-1)?.label || undefined)
+
 const secondaryNavGroup = [
   {
     label: 'Report a bug',
@@ -227,18 +236,13 @@ const footerLinks = [
       collapsible
       resizable
       class="bg-elevated/25"
-      :ui="{ root: 'transition-[width] duration-200 ease-in-out data-[dragging=true]:transition-none' }"
+      :ui="{
+        root: 'transition-[width] duration-200 ease-in-out data-[dragging=true]:transition-none',
+      }"
     >
       <template #header="{ collapsed }">
-        <RouterLink
-          :to="{ name: 'dashboard' }"
-          class="flex items-center gap-2 px-1 min-w-0"
-        >
-          <img
-            src="/transact_logo_dark.png"
-            alt="TransAct"
-            class="size-6 shrink-0 dark:hidden"
-          />
+        <RouterLink :to="{ name: 'dashboard' }" class="flex items-center gap-2 px-1 min-w-0">
+          <img src="/transact_logo_dark.png" alt="TransAct" class="size-6 shrink-0 dark:hidden" />
           <img
             src="/transact_logo_light.png"
             alt="TransAct"
@@ -272,7 +276,11 @@ const footerLinks = [
       </template>
 
       <template #footer="{ collapsed }">
-        <UDropdownMenu v-if="auth.isAuthenticated" :items="userMenuItems" :content="{ align: 'center' }">
+        <UDropdownMenu
+          v-if="auth.isAuthenticated"
+          :items="userMenuItems"
+          :content="{ align: 'center' }"
+        >
           <UButton
             data-tour="user-menu"
             color="neutral"
@@ -281,11 +289,10 @@ const footerLinks = [
             :square="collapsed"
             class="data-[state=open]:bg-elevated"
           >
-            <UAvatar
-              :text="initials(auth.user?.first_name, auth.user?.last_name)"
-              size="xs"
-            />
-            <span v-if="!collapsed" class="truncate">{{ auth.user?.first_name }} {{ auth.user?.last_name }}</span>
+            <UAvatar :text="initials(auth.user?.first_name, auth.user?.last_name)" size="xs" />
+            <span v-if="!collapsed" class="truncate"
+              >{{ auth.user?.first_name }} {{ auth.user?.last_name }}</span
+            >
           </UButton>
         </UDropdownMenu>
         <UButton
@@ -302,13 +309,18 @@ const footerLinks = [
 
     <UDashboardPanel id="app-content">
       <template #header>
-        <UDashboardNavbar :ui="{ right: 'gap-2' }">
+        <UDashboardNavbar
+          :title="pageTitle"
+          :ui="{ root: 'relative', right: 'gap-2', title: 'lg:hidden' }"
+        >
           <template #leading>
             <UDashboardSidebarCollapse />
           </template>
 
           <template #default>
             <UBreadcrumb :items="breadcrumbItems" />
+            <!-- Drawn over the navbar's bottom border. -->
+            <GlobalProgressBar class="absolute inset-x-0 -bottom-px z-10" />
           </template>
 
           <template #right>
@@ -327,7 +339,9 @@ const footerLinks = [
 
         <UFooter :ui="{ root: 'border-t border-default mt-8' }">
           <template #left>
-            <span class="text-sm text-muted">&copy; {{ new Date().getFullYear() }} namowo GmbH</span>
+            <span class="text-sm text-muted"
+              >&copy; {{ new Date().getFullYear() }} namowo GmbH</span
+            >
           </template>
 
           <UNavigationMenu :items="footerLinks" variant="link" />

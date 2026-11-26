@@ -36,8 +36,16 @@ function formatDuration(seconds: number | null | undefined): string | null {
 </script>
 
 <template>
-  <div v-if="loading" class="flex justify-center py-12">
-    <UProgress class="w-12" />
+  <div v-if="loading" class="flex flex-col gap-6" aria-busy="true">
+    <div class="flex gap-2">
+      <USkeleton class="h-6 w-20" />
+      <USkeleton class="h-6 w-28" />
+    </div>
+    <div v-for="n in 3" :key="n" class="flex flex-col gap-2">
+      <USkeleton class="h-4 w-40" />
+      <USkeleton class="h-4 w-full" />
+      <USkeleton class="h-4 w-2/3" />
+    </div>
   </div>
 
   <div v-else-if="scenario" class="flex flex-col gap-6 text-sm">
@@ -55,8 +63,9 @@ function formatDuration(seconds: number | null | undefined): string | null {
 
     <div>
       <h4 class="font-medium mb-2">
-        Persistence{{ scenario.persistencies.length === 1 ? '' : 's' }}
-        ({{ scenario.persistencies.length }})
+        Persistence{{ scenario.persistencies.length === 1 ? '' : 's' }} ({{
+          scenario.persistencies.length
+        }})
       </h4>
       <p v-if="!scenario.persistencies.length" class="text-surface-500 dark:text-surface-400">
         None linked.
@@ -68,7 +77,9 @@ function formatDuration(seconds: number | null | undefined): string | null {
           class="flex flex-col gap-1 border border-surface-200 dark:border-surface-700 rounded-md p-3"
         >
           <span class="font-medium">{{ persistenceLabel(persistence) }}</span>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-surface-600 dark:text-surface-300">
+          <div
+            class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-surface-600 dark:text-surface-300"
+          >
             <div v-if="persistence.interval_of_persistence != null">
               <span class="font-medium">Interval of persistence:</span>
               {{ formatDuration(persistence.interval_of_persistence) }}
@@ -80,7 +91,8 @@ function formatDuration(seconds: number | null | undefined): string | null {
               <span class="font-medium">Humidity:</span> {{ formatPercent(persistence.humidity) }}
             </div>
             <div v-if="persistence.uv_irradiation != null">
-              <span class="font-medium">UV irradiation:</span> {{ persistence.uv_irradiation }} mW/cm²
+              <span class="font-medium">UV irradiation:</span>
+              {{ persistence.uv_irradiation }} mW/cm²
             </div>
             <div v-if="persistence.indoors">Indoors</div>
             <div v-if="persistence.change_over_time">Changes over time</div>
@@ -89,7 +101,10 @@ function formatDuration(seconds: number | null | undefined): string | null {
               {{ persistence.geographic_location_category.name }}
             </div>
           </div>
-          <p v-if="persistence.description_of_disturbance" class="text-surface-500 dark:text-surface-400">
+          <p
+            v-if="persistence.description_of_disturbance"
+            class="text-surface-500 dark:text-surface-400"
+          >
             {{ persistence.description_of_disturbance }}
           </p>
         </div>
@@ -100,8 +115,9 @@ function formatDuration(seconds: number | null | undefined): string | null {
 
     <div>
       <h4 class="font-medium mb-2">
-        Contact template{{ scenario.contact_templates.length === 1 ? '' : 's' }}
-        ({{ scenario.contact_templates.length }})
+        Contact template{{ scenario.contact_templates.length === 1 ? '' : 's' }} ({{
+          scenario.contact_templates.length
+        }})
       </h4>
       <p v-if="!scenario.contact_templates.length" class="text-surface-500 dark:text-surface-400">
         None linked.
@@ -112,13 +128,20 @@ function formatDuration(seconds: number | null | undefined): string | null {
           :key="contactTemplate.id"
           class="flex flex-col gap-1 border border-surface-200 dark:border-surface-700 rounded-md p-3"
         >
-          <span class="font-medium">{{ contactTemplate.name || `Contact template #${index + 1}` }}</span>
-          <span v-if="contactTemplate.previous_contact_template_id" class="text-sm text-surface-500 dark:text-surface-400">
+          <span class="font-medium">{{
+            contactTemplate.name || `Contact template #${index + 1}`
+          }}</span>
+          <span
+            v-if="contactTemplate.previous_contact_template_id"
+            class="text-sm text-surface-500 dark:text-surface-400"
+          >
             <UIcon name="i-lucide-corner-down-right" class="align-text-bottom" />
             Follows
             {{ followedTemplateName(contactTemplate.previous_contact_template_id) }}
           </span>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-surface-600 dark:text-surface-300">
+          <div
+            class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-surface-600 dark:text-surface-300"
+          >
             <div v-if="contactTemplate.duration != null">
               <span class="font-medium">Duration:</span>
               {{ formatDuration(contactTemplate.duration) }}
@@ -127,26 +150,34 @@ function formatDuration(seconds: number | null | undefined): string | null {
               <span class="font-medium">Contact area:</span> {{ contactTemplate.contact_area }} cm²
             </div>
             <div v-if="contactTemplate.condition_during_contact?.temperature != null">
-              <span class="font-medium">Temperature:</span> {{ contactTemplate.condition_during_contact.temperature }} °C
+              <span class="font-medium">Temperature:</span>
+              {{ contactTemplate.condition_during_contact.temperature }} °C
             </div>
             <div v-if="contactTemplate.condition_during_contact?.humidity != null">
-              <span class="font-medium">Humidity:</span> {{ formatPercent(contactTemplate.condition_during_contact.humidity) }}
+              <span class="font-medium">Humidity:</span>
+              {{ formatPercent(contactTemplate.condition_during_contact.humidity) }}
             </div>
             <div v-if="contactTemplate.condition_during_contact?.uv_irradiation != null">
-              <span class="font-medium">UV irradiation:</span> {{ contactTemplate.condition_during_contact.uv_irradiation }} mW/cm²
+              <span class="font-medium">UV irradiation:</span>
+              {{ contactTemplate.condition_during_contact.uv_irradiation }} mW/cm²
             </div>
             <div v-if="contactTemplate.activity_category">
-              <span class="font-medium">Activity:</span> {{ contactTemplate.activity_category.name }}
+              <span class="font-medium">Activity:</span>
+              {{ contactTemplate.activity_category.name }}
             </div>
             <div v-if="contactTemplate.pressure_estimate">
-              <span class="font-medium">Pressure estimate:</span> {{ contactTemplate.pressure_estimate.name }}
+              <span class="font-medium">Pressure estimate:</span>
+              {{ contactTemplate.pressure_estimate.name }}
             </div>
             <div v-if="contactTemplate.friction_applied_estimate">
               <span class="font-medium">Friction applied estimate:</span>
               {{ contactTemplate.friction_applied_estimate.name }}
             </div>
           </div>
-          <p v-if="contactTemplate.description_of_contact" class="text-surface-500 dark:text-surface-400">
+          <p
+            v-if="contactTemplate.description_of_contact"
+            class="text-surface-500 dark:text-surface-400"
+          >
             {{ contactTemplate.description_of_contact }}
           </p>
         </div>

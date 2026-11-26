@@ -165,7 +165,11 @@ async function deleteRow(row: SamplingMethod) {
       />
     </div>
 
-    <p v-if="!loading && !filteredRows.length" class="text-sm text-muted">No entries found.</p>
+    <div v-if="loading && !filteredRows.length" class="flex flex-col gap-3" aria-busy="true">
+      <USkeleton v-for="n in 4" :key="n" class="h-24 w-full" />
+    </div>
+
+    <p v-else-if="!filteredRows.length" class="text-sm text-muted">No entries found.</p>
 
     <div class="flex flex-col gap-3">
       <UCard v-for="row in pagedRows" :key="row.item.id">

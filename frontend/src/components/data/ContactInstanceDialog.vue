@@ -11,6 +11,8 @@ import {
 import { templateName, surfaceLabel, surfaceIcon, surfaceDetail } from './contactTemplateLabel'
 import type { ContactInstanceDraft } from './contactInstanceDraft'
 import type { Contact, ContactTemplate, Scenario, Surface } from '@/api/types'
+import { usePagination } from '@/composables/useTableView'
+import TablePagination from '@/components/ui/TablePagination.vue'
 
 const props = defineProps<{
   studyId: string
@@ -137,6 +139,8 @@ const filteredTemplates = computed(() => {
     return haystack.includes(needle)
   })
 })
+
+const templatePages = usePagination(filteredTemplates, undefined, [filter])
 
 function selectTemplate(template: ContactTemplate) {
   draft.value.contactTemplateId = template.id
@@ -328,7 +332,7 @@ async function save() {
           />
           <div class="border border-default rounded-md overflow-hidden">
             <UTable
-              :data="filteredTemplates"
+              :data="templatePages.rows"
               :columns="templateColumns"
               :get-row-id="(template: ContactTemplate) => template.id"
               empty="No contact templates match your search."
@@ -367,6 +371,11 @@ async function save() {
                 <UIcon name="i-lucide-chevron-right" class="text-dimmed group-hover:text-default" />
               </template>
             </UTable>
+            <TablePagination
+              v-model:page="templatePages.page"
+              v-model:page-size="templatePages.pageSize"
+              :total="templatePages.total"
+            />
           </div>
         </div>
 

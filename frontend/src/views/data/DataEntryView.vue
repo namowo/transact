@@ -41,6 +41,7 @@ import { useTableView } from '@/composables/useTableView'
 import { expandColumn } from '@/composables/tableColumns'
 import TableFilterDrawer from '@/components/ui/TableFilterDrawer.vue'
 import TablePagination from '@/components/ui/TablePagination.vue'
+import TableLoadingSkeleton from '@/components/ui/TableLoadingSkeleton.vue'
 
 const confirm = useConfirm()
 const route = useRoute()
@@ -74,6 +75,8 @@ const studyTitle = ref<string | null>(null)
 const contactTemplates = ref<ContactTemplate[]>([])
 const contacts = ref<Contact[]>([])
 const scopedSamples = ref<Sample[]>([])
+// True until the samples panel has loaded the study's samples.
+const samplesLoading = ref(true)
 
 async function load() {
   loading.value = true
@@ -224,8 +227,16 @@ onMounted(async () => {
   await load()
   if (readOnly.value || loadError.value) return
   if (tour.tourId === 'new-study') await tour.finish()
+  // The data-entry tour points at controls the overlay below blocks.
+  if (needsScenario.value) return
   tour.start('data-entry')
 })
+
+// Data is always recorded against a scenario, so a study without one gets a
+// blocking overlay that sends the user to plan one first.
+const needsScenario = computed(
+  () => !loading.value && !loadError.value && !readOnly.value && !studyScenarios.value.length,
+)
 
 const dialogVisible = ref(false)
 const editingNames = ref(false)
@@ -716,7 +727,6 @@ const expandedContactRows = ref<Record<string, boolean>>({})
 const contactView = useTableView(contactGroups, {
   searchFields: [(group) => (group.template ? templateName(group.template) : ''), 'scenarioNames'],
   filters: { scenario: { field: 'scenarioNames' } },
-  pageSize: 25,
 })
 
 const groupColumns = computed<TableColumn<ContactGroup>[]>(() => [
@@ -743,10 +753,10 @@ const individualCount = computed(() => individualCountOverride.value ?? individu
 const itemCount = ref(0)
 
 const tabItems = computed<TabsItem[]>(() => [
-  { label: 'Individuals', value: 'individuals', slot: 'individuals', badge: individualCount.value },
-  { label: 'Items', value: 'items', slot: 'items', badge: itemCount.value },
-  { label: 'Contacts', value: 'contacts', slot: 'contacts', badge: visibleContacts.value.length },
-  { label: 'Samples', value: 'samples', slot: 'samples', badge: scopedSamples.value.length },
+  { label: 'Individuals', value: 'individuals', slot: 'individuals', badge: loading.value ? undefined : individualCount.value },
+  { label: 'Items', value: 'items', slot: 'items', badge: loading.value || !visitedTabs.value.has('items') ? undefined : itemCount.value },
+  { label: 'Contacts', value: 'contacts', slot: 'contacts', badge: loading.value ? undefined : visibleContacts.value.length },
+  { label: 'Samples', value: 'samples', slot: 'samples', badge: loading.value || samplesLoading.value ? undefined : scopedSamples.value.length },
   { label: 'Results', value: 'results', slot: 'results' },
 ])
 
@@ -761,533 +771,594 @@ const activeTab = computed<string>({
     router.replace({ query: { ...route.query, tab: value } })
   },
 })
+
+// Tabs mount on their first visit and then stay mounted (and keep their
+// loaded data) while the page is open, so switching back is instant and
+// opening the page doesn't load every tab at once. Results reads the samples
+// the samples panel loads, so visiting it mounts that panel too.
+const visitedTabs = ref(new Set<string>())
+watch(
+  activeTab,
+  (tab) => {
+    visitedTabs.value.add(tab)
+    if (tab === 'results') visitedTabs.value.add('samples')
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
-  <div class="flex flex-col gap-6">
-    <div class="flex items-center justify-between gap-3">
-      <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-0">
-        {{ readOnly ? 'Data' : 'Data entry' }}
-      </h1>
-      <div class="flex items-center gap-2">
-        <UButton
-          v-if="!readOnly"
-          label="Upload planning sheet"
-          icon="i-lucide-file-up"
-          color="neutral"
-          variant="outline"
-          @click="openPlanningSheetUpload"
-        />
-        <UButton
-          v-if="!readOnly"
-          label="Guide me"
-          icon="i-lucide-circle-help"
-          color="neutral"
-          variant="ghost"
-          @click="tour.start('data-entry', { force: true })"
-        />
-      </div>
+  <div class="relative flex flex-col gap-6" :class="{ 'min-h-[60vh]': needsScenario }">
+    <div
+      v-if="needsScenario"
+      class="absolute inset-0 z-10 flex items-start justify-center bg-default/70 backdrop-blur-sm pt-24 px-4"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="no-scenario-title"
+    >
+      <UCard class="w-full max-w-md shadow-lg">
+        <div class="flex flex-col items-center gap-4 text-center">
+          <UIcon name="i-lucide-clipboard-list" class="size-10 text-primary" />
+          <div class="flex flex-col gap-1">
+            <h2 id="no-scenario-title" class="text-lg font-semibold">Plan a scenario first</h2>
+            <p class="text-sm text-muted">
+              Data is always recorded for a scenario. This study has none yet, so plan at least one
+              scenario before entering data.
+            </p>
+          </div>
+          <UButton
+            label="Plan a scenario"
+            icon="i-lucide-plus"
+            :to="{ name: 'scenarios-new', params: { studyId } }"
+          />
+        </div>
+      </UCard>
     </div>
 
-    <UModal
-      v-model:open="planningSheetVisible"
-      title="Upload planning sheet"
-      :ui="{ content: 'max-w-lg', footer: 'justify-end' }"
-    >
-      <template #body>
-        <div class="flex flex-col gap-4">
-          <p class="text-sm text-surface-500 dark:text-surface-400">
-            Upload the Excel planning checklist with the individuals and items you filled in. Rows
-            with an ID update existing entries, rows without an ID are added. Rows you removed from
-            the file are not deleted here.
-          </p>
-          <UFileUpload
-            v-model="planningSheetFile"
-            accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            label="Drop your planning sheet here"
-            description="or click to choose an .xlsx file"
-            icon="i-lucide-file-spreadsheet"
-            class="w-full min-h-32"
+    <div :inert="needsScenario || undefined" class="flex flex-col gap-6">
+      <div class="flex items-center justify-between gap-3">
+        <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-0">
+          {{ readOnly ? 'Data' : 'Data entry' }}
+        </h1>
+        <div class="flex items-center gap-2">
+          <UButton
+            v-if="!readOnly"
+            label="Upload planning sheet"
+            icon="i-lucide-file-up"
+            color="neutral"
+            variant="outline"
+            @click="openPlanningSheetUpload"
           />
-          <UAlert
-            v-if="planningSheetError"
-            color="error"
-            variant="subtle"
-            :description="planningSheetError"
+          <UButton
+            v-if="!readOnly"
+            label="Guide me"
+            icon="i-lucide-circle-help"
+            color="neutral"
+            variant="ghost"
+            @click="tour.start('data-entry', { force: true })"
           />
-          <UAlert
-            v-if="pendingNewCategoryCount"
-            color="warning"
-            variant="subtle"
-            icon="i-lucide-folder-plus"
-            title="This file adds new item categories"
-          >
-            <template #description>
-              <p class="mb-2">
-                They will be added to the shared catalog for all studies. Check them for typos - if
-                one should be an existing category, fix it in the file and upload it again.
-              </p>
-              <ul class="list-disc pl-4 max-h-48 overflow-y-auto">
-                <li v-for="name in pendingConfirmation?.new_categories" :key="`c-${name}`">
-                  Category: <span class="font-medium">{{ name }}</span>
-                </li>
-                <li
-                  v-for="sub in pendingConfirmation?.new_subcategories"
-                  :key="`s-${sub.category}-${sub.name}`"
-                >
-                  Subcategory: <span class="font-medium">{{ sub.name }}</span> (in
-                  {{ sub.category }})
-                </li>
-              </ul>
-            </template>
-          </UAlert>
-          <template v-if="pendingUnassigned">
+        </div>
+      </div>
+
+      <UModal
+        v-model:open="planningSheetVisible"
+        title="Upload planning sheet"
+        :ui="{ content: 'max-w-lg', footer: 'justify-end' }"
+      >
+        <template #body>
+          <div class="flex flex-col gap-4">
+            <p class="text-sm text-surface-500 dark:text-surface-400">
+              Upload the Excel planning checklist with the individuals and items you filled in. Rows
+              with an ID update existing entries, rows without an ID are added. Rows you removed
+              from the file are not deleted here.
+            </p>
+            <UFileUpload
+              v-model="planningSheetFile"
+              accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              label="Drop your planning sheet here"
+              description="or click to choose an .xlsx file"
+              icon="i-lucide-file-spreadsheet"
+              class="w-full min-h-32"
+            />
             <UAlert
-              v-if="!studyScenarios.length"
+              v-if="planningSheetError"
+              color="error"
+              variant="subtle"
+              :description="planningSheetError"
+            />
+            <UAlert
+              v-if="pendingNewCategoryCount"
               color="warning"
               variant="subtle"
-              icon="i-lucide-route"
-              title="Plan a scenario first"
-              :description="`${pendingUnassigned} in this file have no scenario, and this study has no scenarios yet. Plan at least one scenario in the planning step, then upload the file again.`"
-            />
-            <UFormField
-              v-else
-              label="Scenarios for rows without a scenario"
-              :description="`${pendingUnassigned} in this file have no scenario. Every individual and item needs one - choose which scenarios they belong to.`"
-              required
+              icon="i-lucide-folder-plus"
+              title="This file adds new item categories"
             >
-              <USelectMenu
-                v-model="assignScenarioIds"
-                :items="scenarioAssignOptions"
-                value-key="value"
-                multiple
-                placeholder="Choose scenarios"
-                clear
-                class="w-full"
+              <template #description>
+                <p class="mb-2">
+                  They will be added to the shared catalog for all studies. Check them for typos -
+                  if one should be an existing category, fix it in the file and upload it again.
+                </p>
+                <ul class="list-disc pl-4 max-h-48 overflow-y-auto">
+                  <li v-for="name in pendingConfirmation?.new_categories" :key="`c-${name}`">
+                    Category: <span class="font-medium">{{ name }}</span>
+                  </li>
+                  <li
+                    v-for="sub in pendingConfirmation?.new_subcategories"
+                    :key="`s-${sub.category}-${sub.name}`"
+                  >
+                    Subcategory: <span class="font-medium">{{ sub.name }}</span> (in
+                    {{ sub.category }})
+                  </li>
+                </ul>
+              </template>
+            </UAlert>
+            <template v-if="pendingUnassigned">
+              <UAlert
+                v-if="!studyScenarios.length"
+                color="warning"
+                variant="subtle"
+                icon="i-lucide-route"
+                title="Plan a scenario first"
+                :description="`${pendingUnassigned} in this file have no scenario, and this study has no scenarios yet. Plan at least one scenario in the planning step, then upload the file again.`"
               />
-            </UFormField>
-          </template>
-          <UAlert
-            v-if="planningSheetProblems.length"
-            color="error"
-            variant="subtle"
-            title="Nothing was saved. Please fix these rows and upload the file again:"
-          >
-            <template #description>
-              <ul class="list-disc pl-4 max-h-48 overflow-y-auto">
-                <li v-for="problem in planningSheetProblems" :key="problem">{{ problem }}</li>
-              </ul>
-            </template>
-          </UAlert>
-        </div>
-      </template>
-      <template #footer>
-        <UButton
-          label="Cancel"
-          icon="i-lucide-x"
-          variant="ghost"
-          @click="planningSheetVisible = false"
-        />
-        <UButton
-          :label="pendingConfirmation ? 'Confirm & upload' : 'Upload'"
-          :icon="pendingConfirmation ? 'i-lucide-check' : 'i-lucide-upload'"
-          :disabled="uploadBlocked"
-          :loading="planningSheetUploading"
-          @click="runPlanningSheetUpload"
-        />
-      </template>
-    </UModal>
-
-    <div v-if="loading" class="flex justify-center py-12">
-      <UProgress class="w-12" />
-    </div>
-
-    <UAlert v-else-if="loadError" color="error" variant="outline" :description="loadError" />
-
-    <div v-if="!loading && !loadError" class="flex flex-wrap items-end gap-3">
-      <UFormField
-        label="Scenario"
-        data-tour="data-scenario"
-        :hint="
-          readOnly
-            ? 'Choose a scenario to filter the data'
-            : 'Choose a scenario to add data to it, or view all data'
-        "
-      >
-        <USelect v-model="scenarioSelectValue" :items="scenarioOptions" class="w-72" />
-      </UFormField>
-      <p v-if="!studyScenarios.length && !readOnly" class="text-sm text-warning pb-2">
-        Plan a scenario for this study first.
-      </p>
-    </div>
-
-    <UTabs
-      v-if="!loading && !loadError"
-      v-model="activeTab"
-      data-tour="data-tabs"
-      :items="tabItems"
-      :unmount-on-hide="false"
-      class="w-full"
-    >
-      <template #individuals>
-        <IndividualsPanel
-          :key="`individuals-${panelsKey}`"
-          :study-id="studyId"
-          :scenarios="studyScenarios"
-          :scenario-id="selectedScenarioId"
-          @update:count="individualCountOverride = $event"
-        />
-      </template>
-
-      <template #items>
-        <ItemsPanel
-          :key="`items-${panelsKey}`"
-          :study-id="studyId"
-          :contact-templates="visibleTemplates"
-          :scenarios="studyScenarios"
-          :scenario-id="selectedScenarioId"
-          @update:count="itemCount = $event"
-        />
-      </template>
-
-      <template #contacts>
-        <div class="flex flex-col gap-4" data-tour="contacts-panel">
-          <div class="flex items-center justify-between">
-            <p class="text-sm text-surface-500 dark:text-surface-400">
-              Actual contacts recorded for this study's planned scenarios.
-            </p>
-            <UButton
-              v-if="!readOnly"
-              data-tour="add-contact"
-              label="Add actual contact"
-              icon="i-lucide-plus"
-              variant="outline"
-              :disabled="!visibleTemplates.length"
-              @click="dialogVisible = true"
-            />
-          </div>
-
-          <UAlert
-            v-if="!visibleTemplates.length && !readOnly"
-            color="info"
-            variant="outline"
-            description="Plan a scenario with at least one contact template before entering actual data."
-          />
-
-          <UTabs
-            v-if="!readOnly"
-            v-model="contactsView"
-            :items="contactsViewItems"
-            :content="false"
-            variant="pill"
-            size="sm"
-            class="w-fit"
-          />
-
-          <ContactChains
-            v-if="contactsView === 'chains'"
-            :contacts="visibleContacts"
-            :contact-templates="visibleTemplates"
-            :info="contactChainInfo"
-            :can-undo="chainUndoStack.length > 0"
-            @change="applyLinkOps"
-            @undo="undoChainChange"
-          />
-
-          <div v-show="contactsView === 'list'" class="flex flex-col gap-3">
-            <div class="flex flex-wrap items-center justify-between gap-3">
-              <UInput
-                v-model="contactView.search"
-                icon="i-lucide-search"
-                placeholder="Keyword Search"
-                class="w-full max-w-sm"
-              />
-              <div class="flex gap-2">
-                <UButton
-                  v-if="!readOnly"
-                  type="button"
-                  :label="editingNames ? 'Done' : 'Edit names'"
-                  :icon="editingNames ? 'i-lucide-check' : 'i-lucide-pencil'"
-                  :variant="editingNames ? 'solid' : 'outline'"
-                  :disabled="!visibleContacts.length"
-                  @click="editingNames = !editingNames"
-                />
-                <TableFilterDrawer
-                  :active-count="contactView.activeFilterCount"
-                  @reset="contactView.resetFilters()"
-                >
-                  <UFormField label="Scenario">
-                    <UInput
-                      v-model="contactView.filters.scenario"
-                      placeholder="Search by scenario"
-                      class="w-full"
-                    />
-                  </UFormField>
-                </TableFilterDrawer>
-              </div>
-            </div>
-
-            <UContextMenu :items="groupContextMenuItems" :disabled="readOnly">
-              <UTable
-                v-model:expanded="expandedContactRows"
-                :data="contactView.rows"
-                :columns="groupColumns"
-                :get-row-id="(group: ContactGroup) => group.key"
-                empty="No actual contacts recorded yet."
-                :on-contextmenu="onGroupRowContextMenu"
+              <UFormField
+                v-else
+                label="Scenarios for rows without a scenario"
+                :description="`${pendingUnassigned} in this file have no scenario. Every individual and item needs one - choose which scenarios they belong to.`"
+                required
               >
-                <template #template-cell="{ row }">
-                  {{ row.original.template ? templateName(row.original.template) : '—' }}
-                </template>
-                <template #donor-cell="{ row: { original: data } }">
-                  <span class="flex items-center gap-1.5">
-                    <UIcon
-                      v-if="groupSideDisplay(data, 'donor_surface').icon"
-                      :name="groupSideDisplay(data, 'donor_surface').icon!"
-                      class="shrink-0"
-                    />
-                    {{ groupSideDisplay(data, 'donor_surface').label }}
-                  </span>
-                </template>
-                <template #recipient-cell="{ row: { original: data } }">
-                  <span class="flex items-center gap-1.5">
-                    <UIcon
-                      v-if="groupSideDisplay(data, 'recipient_surface').icon"
-                      :name="groupSideDisplay(data, 'recipient_surface').icon!"
-                      class="shrink-0"
-                    />
-                    {{ groupSideDisplay(data, 'recipient_surface').label }}
-                  </span>
-                </template>
-                <template #scenarioNames-cell="{ row }">
-                  <ScenarioBadges
-                    :names="[
-                      ...new Set<string>(row.original.members.flatMap(contactScenarioNames)),
-                    ]"
-                  />
-                </template>
-                <template #count-cell="{ row }">{{ row.original.members.length }}</template>
-                <template #actions-cell="{ row }">
-                  <UDropdownMenu :items="groupMenuItems(row.original)" :content="{ align: 'end' }">
-                    <UButton
-                      icon="i-lucide-more-vertical"
-                      color="neutral"
-                      variant="ghost"
-                      square
-                      aria-label="Contact options"
-                    />
-                  </UDropdownMenu>
-                </template>
-
-                <template #expanded="{ row: { original: group } }">
-                  <!-- Keep right-clicks in here from also opening the group's menu. -->
-                  <div @contextmenu.stop>
-                    <UContextMenu :items="memberContextMenuItems" :disabled="readOnly">
-                      <UTable
-                        :data="group.members"
-                        :columns="memberColumns"
-                        :get-row-id="(contact: Contact) => contact.id"
-                        :on-contextmenu="onMemberRowContextMenu"
-                      >
-                        <template #name-cell="{ row: { original: data } }">
-                          <UInput
-                            v-if="editingNames"
-                            :model-value="data.name"
-                            :placeholder="contactFallbackName(data)"
-                            class="w-full"
-                            @update:model-value="(value: string) => onMemberNameInput(data, value)"
-                            @blur="onMemberNameBlur(data)"
-                            @keyup.enter="($event.target as HTMLElement)?.blur()"
-                          />
-                          <UInput
-                            v-else-if="inlineEditContactId === data.id"
-                            :default-value="data.name ?? ''"
-                            :placeholder="contactFallbackName(data)"
-                            autofocus
-                            class="w-full"
-                            @blur="
-                              (event: FocusEvent) =>
-                                onMemberNameEditComplete(
-                                  data,
-                                  (event.target as HTMLInputElement).value,
-                                )
-                            "
-                            @keyup.enter="($event.target as HTMLElement)?.blur()"
-                            @keyup.escape="inlineEditContactId = null"
-                          />
-                          <button
-                            v-else-if="!readOnly"
-                            type="button"
-                            class="w-full text-left cursor-text"
-                            title="Click to rename"
-                            @click="inlineEditContactId = data.id"
-                          >
-                            {{ data.name || contactFallbackName(data) }}
-                          </button>
-                          <template v-else>{{ data.name || contactFallbackName(data) }}</template>
-                        </template>
-                        <template #donor-cell="{ row: { original: data } }">
-                          <span class="flex items-center gap-1.5">
-                            <UIcon
-                              v-if="sideIcon(data, 'donor_surface')"
-                              :name="sideIcon(data, 'donor_surface')!"
-                              class="shrink-0"
-                            />
-                            {{
-                              sideIndividualLabel(data, 'donor_surface') ??
-                              sideDisplay(data, 'donor_surface').label
-                            }}
-                            <UBadge
-                              v-if="sideIndividual(data, 'donor_surface')?.sex?.name"
-                              color="neutral"
-                              variant="outline"
-                            >
-                              {{ sideIndividual(data, 'donor_surface')!.sex!.name }}
-                            </UBadge>
-                            <UBadge
-                              v-if="sideIndividual(data, 'donor_surface')?.age != null"
-                              color="neutral"
-                              variant="outline"
-                            >
-                              {{ sideIndividual(data, 'donor_surface')!.age }}y
-                            </UBadge>
-                          </span>
-                        </template>
-                        <template #recipient-cell="{ row: { original: data } }">
-                          <span class="flex items-center gap-1.5">
-                            <UIcon
-                              v-if="sideIcon(data, 'recipient_surface')"
-                              :name="sideIcon(data, 'recipient_surface')!"
-                              class="shrink-0"
-                            />
-                            {{
-                              sideIndividualLabel(data, 'recipient_surface') ??
-                              sideDisplay(data, 'recipient_surface').label
-                            }}
-                            <UBadge
-                              v-if="sideIndividual(data, 'recipient_surface')?.sex?.name"
-                              color="neutral"
-                              variant="outline"
-                            >
-                              {{ sideIndividual(data, 'recipient_surface')!.sex!.name }}
-                            </UBadge>
-                            <UBadge
-                              v-if="sideIndividual(data, 'recipient_surface')?.age != null"
-                              color="neutral"
-                              variant="outline"
-                            >
-                              {{ sideIndividual(data, 'recipient_surface')!.age }}y
-                            </UBadge>
-                          </span>
-                        </template>
-                        <template #actions-cell="{ row }">
-                          <UDropdownMenu
-                            :items="memberMenuItems(row.original)"
-                            :content="{ align: 'end' }"
-                          >
-                            <UButton
-                              icon="i-lucide-more-vertical"
-                              color="neutral"
-                              variant="ghost"
-                              square
-                              aria-label="Contact options"
-                            />
-                          </UDropdownMenu>
-                        </template>
-                      </UTable>
-                    </UContextMenu>
-                  </div>
-                </template>
-              </UTable>
-            </UContextMenu>
-            <TablePagination
-              v-model:page="contactView.page"
-              v-model:page-size="contactView.pageSize"
-              :total="contactView.total"
-              :page-sizes="[25, 50, 100, 200]"
-            />
+                <USelectMenu
+                  v-model="assignScenarioIds"
+                  :items="scenarioAssignOptions"
+                  value-key="value"
+                  multiple
+                  placeholder="Choose scenarios"
+                  clear
+                  class="w-full"
+                />
+              </UFormField>
+            </template>
+            <UAlert
+              v-if="planningSheetProblems.length"
+              color="error"
+              variant="subtle"
+              title="Nothing was saved. Please fix these rows and upload the file again:"
+            >
+              <template #description>
+                <ul class="list-disc pl-4 max-h-48 overflow-y-auto">
+                  <li v-for="problem in planningSheetProblems" :key="problem">{{ problem }}</li>
+                </ul>
+              </template>
+            </UAlert>
           </div>
+        </template>
+        <template #footer>
+          <UButton
+            label="Cancel"
+            icon="i-lucide-x"
+            variant="ghost"
+            @click="planningSheetVisible = false"
+          />
+          <UButton
+            :label="pendingConfirmation ? 'Confirm & upload' : 'Upload'"
+            :icon="pendingConfirmation ? 'i-lucide-check' : 'i-lucide-upload'"
+            :disabled="uploadBlocked"
+            :loading="planningSheetUploading"
+            @click="runPlanningSheetUpload"
+          />
+        </template>
+      </UModal>
 
-          <ContactInstanceDialog
-            v-if="!readOnly"
-            v-model:visible="dialogVisible"
+      <UAlert v-if="loadError" color="error" variant="outline" :description="loadError" />
+
+      <div v-if="!loadError" class="flex flex-wrap items-end gap-3">
+        <UFormField
+          label="Scenario"
+          data-tour="data-scenario"
+          :hint="
+            readOnly
+              ? 'Choose a scenario to filter the data'
+              : 'Choose a scenario to add data to it, or view all data'
+          "
+        >
+          <USkeleton v-if="loading" class="h-10 w-72" />
+          <USelect v-else v-model="scenarioSelectValue" :items="scenarioOptions" class="w-72" />
+        </UFormField>
+      </div>
+
+      <UTabs
+        v-if="!loadError"
+        v-model="activeTab"
+        data-tour="data-tabs"
+        :items="tabItems"
+        :unmount-on-hide="false"
+        class="w-full"
+      >
+        <template #individuals>
+          <IndividualsPanel
+            v-if="visitedTabs.has('individuals')"
+            :key="`individuals-${panelsKey}`"
             :study-id="studyId"
-            :contact-templates="visibleTemplates"
-            :contacts="visibleContacts"
-            :contact-label="contactLabel"
             :scenarios="studyScenarios"
             :scenario-id="selectedScenarioId"
-            @saved="onContactSaved"
+            @update:count="individualCountOverride = $event"
           />
+        </template>
 
-          <UModal
-            v-model:open="chainDialogVisible"
-            title="Set previous contact"
-            :ui="{ content: 'max-w-lg', footer: 'justify-end' }"
+        <template #items>
+          <ItemsPanel
+            v-if="visitedTabs.has('items')"
+            :key="`items-${panelsKey}`"
+            :study-id="studyId"
+            :contact-templates="visibleTemplates"
+            :scenarios="studyScenarios"
+            :scenario-id="selectedScenarioId"
+            @update:count="itemCount = $event"
+          />
+        </template>
+
+        <template #contacts>
+          <div
+            v-if="visitedTabs.has('contacts')"
+            class="flex flex-col gap-4"
+            data-tour="contacts-panel"
           >
-            <template #body>
-              <UFormField label="Follows contact" hint="The earlier contact in the chain">
-                <USelect v-model="chainValue" :items="chainItems" class="w-full" />
-              </UFormField>
-            </template>
-            <template #footer>
+            <div class="flex items-center justify-between">
+              <p class="text-sm text-surface-500 dark:text-surface-400">
+                Actual contacts recorded for this study's planned scenarios.
+              </p>
               <UButton
-                label="Cancel"
-                icon="i-lucide-x"
-                variant="ghost"
-                @click="chainDialogVisible = false"
+                v-if="!readOnly"
+                data-tour="add-contact"
+                label="Add actual contact"
+                icon="i-lucide-plus"
+                variant="outline"
+                :disabled="!visibleTemplates.length"
+                @click="dialogVisible = true"
               />
-              <UButton label="Save" icon="i-lucide-save" :loading="chaining" @click="saveChain" />
-            </template>
-          </UModal>
+            </div>
 
-          <UModal
-            v-model:open="renameDialogVisible"
-            title="Rename contact"
-            :ui="{ content: 'max-w-sm', footer: 'justify-end' }"
-          >
-            <template #body>
-              <UFormField
-                label="Name"
-                hint="Optional - helps tell otherwise identical contacts apart"
-              >
-                <UInput v-model="renameValue" class="w-full" @keyup.enter="saveRename" />
-              </UFormField>
-            </template>
-            <template #footer>
-              <UButton
-                label="Cancel"
-                icon="i-lucide-x"
-                variant="ghost"
-                @click="renameDialogVisible = false"
+            <UAlert
+              v-if="!loading && !visibleTemplates.length && !readOnly"
+              color="info"
+              variant="outline"
+              description="Plan a scenario with at least one contact template before entering actual data."
+            />
+
+            <UTabs
+              v-if="!readOnly"
+              v-model="contactsView"
+              :items="contactsViewItems"
+              :content="false"
+              variant="pill"
+              size="sm"
+              class="w-fit"
+            />
+
+            <TableLoadingSkeleton v-if="contactsView === 'chains' && loading" />
+            <ContactChains
+              v-else-if="contactsView === 'chains'"
+              :contacts="visibleContacts"
+              :contact-templates="visibleTemplates"
+              :info="contactChainInfo"
+              :can-undo="chainUndoStack.length > 0"
+              @change="applyLinkOps"
+              @undo="undoChainChange"
+            />
+
+            <div v-show="contactsView === 'list'" class="flex flex-col gap-3">
+              <div class="flex flex-wrap items-center justify-between gap-3">
+                <UInput
+                  v-model="contactView.search"
+                  icon="i-lucide-search"
+                  placeholder="Keyword Search"
+                  class="w-full max-w-sm"
+                />
+                <div class="flex gap-2">
+                  <UButton
+                    v-if="!readOnly"
+                    type="button"
+                    :label="editingNames ? 'Done' : 'Edit names'"
+                    :icon="editingNames ? 'i-lucide-check' : 'i-lucide-pencil'"
+                    :variant="editingNames ? 'solid' : 'outline'"
+                    :disabled="!visibleContacts.length"
+                    @click="editingNames = !editingNames"
+                  />
+                  <TableFilterDrawer
+                    :active-count="contactView.activeFilterCount"
+                    @reset="contactView.resetFilters()"
+                  >
+                    <UFormField label="Scenario">
+                      <UInput
+                        v-model="contactView.filters.scenario"
+                        placeholder="Search by scenario"
+                        class="w-full"
+                      />
+                    </UFormField>
+                  </TableFilterDrawer>
+                </div>
+              </div>
+
+              <UContextMenu :items="groupContextMenuItems" :disabled="readOnly">
+                <UTable
+                  v-model:expanded="expandedContactRows"
+                  :data="contactView.rows"
+                  :columns="groupColumns"
+                  :loading="loading"
+                  :get-row-id="(group: ContactGroup) => group.key"
+                  empty="No actual contacts recorded yet."
+                  :on-contextmenu="onGroupRowContextMenu"
+                >
+                  <template #loading>
+                    <TableLoadingSkeleton />
+                  </template>
+
+                  <template #template-cell="{ row }">
+                    {{ row.original.template ? templateName(row.original.template) : '—' }}
+                  </template>
+                  <template #donor-cell="{ row: { original: data } }">
+                    <span class="flex items-center gap-1.5">
+                      <UIcon
+                        v-if="groupSideDisplay(data, 'donor_surface').icon"
+                        :name="groupSideDisplay(data, 'donor_surface').icon!"
+                        class="shrink-0"
+                      />
+                      {{ groupSideDisplay(data, 'donor_surface').label }}
+                    </span>
+                  </template>
+                  <template #recipient-cell="{ row: { original: data } }">
+                    <span class="flex items-center gap-1.5">
+                      <UIcon
+                        v-if="groupSideDisplay(data, 'recipient_surface').icon"
+                        :name="groupSideDisplay(data, 'recipient_surface').icon!"
+                        class="shrink-0"
+                      />
+                      {{ groupSideDisplay(data, 'recipient_surface').label }}
+                    </span>
+                  </template>
+                  <template #scenarioNames-cell="{ row }">
+                    <ScenarioBadges
+                      :names="[
+                        ...new Set<string>(row.original.members.flatMap(contactScenarioNames)),
+                      ]"
+                    />
+                  </template>
+                  <template #count-cell="{ row }">{{ row.original.members.length }}</template>
+                  <template #actions-cell="{ row }">
+                    <UDropdownMenu
+                      :items="groupMenuItems(row.original)"
+                      :content="{ align: 'end' }"
+                    >
+                      <UButton
+                        icon="i-lucide-more-vertical"
+                        color="neutral"
+                        variant="ghost"
+                        square
+                        aria-label="Contact options"
+                      />
+                    </UDropdownMenu>
+                  </template>
+
+                  <template #expanded="{ row: { original: group } }">
+                    <!-- Keep right-clicks in here from also opening the group's menu. -->
+                    <div @contextmenu.stop>
+                      <UContextMenu :items="memberContextMenuItems" :disabled="readOnly">
+                        <UTable
+                          :data="group.members"
+                          :columns="memberColumns"
+                          :get-row-id="(contact: Contact) => contact.id"
+                          :on-contextmenu="onMemberRowContextMenu"
+                        >
+                          <template #name-cell="{ row: { original: data } }">
+                            <UInput
+                              v-if="editingNames"
+                              :model-value="data.name"
+                              :placeholder="contactFallbackName(data)"
+                              class="w-full"
+                              @update:model-value="
+                                (value: string) => onMemberNameInput(data, value)
+                              "
+                              @blur="onMemberNameBlur(data)"
+                              @keyup.enter="($event.target as HTMLElement)?.blur()"
+                            />
+                            <UInput
+                              v-else-if="inlineEditContactId === data.id"
+                              :default-value="data.name ?? ''"
+                              :placeholder="contactFallbackName(data)"
+                              autofocus
+                              class="w-full"
+                              @blur="
+                                (event: FocusEvent) =>
+                                  onMemberNameEditComplete(
+                                    data,
+                                    (event.target as HTMLInputElement).value,
+                                  )
+                              "
+                              @keyup.enter="($event.target as HTMLElement)?.blur()"
+                              @keyup.escape="inlineEditContactId = null"
+                            />
+                            <button
+                              v-else-if="!readOnly"
+                              type="button"
+                              class="w-full text-left cursor-text"
+                              title="Click to rename"
+                              @click="inlineEditContactId = data.id"
+                            >
+                              {{ data.name || contactFallbackName(data) }}
+                            </button>
+                            <template v-else>{{ data.name || contactFallbackName(data) }}</template>
+                          </template>
+                          <template #donor-cell="{ row: { original: data } }">
+                            <span class="flex items-center gap-1.5">
+                              <UIcon
+                                v-if="sideIcon(data, 'donor_surface')"
+                                :name="sideIcon(data, 'donor_surface')!"
+                                class="shrink-0"
+                              />
+                              {{
+                                sideIndividualLabel(data, 'donor_surface') ??
+                                sideDisplay(data, 'donor_surface').label
+                              }}
+                              <UBadge
+                                v-if="sideIndividual(data, 'donor_surface')?.sex?.name"
+                                color="neutral"
+                                variant="outline"
+                              >
+                                {{ sideIndividual(data, 'donor_surface')!.sex!.name }}
+                              </UBadge>
+                              <UBadge
+                                v-if="sideIndividual(data, 'donor_surface')?.age != null"
+                                color="neutral"
+                                variant="outline"
+                              >
+                                {{ sideIndividual(data, 'donor_surface')!.age }}y
+                              </UBadge>
+                            </span>
+                          </template>
+                          <template #recipient-cell="{ row: { original: data } }">
+                            <span class="flex items-center gap-1.5">
+                              <UIcon
+                                v-if="sideIcon(data, 'recipient_surface')"
+                                :name="sideIcon(data, 'recipient_surface')!"
+                                class="shrink-0"
+                              />
+                              {{
+                                sideIndividualLabel(data, 'recipient_surface') ??
+                                sideDisplay(data, 'recipient_surface').label
+                              }}
+                              <UBadge
+                                v-if="sideIndividual(data, 'recipient_surface')?.sex?.name"
+                                color="neutral"
+                                variant="outline"
+                              >
+                                {{ sideIndividual(data, 'recipient_surface')!.sex!.name }}
+                              </UBadge>
+                              <UBadge
+                                v-if="sideIndividual(data, 'recipient_surface')?.age != null"
+                                color="neutral"
+                                variant="outline"
+                              >
+                                {{ sideIndividual(data, 'recipient_surface')!.age }}y
+                              </UBadge>
+                            </span>
+                          </template>
+                          <template #actions-cell="{ row }">
+                            <UDropdownMenu
+                              :items="memberMenuItems(row.original)"
+                              :content="{ align: 'end' }"
+                            >
+                              <UButton
+                                icon="i-lucide-more-vertical"
+                                color="neutral"
+                                variant="ghost"
+                                square
+                                aria-label="Contact options"
+                              />
+                            </UDropdownMenu>
+                          </template>
+                        </UTable>
+                      </UContextMenu>
+                    </div>
+                  </template>
+                </UTable>
+              </UContextMenu>
+              <TablePagination
+                v-model:page="contactView.page"
+                v-model:page-size="contactView.pageSize"
+                :total="contactView.total"
               />
-              <UButton label="Save" icon="i-lucide-save" :loading="renaming" @click="saveRename" />
-            </template>
-          </UModal>
-        </div>
-      </template>
+            </div>
 
-      <template #samples>
-        <SamplesPanel
-          :study-id="studyId"
-          :contacts="visibleContacts"
-          :contact-templates="visibleTemplates"
-          :surface-scenarios="surfaceScenarios"
-          :scenarios="studyScenarios"
-          :export-name="exportName"
-          @update:samples="scopedSamples = $event"
-        />
-      </template>
+            <ContactInstanceDialog
+              v-if="!readOnly"
+              v-model:visible="dialogVisible"
+              :study-id="studyId"
+              :contact-templates="visibleTemplates"
+              :contacts="visibleContacts"
+              :contact-label="contactLabel"
+              :scenarios="studyScenarios"
+              :scenario-id="selectedScenarioId"
+              @saved="onContactSaved"
+            />
 
-      <template #results>
-        <ResultsTab
-          :samples="scopedSamples"
-          :study-id="studyId"
-          :surface-scenarios="surfaceScenarios"
-          :contacts="contacts"
-          :export-name="exportName"
-        />
-      </template>
-    </UTabs>
+            <UModal
+              v-model:open="chainDialogVisible"
+              title="Set previous contact"
+              :ui="{ content: 'max-w-lg', footer: 'justify-end' }"
+            >
+              <template #body>
+                <UFormField label="Follows contact" hint="The earlier contact in the chain">
+                  <USelect v-model="chainValue" :items="chainItems" class="w-full" />
+                </UFormField>
+              </template>
+              <template #footer>
+                <UButton
+                  label="Cancel"
+                  icon="i-lucide-x"
+                  variant="ghost"
+                  @click="chainDialogVisible = false"
+                />
+                <UButton label="Save" icon="i-lucide-save" :loading="chaining" @click="saveChain" />
+              </template>
+            </UModal>
+
+            <UModal
+              v-model:open="renameDialogVisible"
+              title="Rename contact"
+              :ui="{ content: 'max-w-sm', footer: 'justify-end' }"
+            >
+              <template #body>
+                <UFormField
+                  label="Name"
+                  hint="Optional - helps tell otherwise identical contacts apart"
+                >
+                  <UInput v-model="renameValue" class="w-full" @keyup.enter="saveRename" />
+                </UFormField>
+              </template>
+              <template #footer>
+                <UButton
+                  label="Cancel"
+                  icon="i-lucide-x"
+                  variant="ghost"
+                  @click="renameDialogVisible = false"
+                />
+                <UButton
+                  label="Save"
+                  icon="i-lucide-save"
+                  :loading="renaming"
+                  @click="saveRename"
+                />
+              </template>
+            </UModal>
+          </div>
+        </template>
+
+        <template #samples>
+          <SamplesPanel
+            v-if="visitedTabs.has('samples')"
+            :study-id="studyId"
+            :contacts="visibleContacts"
+            :contact-templates="visibleTemplates"
+            :surface-scenarios="surfaceScenarios"
+            :scenarios="studyScenarios"
+            :export-name="exportName"
+            @update:samples="scopedSamples = $event"
+            @update:loading="samplesLoading = $event"
+          />
+        </template>
+
+        <template #results>
+          <ResultsTab
+            v-if="visitedTabs.has('results')"
+            :samples="scopedSamples"
+            :samples-loading="samplesLoading"
+            :study-id="studyId"
+            :surface-scenarios="surfaceScenarios"
+            :contacts="contacts"
+            :export-name="exportName"
+          />
+        </template>
+      </UTabs>
+    </div>
   </div>
 </template>

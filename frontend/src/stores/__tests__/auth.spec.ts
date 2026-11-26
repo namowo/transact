@@ -51,6 +51,24 @@ describe('auth store', () => {
     expect(store.user?.email).toBe('user@example.com')
   })
 
+  it('returns the challenge when a second factor is needed', async () => {
+    const challenge = {
+      two_factor_required: true as const,
+      login_token: 'token',
+      methods: ['totp' as const],
+    }
+    vi.mocked(authApi.login).mockResolvedValue(challenge)
+    vi.mocked(authApi.loginTwoFactor).mockResolvedValue(makeUser())
+    const store = useAuthStore()
+
+    expect(await store.login('user@example.com', 'Passw0rd!')).toEqual(challenge)
+    expect(store.isAuthenticated).toBe(false)
+
+    await store.loginTwoFactor('token', '123456')
+    expect(authApi.loginTwoFactor).toHaveBeenCalledWith('token', '123456')
+    expect(store.isAuthenticated).toBe(true)
+  })
+
   it('derives abilities from the permissions of the current user', async () => {
     vi.mocked(authApi.login).mockResolvedValue(
       makeUser({ permissions: ['users.manage', 'studies.quality_check'] }),

@@ -1,19 +1,10 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>New membership request</title>
-</head>
-<body>
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <p>Dear {{ first_name }},</p>
-
-        <p>{{ requester_first_name }} {{ requester_last_name }} ({{ requester_email }}) has requested to join your laboratory, "{{ laboratory_name }}", on the TransAct Repository.</p>
-
-        <p>Please review and approve or deny this request.</p>
-
-        <p>The TransAct Team</p>
-    </div>
-</body>
-</html>
+{% extends "layout/base.html" %}
+{% from "layout/macros.html" import button, fallback_link, note, highlight %}
+{% block title %}New membership request{% endblock %}
+{% block content %}
+<p style="margin: 0 0 16px;">Dear {{ first_name }},</p>
+<p style="margin: 0 0 16px;">{{ requester_first_name }} {{ requester_last_name }} (<a href="mailto:{{ requester_email }}" style="color: #00786f;">{{ requester_email }}</a>) has requested to join your laboratory, {{ highlight(laboratory_name) }}, on the TransAct Repository.</p>
+<p style="margin: 0 0 16px;">Please review and approve or deny this request:</p>
+{{ button(url, "Review request") }}
+{% call note() %}You get these emails because you review requests on the TransAct Repository. You can turn them off under <a href="{{ frontend_url }}/profile/notifications" style="color: #7c7c67;">Notifications</a> in your profile.{% endcall %}
+{% endblock %}

@@ -10,19 +10,11 @@ class SiteSettingsBase(BaseModel):
     site_print_text: Optional[str] = None
     site_print_url: Optional[str] = None
 
-    privacy_policy_mode: LegalPageMode = "text"
-    privacy_policy_text: Optional[str] = None
-    privacy_policy_url: Optional[str] = None
-
 
 class SiteSettingsUpdate(BaseModel):
     site_print_mode: Optional[LegalPageMode] = None
     site_print_text: Optional[str] = None
     site_print_url: Optional[str] = None
-
-    privacy_policy_mode: Optional[LegalPageMode] = None
-    privacy_policy_text: Optional[str] = None
-    privacy_policy_url: Optional[str] = None
 
 
 class SiteSettingsRead(SiteSettingsBase):

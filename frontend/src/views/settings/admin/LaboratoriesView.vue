@@ -16,6 +16,7 @@ import { manualSorting, useTableView } from '@/composables/useTableView'
 import { sortHeader } from '@/composables/tableColumns'
 import TableFilterDrawer from '@/components/ui/TableFilterDrawer.vue'
 import TablePagination from '@/components/ui/TablePagination.vue'
+import TableLoadingSkeleton from '@/components/ui/TableLoadingSkeleton.vue'
 
 const auth = useAuthStore()
 const laboratories = ref<Laboratory[]>([])
@@ -48,7 +49,6 @@ const view = useTableView(laboratories, {
     country: { field: 'country' },
     approval_status: { field: 'approval_status', mode: 'equals' },
   },
-  pageSize: 10,
 })
 
 const columns = computed<TableColumn<Laboratory>[]>(() => [
@@ -292,6 +292,9 @@ const submitLaboratory = handleSubmit(async (values) => {
         :loading="requestsLoading"
         :get-row-id="(request: LabMembershipRequest) => request.id"
       >
+        <template #loading>
+          <TableLoadingSkeleton />
+        </template>
         <template #laboratory-cell="{ row }">{{
           row.original.laboratory?.laboratory_name
         }}</template>
@@ -390,6 +393,9 @@ const submitLaboratory = handleSubmit(async (values) => {
           :on-contextmenu="onRowContextMenu"
           :ui="{ tr: auth.can('laboratories.manage') ? 'cursor-pointer' : '' }"
         >
+          <template #loading>
+            <TableLoadingSkeleton />
+          </template>
           <template #approval_status-cell="{ row }: { row: TableRow<Laboratory> }">
             <UBadge
               :label="approvalStatusLabels[row.original.approval_status]"

@@ -1,11 +1,21 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import type { DropdownMenuItem, TableColumn } from '@nuxt/ui'
+import { useToast } from '@nuxt/ui/composables'
 import { useConfirm } from '@/composables/useConfirm'
 import LaboratorySelect from '@/components/auth/LaboratorySelect.vue'
 import UserGroupsModal from '@/components/groups/UserGroupsModal.vue'
 import UserGroupBadges from '@/components/groups/UserGroupBadges.vue'
-import { deleteUser, listAllUsers, setLaboratory } from '@/api/users'
+import {
+  deleteUser,
+  listAllUsers,
+  resendInvitation,
+  resetTwoFactor,
+  setLaboratory,
+  unlockUser,
+} from '@/api/users'
+import { getErrorMessage } from '@/api/errors'
+import InviteUserModal from '@/components/users/InviteUserModal.vue'
 import { listLaboratories } from '@/api/laboratories'
 import { listUserGroups } from '@/api/userGroups'
 import type { Laboratory, User, UserGroup } from '@/api/types'
@@ -14,9 +24,11 @@ import { manualSorting, useTableView } from '@/composables/useTableView'
 import { sortHeader } from '@/composables/tableColumns'
 import TableFilterDrawer from '@/components/ui/TableFilterDrawer.vue'
 import TablePagination from '@/components/ui/TablePagination.vue'
+import TableLoadingSkeleton from '@/components/ui/TableLoadingSkeleton.vue'
 
 const auth = useAuthStore()
 const confirm = useConfirm()
+const toast = useToast()
 const users = ref<User[]>([])
 const laboratories = ref<Laboratory[]>([])
 const groups = ref<UserGroup[]>([])
@@ -28,6 +40,8 @@ const labDialogVisible = ref(false)
 const labDialogUser = ref<User | null>(null)
 const labDialogValue = ref<string | null>(null)
 const labDialogSaving = ref(false)
+
+const inviteDialogVisible = ref(false)
 
 const groupsDialogVisible = ref(false)
 const groupsDialogUser = ref<User | null>(null)
@@ -41,7 +55,6 @@ const view = useTableView(users, {
     laboratory: { field: 'laboratory.laboratory_name', mode: 'equals' },
   },
   sortAccessors: { laboratory: 'laboratory.laboratory_name' },
-  pageSize: 10,
 })
 
 const columns: TableColumn<User>[] = [
@@ -97,7 +110,38 @@ function rowMenuItems(user: User): DropdownMenuItem[] {
       onSelect: () => openLabDialog(user),
     },
   ]
-  if (user.id !== auth.user?.id) {
+  if (user.is_locked) {
+    items.push({
+      label: 'Unlock account',
+      icon: 'i-lucide-lock-open',
+      onSelect: () => unlock(user),
+    })
+  }
+  if (!user.invitation_pending && user.id !== auth.user?.id) {
+    items.push({
+      label: 'Reset two-factor',
+      icon: 'i-lucide-shield-off',
+      onSelect: () => confirmResetTwoFactor(user),
+    })
+  }
+  if (user.invitation_pending && auth.config.invitations_enabled) {
+    items.push({
+      label: 'Resend invitation',
+      icon: 'i-lucide-send',
+      onSelect: () => resendInvitationTo(user),
+    })
+  }
+  if (user.invitation_pending) {
+    items.push(
+      { type: 'separator' },
+      {
+        label: 'Withdraw invitation',
+        icon: 'i-lucide-user-x',
+        color: 'error',
+        onSelect: () => confirmWithdrawInvitation(user),
+      },
+    )
+  } else if (user.id !== auth.user?.id) {
     items.push(
       { type: 'separator' },
       {
@@ -109,6 +153,89 @@ function rowMenuItems(user: User): DropdownMenuItem[] {
     )
   }
   return items
+}
+
+async function resendInvitationTo(user: User) {
+  actionError.value = ''
+  try {
+    applyUpdate(await resendInvitation(user.id))
+    toast.add({
+      color: 'success',
+      title: 'Invitation sent',
+      description: `We emailed a new link to ${user.email}.`,
+    })
+  } catch (err) {
+    actionError.value = getErrorMessage(err, 'Could not resend the invitation. Please try again.')
+  }
+}
+
+async function unlock(user: User) {
+  actionError.value = ''
+  try {
+    applyUpdate(await unlockUser(user.id))
+    toast.add({
+      color: 'success',
+      title: 'Account unlocked',
+      description: `${user.email} can sign in again.`,
+    })
+  } catch (err) {
+    actionError.value = getErrorMessage(err, 'Could not unlock this account.')
+  }
+}
+
+function confirmResetTwoFactor(user: User) {
+  confirm.require({
+    message: `Remove the authenticator app and all passkeys of ${user.first_name} ${user.last_name} (${user.email})? Use this when they lost them. They sign in with their password alone${auth.config.two_factor_required ? ' and then have to set up a new second factor' : ''}.`,
+    header: 'Reset two-factor authentication',
+    rejectLabel: 'Cancel',
+    acceptLabel: 'Reset',
+    acceptColor: 'error',
+    accept: () => resetTwoFactorConfirmed(user),
+  })
+}
+
+async function resetTwoFactorConfirmed(user: User) {
+  actionError.value = ''
+  try {
+    applyUpdate(await resetTwoFactor(user.id))
+    toast.add({
+      color: 'success',
+      title: 'Two-factor authentication reset',
+      description: `${user.email} can now set up a new second factor.`,
+    })
+  } catch (err) {
+    actionError.value = getErrorMessage(err, 'Could not reset two-factor authentication.')
+  }
+}
+
+function confirmWithdrawInvitation(user: User) {
+  confirm.require({
+    message: `Withdraw the invitation for ${user.first_name} ${user.last_name} (${user.email})? Their invitation link stops working.`,
+    header: 'Withdraw invitation',
+    rejectLabel: 'Cancel',
+    acceptLabel: 'Withdraw',
+    acceptColor: 'error',
+    accept: () => withdrawInvitation(user),
+  })
+}
+
+async function withdrawInvitation(user: User) {
+  actionError.value = ''
+  try {
+    await deleteUser(user.id)
+    users.value = users.value.filter((u) => u.id !== user.id)
+  } catch (err) {
+    actionError.value = getErrorMessage(err, 'Could not withdraw the invitation. Please try again.')
+  }
+}
+
+function onInvited(user: User) {
+  users.value = [...users.value, user]
+  toast.add({
+    color: 'success',
+    title: 'Invitation sent',
+    description: `${user.first_name} ${user.last_name} gets an email to activate their account.`,
+  })
 }
 
 function openLabDialog(user: User) {
@@ -183,11 +310,19 @@ async function deleteUserConfirmed(user: User) {
 
 <template>
   <div class="flex flex-col gap-6">
-    <div>
-      <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-0">Manage Users</h1>
-      <p class="text-sm text-muted">
-        What users may do comes from their groups. Define groups under Groups &amp; Permissions.
-      </p>
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-0">Manage Users</h1>
+        <p class="text-sm text-muted">
+          What users may do comes from their groups. Define groups under Groups &amp; Permissions.
+        </p>
+      </div>
+      <UButton
+        v-if="auth.config.invitations_enabled"
+        label="Invite user"
+        icon="i-lucide-user-plus"
+        @click="inviteDialogVisible = true"
+      />
     </div>
 
     <UAlert v-if="loadError" color="error" variant="outline" :description="loadError" />
@@ -242,6 +377,29 @@ async function deleteUserConfirmed(user: User) {
         :get-row-id="(user: User) => user.id"
         empty="No users found."
       >
+        <template #loading>
+          <TableLoadingSkeleton />
+        </template>
+        <template #email-cell="{ row }">
+          <div class="flex items-center gap-2">
+            <span>{{ row.original.email }}</span>
+            <UBadge
+              v-if="row.original.invitation_pending"
+              label="Invited"
+              color="warning"
+              variant="subtle"
+              size="sm"
+            />
+            <UBadge
+              v-if="row.original.is_locked"
+              label="Locked"
+              icon="i-lucide-lock"
+              color="error"
+              variant="subtle"
+              size="sm"
+            />
+          </div>
+        </template>
         <template #laboratory-cell="{ row }">
           {{ row.original.laboratory?.laboratory_name ?? '—' }}
         </template>
@@ -297,6 +455,13 @@ async function deleteUserConfirmed(user: User) {
         />
       </template>
     </UModal>
+
+    <InviteUserModal
+      v-model:open="inviteDialogVisible"
+      :groups="groups"
+      choose-laboratory
+      @invited="onInvited"
+    />
 
     <UserGroupsModal
       v-model:open="groupsDialogVisible"

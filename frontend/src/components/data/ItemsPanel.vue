@@ -2,7 +2,6 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useForm } from 'vee-validate'
 import * as yup from 'yup'
-import DataTableSkeleton from '@/components/data/DataTableSkeleton.vue'
 import ItemCategoryFields from '@/components/scenarios/ItemCategoryFields.vue'
 import { useConfirm } from '@/composables/useConfirm'
 import { useStudyReadOnly } from '@/composables/useStudyAccess'
@@ -11,9 +10,11 @@ import ScenarioBadges from '@/components/data/ScenarioBadges.vue'
 import ScenarioMultiSelect from '@/components/data/ScenarioMultiSelect.vue'
 import type { ContactTemplate, Item, Scenario } from '@/api/types'
 import type { ContextMenuItem, TableColumn, TableRow } from '@nuxt/ui'
-import { manualSorting, searchRows, useTableView } from '@/composables/useTableView'
+import { manualSorting, searchRows, usePagination, useTableView } from '@/composables/useTableView'
 import { sortHeader } from '@/composables/tableColumns'
 import TableFilterDrawer from '@/components/ui/TableFilterDrawer.vue'
+import TablePagination from '@/components/ui/TablePagination.vue'
+import TableLoadingSkeleton from '@/components/ui/TableLoadingSkeleton.vue'
 
 const props = defineProps<{
   studyId: string
@@ -329,6 +330,7 @@ const visibleCatalogItems = computed(() =>
     pickerSearch.value,
   ),
 )
+const pickerPages = usePagination(visibleCatalogItems, undefined, [pickerSearch])
 const pickerColumns: TableColumn<Item>[] = [
   { id: 'item', header: 'Item' },
   { id: 'description', accessorKey: 'description', header: 'Description' },
@@ -442,9 +444,7 @@ async function loadItemsFromTemplates() {
       </div>
     </div>
 
-    <DataTableSkeleton v-if="loading" :columns="4" />
-
-    <div v-else-if="!items.length" class="flex flex-col items-center gap-3 py-16">
+    <div v-if="!loading && !items.length" class="flex flex-col items-center gap-3 py-16">
       <h4 class="font-medium">Items</h4>
       <p class="text-sm text-surface-500 dark:text-surface-400">
         No items added to this study yet.
@@ -508,12 +508,16 @@ async function loadItemsFromTemplates() {
           :sorting-options="manualSorting"
           :data="view.rows"
           :columns="columns"
-          :loading="deletingItem"
+          :loading="loading || deletingItem"
           :get-row-id="(item: ItemRow) => item.id"
           :on-select="readOnly ? undefined : onRowSelect"
           :on-contextmenu="onRowContextMenu"
           :ui="{ tr: readOnly ? '' : 'cursor-pointer' }"
         >
+          <template #loading>
+            <TableLoadingSkeleton />
+          </template>
+
           <template #index-cell="{ row }">{{ row.index + 1 }}</template>
           <template #category-cell="{ row }">{{
             row.original.item_category?.name ?? '—'
@@ -537,6 +541,11 @@ async function loadItemsFromTemplates() {
           </template>
         </UTable>
       </UContextMenu>
+      <TablePagination
+        v-model:page="view.page"
+        v-model:page-size="view.pageSize"
+        :total="view.total"
+      />
     </div>
 
     <UModal
@@ -616,7 +625,7 @@ async function loadItemsFromTemplates() {
           />
 
           <UTable
-            :data="visibleCatalogItems"
+            :data="pickerPages.rows"
             :columns="pickerColumns"
             :get-row-id="(item: Item) => item.id"
             :loading="addingExistingItem"
@@ -642,6 +651,11 @@ async function loadItemsFromTemplates() {
             <template #item-cell="{ row }">{{ describeCatalogItem(row.original) }}</template>
             <template #description-cell="{ row }">{{ row.original.description }}</template>
           </UTable>
+          <TablePagination
+            v-model:page="pickerPages.page"
+            v-model:page-size="pickerPages.pageSize"
+            :total="pickerPages.total"
+          />
         </div>
       </template>
       <template #footer>

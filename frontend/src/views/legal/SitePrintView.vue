@@ -13,8 +13,7 @@ onMounted(async () => {
 })
 
 const isRedirecting = computed(
-  () =>
-    siteSettings.settings?.site_print_mode === 'url' && !!siteSettings.settings.site_print_url,
+  () => siteSettings.settings?.site_print_mode === 'url' && !!siteSettings.settings.site_print_url,
 )
 </script>
 
@@ -22,7 +21,12 @@ const isRedirecting = computed(
   <div class="flex flex-col gap-4">
     <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-0">Site Print</h1>
 
-    <p v-if="siteSettings.loading" class="text-sm text-muted">Loading…</p>
+    <div v-if="siteSettings.loading" class="flex flex-col gap-3" aria-busy="true">
+      <USkeleton class="h-4 w-full" />
+      <USkeleton class="h-4 w-11/12" />
+      <USkeleton class="h-4 w-4/5" />
+      <USkeleton class="h-4 w-2/3" />
+    </div>
 
     <p v-else-if="isRedirecting" class="text-sm text-muted">
       Redirecting to

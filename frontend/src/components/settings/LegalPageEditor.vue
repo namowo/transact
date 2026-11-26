@@ -3,11 +3,12 @@ import { computed } from 'vue'
 import type { LegalPageMode } from '@/api/types'
 
 const props = defineProps<{
-  title: string
+  title?: string
   mode: LegalPageMode
   text: string | null | undefined
   url: string | null | undefined
   saving?: boolean
+  saveLabel?: string
 }>()
 
 const emit = defineEmits<{
@@ -35,7 +36,9 @@ const url = computed({
 
 <template>
   <div class="flex flex-col gap-4">
-    <h2 class="text-lg font-semibold text-surface-900 dark:text-surface-0">{{ title }}</h2>
+    <h2 v-if="title" class="text-lg font-semibold text-surface-900 dark:text-surface-0">
+      {{ title }}
+    </h2>
 
     <URadioGroup
       :model-value="mode"
@@ -87,9 +90,10 @@ const url = computed({
       </template>
     </UEditor>
 
-    <div class="flex justify-end">
+    <div class="flex flex-wrap justify-end gap-2">
+      <slot name="actions" />
       <UButton
-        label="Save"
+        :label="saveLabel ?? 'Save'"
         icon="i-lucide-save"
         :loading="saving"
         @click="emit('save')"

@@ -2,7 +2,6 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useForm } from 'vee-validate'
 import * as yup from 'yup'
-import DataTableSkeleton from '@/components/data/DataTableSkeleton.vue'
 import SkinDiseaseCategorySelect from '@/components/scenarios/SkinDiseaseCategorySelect.vue'
 import DeterminationOfSheddingPropensityCategorySelect from '@/components/scenarios/DeterminationOfSheddingPropensityCategorySelect.vue'
 import NamedCategoryRadioGroup from '@/components/scenarios/NamedCategoryRadioGroup.vue'
@@ -23,6 +22,8 @@ import type { ContextMenuItem, TableColumn, TableRow } from '@nuxt/ui'
 import { manualSorting, useTableView } from '@/composables/useTableView'
 import { expandColumn, sortHeader } from '@/composables/tableColumns'
 import TableFilterDrawer from '@/components/ui/TableFilterDrawer.vue'
+import TablePagination from '@/components/ui/TablePagination.vue'
+import TableLoadingSkeleton from '@/components/ui/TableLoadingSkeleton.vue'
 
 const props = defineProps<{ studyId: string; scenarios: Scenario[]; scenarioId: string | null }>()
 
@@ -666,18 +667,21 @@ async function saveMemberField(member: Individual, patch: Partial<Individual>) {
         </div>
       </div>
 
-      <DataTableSkeleton v-if="loading" :columns="4" />
-      <UContextMenu v-else :items="contextMenuItems" :disabled="readOnly">
+      <UContextMenu :items="contextMenuItems" :disabled="readOnly">
         <UTable
           v-model:expanded="expandedGroupRows"
           v-model:sorting="view.sorting"
           :sorting-options="manualSorting"
           :data="view.rows"
           :columns="columns"
-          :loading="deletingGroup"
+          :loading="loading || deletingGroup"
           :get-row-id="(group: IndividualGroup) => group.key"
           :on-contextmenu="onRowContextMenu"
         >
+          <template #loading>
+            <TableLoadingSkeleton />
+          </template>
+
           <template #index-cell="{ row }">{{ row.index + 1 }}</template>
           <template #count-cell="{ row: { original: data } }">
             <UBadge v-if="data.members.length > 1" color="neutral" variant="subtle">
@@ -854,6 +858,11 @@ async function saveMemberField(member: Individual, patch: Partial<Individual>) {
           </template>
         </UTable>
       </UContextMenu>
+      <TablePagination
+        v-model:page="view.page"
+        v-model:page-size="view.pageSize"
+        :total="view.total"
+      />
     </div>
 
     <UModal

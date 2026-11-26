@@ -2,7 +2,6 @@
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useForm } from 'vee-validate'
 import * as yup from 'yup'
-import DataTableSkeleton from '@/components/data/DataTableSkeleton.vue'
 import EntitySelect from '@/components/scenarios/EntitySelect.vue'
 import InlineCreatableSelect from '@/components/scenarios/InlineCreatableSelect.vue'
 import ScenarioBadges from '@/components/data/ScenarioBadges.vue'
@@ -37,6 +36,7 @@ import { manualSorting, useTableView } from '@/composables/useTableView'
 import { sortHeader } from '@/composables/tableColumns'
 import TableFilterDrawer from '@/components/ui/TableFilterDrawer.vue'
 import TablePagination from '@/components/ui/TablePagination.vue'
+import TableLoadingSkeleton from '@/components/ui/TableLoadingSkeleton.vue'
 
 const props = defineProps<{
   studyId: string
@@ -49,6 +49,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:samples': [samples: Sample[]]
+  'update:loading': [loading: boolean]
 }>()
 
 const readOnly = useStudyReadOnly()
@@ -113,6 +114,7 @@ const orderedSamples = computed(() =>
 )
 
 watch(orderedSamples, (value) => emit('update:samples', value), { immediate: true })
+watch(loading, (value) => emit('update:loading', value))
 
 async function load() {
   loading.value = true
@@ -154,7 +156,6 @@ const view = useTableView(orderedSamples, {
     area: { field: 'area' },
   },
   sorting,
-  pageSize: 25,
 })
 
 const EXTRACTION = 'extraction_method.extraction_protocol'
@@ -965,10 +966,8 @@ function onSampleSetCreated(created: { id: string; name?: string | null }) {
       </div>
       <TableSortHint />
 
-      <DataTableSkeleton v-if="loading" :columns="5" />
-
       <UAlert
-        v-else-if="!orderedSamples.length"
+        v-if="!loading && !orderedSamples.length"
         color="neutral"
         variant="outline"
         description="No samples yet."
@@ -980,8 +979,13 @@ function onSampleSetCreated(created: { id: string; name?: string | null }) {
           :sorting-options="manualSorting"
           :data="view.rows"
           :columns="columns"
+          :loading="loading"
           :get-row-id="(sample: SampleRow) => sample.id"
         >
+          <template #loading>
+            <TableLoadingSkeleton />
+          </template>
+
           <template #sampleSetLabel-cell="{ row }">{{
             row.original.sampleSetLabel ?? '—'
           }}</template>
@@ -1065,7 +1069,6 @@ function onSampleSetCreated(created: { id: string; name?: string | null }) {
           v-model:page="view.page"
           v-model:page-size="view.pageSize"
           :total="view.total"
-          :page-sizes="[25, 50, 100, 200]"
         />
       </template>
     </div>

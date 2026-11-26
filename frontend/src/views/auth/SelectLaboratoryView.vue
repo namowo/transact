@@ -123,8 +123,11 @@ onMounted(async () => {
 
 <template>
   <div class="flex flex-col gap-6">
-    <div v-if="loading" class="flex flex-col gap-1">
-      <p class="text-sm text-surface-500 dark:text-surface-400">Loading...</p>
+    <div v-if="loading" class="flex flex-col gap-4" aria-busy="true">
+      <USkeleton class="h-9 w-64" />
+      <USkeleton class="h-4 w-full" />
+      <USkeleton class="h-10 w-full" />
+      <USkeleton class="h-10 w-32" />
     </div>
 
     <template v-else-if="pendingRequest || submitted">

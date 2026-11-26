@@ -1,15 +1,18 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useForm } from 'vee-validate'
 import * as yup from 'yup'
 import PasswordField from '@/components/auth/PasswordField.vue'
 import PrivacyPolicyConsent from '@/components/auth/PrivacyPolicyConsent.vue'
 import { useAuthStore } from '@/stores/auth'
+import { usePrivacyPolicyStore } from '@/stores/privacyPolicy'
 import { resendVerification } from '@/api/auth'
 import { getErrorMessage } from '@/api/errors'
 
 const auth = useAuthStore()
+const privacyPolicy = usePrivacyPolicyStore()
+onMounted(() => privacyPolicy.load(true))
 const router = useRouter()
 const route = useRoute()
 
@@ -34,13 +37,17 @@ const schema = yup.object({
     .matches(/\d/, 'Password must contain a number.')
     .matches(/[A-Z]/, 'Password must contain an uppercase letter.')
     .matches(/[^a-zA-Z0-9]/, 'Password must contain a special character.'),
+  // Only asked once a privacy policy has been published.
   privacy_policy_accepted: yup
     .boolean()
-    .oneOf([true], 'Please agree to the Privacy Policy.')
-    .required('Please agree to the Privacy Policy.'),
+    .test(
+      'agreed',
+      'Please agree to the Privacy Policy.',
+      (value) => !privacyPolicy.active || value === true,
+    ),
 })
 
-const { defineField, errors, handleSubmit, isSubmitting } = useForm({
+const { defineField, errors, handleSubmit, isSubmitting, setFieldValue } = useForm({
   validationSchema: schema,
   initialValues: {
     first_name: '',
@@ -65,11 +72,17 @@ const onSubmit = handleSubmit(async (values) => {
       password: values.password,
       first_name: values.first_name.trim(),
       last_name: values.last_name.trim(),
+      privacy_policy_id: privacyPolicy.active?.id ?? null,
     })
     registeredEmail.value = values.email.trim()
     done.value = true
   } catch (err) {
     errorMessage.value = getErrorMessage(err, 'Could not register. Please try again.')
+    // A new privacy policy may have been published meanwhile: ask again.
+    if ((err as { response?: { status?: number } }).response?.status === 409) {
+      setFieldValue('privacy_policy_accepted', false)
+      await privacyPolicy.load(true)
+    }
   }
 })
 
@@ -162,6 +175,7 @@ async function onResend() {
     </div>
 
     <PrivacyPolicyConsent
+      v-if="privacyPolicy.active"
       v-model="privacyPolicyAccepted"
       :error-message="errors.privacy_policy_accepted"
     />

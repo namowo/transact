@@ -15,7 +15,7 @@ export const docPages: DocPage[] = [
   {
     slug: 'getting-started',
     title: 'Getting Started',
-    body: 'Register an account for your laboratory, verify your email address from the link we send you, then sign in to start recording activities.',
+    body: 'Register an account for your laboratory, verify your email address from the link we send you, then sign in to start recording activities. Were you invited? Follow the link in your invitation email to choose a password - your account is ready straight away.',
   },
   {
     slug: 'faq',

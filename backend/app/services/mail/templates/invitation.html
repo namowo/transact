@@ -1,0 +1,10 @@
+{% extends "layout/base.html" %}
+{% from "layout/macros.html" import button, fallback_link, note, highlight %}
+{% block title %}You're invited to TransAct{% endblock %}
+{% block content %}
+<p style="margin: 0 0 16px;">Hello {{ first_name }} {{ last_name }},</p>
+<p style="margin: 0 0 16px;">{{ inviter_first_name }} {{ inviter_last_name }} has invited you to the TransAct Repository{% if laboratory_name %} as a member of {{ highlight(laboratory_name) }}{% endif %}. Choose a password to activate your account:</p>
+{{ button(url, "Accept invitation") }}
+{{ fallback_link(url) }}
+{% call note() %}The link is valid for {{ expire_days }} day{% if expire_days != 1 %}s{% endif %}. If you weren't expecting this invitation, you can safely ignore this email.{% endcall %}
+{% endblock %}

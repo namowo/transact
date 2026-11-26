@@ -3,7 +3,7 @@ from email.message import EmailMessage
 from os import path
 
 import aiosmtplib
-from jinja2 import Environment, FileSystemLoader
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 from pydantic import EmailStr
 
 from app.core.config import settings
@@ -15,7 +15,11 @@ def get_content(template_name: str, template_values: dict) -> str:
     current_path = path.dirname(path.abspath(__file__))
     template_path = path.join(current_path, "templates")
     template_loader = FileSystemLoader(searchpath=template_path)
-    template_env = Environment(loader=template_loader)
+    template_env = Environment(
+        loader=template_loader, autoescape=select_autoescape(["html"])
+    )
+    # Used by the shared layout for the logo and site links.
+    template_env.globals["frontend_url"] = settings.FRONTEND_URL.rstrip("/")
     template = template_env.get_template(template_name)
     return template.render(template_values)
 
